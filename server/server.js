@@ -1,8 +1,8 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
-const http = require("http"); // <--- Import Node's native HTTP
-const { Server } = require("socket.io"); // <--- Import Socket.io
+const http = require("http"); 
+const { Server } = require("socket.io"); 
 const connectDB = require("./config/db");
 
 // Routes
@@ -14,6 +14,10 @@ const commentRoutes = require('./routes/commentRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const activityRoutes = require('./routes/activityRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const formRoutes = require('./routes/formRoutes');
+
+// Load environment variables
 
 dotenv.config();
 connectDB();
@@ -24,10 +28,10 @@ app.use(express.json());
 app.use(cors());
 
 // --- SOCKET.IO SETUP START ---
-const server = http.createServer(app); // Wrap Express
+const server = http.createServer(app); 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173", // Allow your Frontend
+    origin: "http://localhost:5173", 
     methods: ["GET", "POST", "PUT", "DELETE"]
   }
 });
@@ -80,6 +84,8 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/activities', activityRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/forms', formRoutes);
 
 
 

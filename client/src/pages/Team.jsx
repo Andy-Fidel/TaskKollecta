@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Mail, Plus, Shield, User, Building2 } from 'lucide-react';
+import { Mail, Plus, Shield, User, Building2, Search, Check, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Import Tabs
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { toast } from 'sonner';
 
 export default function Team() {
   const { user } = useAuth();  
@@ -17,16 +19,20 @@ export default function Team() {
   const [selectedOrgId, setSelectedOrgId] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // Invite State
-  const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
+  // States for Join/Search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]); // For Admins
 
-  // New Org State
+  // Modals
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isJoinOpen, setIsJoinOpen] = useState(false); // Search Modal
   const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
+  
+  // Forms
+  const [inviteEmail, setInviteEmail] = useState('');
   const [newOrgName, setNewOrgName] = useState('');
 
-  // --- ROLE CHECK (Industry Standard) ---
-  // We check if the current logged-in user is an 'admin' in the current list
   const isAdmin = members.find(m => m.user._id === user?._id)?.role === 'admin';
 
   // 1. Fetch Orgs
@@ -35,58 +41,86 @@ export default function Team() {
       try {
         const { data } = await api.get('/organizations');
         setOrgs(data);
-        if (data.length > 0) {
-          setSelectedOrgId(data[0]._id);
-        }
-      } catch (error) {
-        console.error("Failed to fetch orgs");
-      } finally {
-        setLoading(false);
-      }
+        if (data.length > 0) setSelectedOrgId(data[0]._id);
+      } catch (error) { console.error(error); } 
+      finally { setLoading(false); }
     };
     fetchOrgs();
   }, []);
 
-  // 2. Fetch Members
+  // 2. Fetch Members & Requests (if Admin)
   useEffect(() => {
     if (selectedOrgId) {
       api.get(`/organizations/${selectedOrgId}/members`).then(({ data }) => setMembers(data));
+      
+      // If admin, check for join requests
+      // Note: We check isAdmin logic inside the .then because state updates are async
+      // For simplicity, we just try to fetch. The backend will 403 if not admin, which we catch.
+      api.get(`/organizations/${selectedOrgId}/requests`)
+         .then(({ data }) => setPendingRequests(data))
+         .catch(() => setPendingRequests([])); // Ignore error if not admin
     }
-  }, [selectedOrgId]);
+  }, [selectedOrgId, user]); // Re-run if org changes
 
-  // 3. Handle Invite
-  const handleInvite = async (e) => {
+  // --- ACTIONS ---
+
+  const handleSearch = async (e) => {
     e.preventDefault();
-    if (!selectedOrgId) return;
+    if (!searchQuery) return;
+    const { data } = await api.get(`/organizations/search?query=${searchQuery}`);
+    setSearchResults(data);
+  };
 
+  const handleRequestJoin = async (orgId) => {
     try {
-      const { data } = await api.post(`/organizations/${selectedOrgId}/members`, { email: inviteEmail });
-      setMembers([...members, data]);
-      setInviteEmail('');
-      setIsInviteOpen(false);
-      alert('Member added successfully!');
+        await api.post(`/organizations/${orgId}/join`);
+        toast.success("Request sent!");
+        // Remove from search results to indicate success visually
+        setSearchResults(prev => prev.filter(org => org._id !== orgId));
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to add member');
+        toast.error(error.response?.data?.message || "Failed to send request");
     }
   };
 
-  // 4. Handle Create Organization
+  const handleResolveRequest = async (requestId, action) => {
+      try {
+          await api.post(`/organizations/${selectedOrgId}/requests/${requestId}/resolve`, { action });
+          setPendingRequests(prev => prev.filter(r => r._id !== requestId));
+          toast.success(action === 'accept' ? "User accepted!" : "Request rejected");
+          // Refresh members if accepted
+          if(action === 'accept') {
+             const { data } = await api.get(`/organizations/${selectedOrgId}/members`);
+             setMembers(data);
+          }
+      } catch (error) {
+          toast.error("Action failed");
+      }
+  };
+
+  // ... (Invite & Create Org logic remains the same) ...
+  const handleInvite = async (e) => {
+      e.preventDefault();
+      try {
+        await api.post(`/organizations/${selectedOrgId}/members`, { email: inviteEmail });
+        const { data } = await api.get(`/organizations/${selectedOrgId}/members`);
+        setMembers(data); // Refresh list
+        setIsInviteOpen(false);
+        setInviteEmail('');
+        toast.success('Member added!');
+      } catch (error) { toast.error("Failed to invite"); }
+  };
+
   const handleCreateOrg = async (e) => {
-    e.preventDefault();
-    try {
-        const { data } = await api.post('/organizations', { name: newOrgName });
-        setOrgs([data]);
-        setSelectedOrgId(data._id);
-        setNewOrgName('');
-        setIsOrgModalOpen(false);
-    } catch (error) {
-        alert('Failed to create organization');
-    }
-  }
+      e.preventDefault();
+      try {
+          const { data } = await api.post('/organizations', { name: newOrgName });
+          setOrgs([data]); setSelectedOrgId(data._id); setIsOrgModalOpen(false);
+      } catch (e) { toast.error("Failed to create org"); }
+  };
 
   if (loading) return <div className="p-8">Loading...</div>;
 
-  // EMPTY STATE
+  // EMPTY STATE (Modified to include "Join" option)
   if (orgs.length === 0) {
     return (
         <div className="max-w-2xl mx-auto mt-20 text-center space-y-6">
@@ -94,23 +128,51 @@ export default function Team() {
                 <Building2 className="h-10 w-10 text-slate-400" />
             </div>
             <div>
-                <h2 className="text-2xl font-bold text-slate-900">Create your Workspace</h2>
-                <p className="text-slate-500 mt-2">You need to create an organization before you can invite team members.</p>
+                <h2 className="text-2xl font-bold text-slate-900">No Organization Found</h2>
+                <p className="text-slate-500 mt-2">Create a new workspace or join an existing one.</p>
             </div>
-            <Button onClick={() => setIsOrgModalOpen(true)} className="bg-slate-900">
-                Create Organization
-            </Button>
-
+            <div className="flex gap-4 justify-center">
+                <Button onClick={() => setIsOrgModalOpen(true)} className="bg-slate-900">Create Organization</Button>
+                <Button variant="outline" onClick={() => setIsJoinOpen(true)}>Join Existing</Button>
+            </div>
+            
+            {/* Create Org Modal */}
             <Dialog open={isOrgModalOpen} onOpenChange={setIsOrgModalOpen}>
                 <DialogContent>
-                    <DialogHeader><DialogTitle>Create Organization</DialogTitle></DialogHeader>
+                    <DialogHeader>
+                        <DialogTitle>Create Organization</DialogTitle>
+                        <DialogDescription>Start a new team.</DialogDescription>
+                    </DialogHeader>
                     <form onSubmit={handleCreateOrg} className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label>Organization Name</Label>
-                            <Input value={newOrgName} onChange={e => setNewOrgName(e.target.value)} placeholder="Acme Inc." required />
+                            <Label>Name</Label>
+                            <Input value={newOrgName} onChange={e => setNewOrgName(e.target.value)} required />
                         </div>
-                        <DialogFooter><Button type="submit">Create</Button></DialogFooter>
+                        <Button type="submit" className="w-full">Create</Button>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Join Modal */}
+            <Dialog open={isJoinOpen} onOpenChange={setIsJoinOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Find Organization</DialogTitle>
+                        <DialogDescription>Search for your team by name.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleSearch} className="flex gap-2 mb-4">
+                        <Input placeholder="e.g. Acme Corp" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                        <Button type="submit"><Search className="w-4 h-4" /></Button>
+                    </form>
+                    <div className="space-y-2">
+                        {searchResults.map(org => (
+                            <div key={org._id} className="flex justify-between items-center p-3 border rounded-lg">
+                                <span className="font-medium">{org.name}</span>
+                                <Button size="sm" variant="outline" onClick={() => handleRequestJoin(org._id)}>Request to Join</Button>
+                            </div>
+                        ))}
+                        {searchResults.length === 0 && searchQuery && <p className="text-xs text-slate-500 text-center">No results found.</p>}
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
@@ -121,84 +183,107 @@ export default function Team() {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Team Management</h1>
           <p className="text-slate-500">
-            Managing members for <strong>{orgs.find(o => o._id === selectedOrgId)?.name}</strong>
+             Manage <strong>{orgs.find(o => o._id === selectedOrgId)?.name}</strong>
           </p>
         </div>
-        
-        {/* ACTION: Only Admins can see the Invite Button */}
-        {isAdmin && (
-            <Button onClick={() => setIsInviteOpen(true)} className="bg-slate-900">
-               <Plus className="w-4 h-4 mr-2" /> Invite Member
-            </Button>
-        )}
+        <div className="flex gap-2">
+             <Button variant="outline" onClick={() => setIsJoinOpen(true)}>Find Another Team</Button>
+             {isAdmin && <Button onClick={() => setIsInviteOpen(true)} className="bg-slate-900"><Plus className="w-4 h-4 mr-2" /> Invite Member</Button>}
+        </div>
       </div>
 
-      {/* Team List Card */}
-      <Card className="border border-white/60 shadow-sm rounded-2xl bg-white">
-        <CardHeader>
-           <CardTitle>Members</CardTitle>
-           <CardDescription>People with access to this workspace.</CardDescription>
-        </CardHeader>
-        <CardContent>
-           <div className="space-y-4">
-              {members.map((m) => (
-                 <div key={m._id} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
-                    <div className="flex items-center gap-4">
-                       <Avatar className="h-10 w-10 border border-white shadow-sm">
-                          <AvatarImage src={m.user.avatar} />
-                          <AvatarFallback className="bg-blue-100 text-blue-600 font-bold">{m.user.name.charAt(0)}</AvatarFallback>
-                       </Avatar>
-                       <div>
-                          <h4 className="font-bold text-slate-900">{m.user.name}</h4>
-                          <p className="text-sm text-slate-500">{m.user.email}</p>
-                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                        <Badge variant="secondary" className={`capitalize ${m.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
-                           {m.role === 'admin' ? <Shield className="w-3 h-3 mr-1" /> : <User className="w-3 h-3 mr-1" />}
-                           {m.role}
-                        </Badge>
-                        
-                        {/* ACTION: Only Admins can remove people, and they cannot remove themselves */}
-                        {isAdmin && m.user._id !== user._id && (
-                            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-red-600">Remove</Button>
-                        )}
-                    </div>
-                 </div>
-              ))}
-           </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="members" className="w-full">
+         <TabsList>
+            <TabsTrigger value="members">Members ({members.length})</TabsTrigger>
+            {isAdmin && <TabsTrigger value="requests">Requests ({pendingRequests.length})</TabsTrigger>}
+         </TabsList>
 
-      {/* Invite Modal */}
-      <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+         {/* MEMBERS TAB */}
+         <TabsContent value="members">
+             <Card className="border border-slate-200 shadow-sm rounded-xl">
+                <CardContent className="pt-6">
+                   <div className="space-y-4">
+                      {members.map((m) => (
+                         <div key={m._id} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
+                            <div className="flex items-center gap-4">
+                               <Avatar><AvatarImage src={m.user.avatar} /><AvatarFallback>{m.user.name.charAt(0)}</AvatarFallback></Avatar>
+                               <div><h4 className="font-bold text-slate-900">{m.user.name}</h4><p className="text-sm text-slate-500">{m.user.email}</p></div>
+                            </div>
+                            <Badge variant="secondary" className="capitalize">{m.role}</Badge>
+                         </div>
+                      ))}
+                   </div>
+                </CardContent>
+             </Card>
+         </TabsContent>
+
+         {/* REQUESTS TAB (Admin Only) */}
+         {isAdmin && (
+             <TabsContent value="requests">
+                 <Card className="border border-slate-200 shadow-sm rounded-xl">
+                    <CardHeader><CardTitle>Pending Requests</CardTitle><CardDescription>Users requesting to join this workspace.</CardDescription></CardHeader>
+                    <CardContent>
+                        {pendingRequests.length === 0 ? (
+                            <div className="text-center text-slate-400 py-8">No pending requests.</div>
+                        ) : (
+                            <div className="space-y-4">
+                                {pendingRequests.map(req => (
+                                    <div key={req._id} className="flex items-center justify-between p-4 border rounded-xl">
+                                        <div className="flex items-center gap-4">
+                                            <Avatar><AvatarImage src={req.user.avatar} /><AvatarFallback>{req.user.name.charAt(0)}</AvatarFallback></Avatar>
+                                            <div>
+                                                <h4 className="font-bold text-slate-900">{req.user.name}</h4>
+                                                <p className="text-sm text-slate-500">Requested {new Date(req.createdAt).toLocaleDateString()}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button size="sm" onClick={() => handleResolveRequest(req._id, 'accept')} className="bg-green-600 hover:bg-green-700"><Check className="w-4 h-4 mr-1"/> Accept</Button>
+                                            <Button size="sm" variant="destructive" onClick={() => handleResolveRequest(req._id, 'reject')}><X className="w-4 h-4 mr-1"/> Reject</Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                 </Card>
+             </TabsContent>
+         )}
+      </Tabs>
+
+      {/* Re-use the Search Modal from empty state */}
+      <Dialog open={isJoinOpen} onOpenChange={setIsJoinOpen}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle>Invite to Team</DialogTitle>
+                <DialogTitle>Find Organization</DialogTitle>
+                <DialogDescription>Search for a team to join.</DialogDescription>
             </DialogHeader>
+            <form onSubmit={handleSearch} className="flex gap-2 mb-4">
+                <Input placeholder="e.g. Acme Corp" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                <Button type="submit"><Search className="w-4 h-4" /></Button>
+            </form>
+            <div className="space-y-2">
+                {searchResults.map(org => (
+                    <div key={org._id} className="flex justify-between items-center p-3 border rounded-lg">
+                        <span className="font-medium">{org.name}</span>
+                        <Button size="sm" variant="outline" onClick={() => handleRequestJoin(org._id)}>Request to Join</Button>
+                    </div>
+                ))}
+                {searchResults.length === 0 && searchQuery && <p className="text-xs text-slate-500 text-center">No results found.</p>}
+            </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Invite Modal (Existing) */}
+      <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+        <DialogContent>
+            <DialogHeader><DialogTitle>Invite Member</DialogTitle><DialogDescription>Add via email.</DialogDescription></DialogHeader>
             <form onSubmit={handleInvite} className="space-y-4 py-4">
-                <div className="space-y-2">
-                    <Label>Email Address</Label>
-                    <Input 
-                        placeholder="colleague@example.com" 
-                        type="email" 
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        required
-                    />
-                    <p className="text-xs text-slate-500">
-                        Note: For this demo, the user must already have registered an account on TaskKollecta.
-                    </p>
-                </div>
-                <DialogFooter>
-                    <Button type="submit" className="bg-slate-900">Add Member</Button>
-                </DialogFooter>
+                <Input placeholder="Email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+                <Button type="submit" className="w-full">Invite</Button>
             </form>
         </DialogContent>
       </Dialog>

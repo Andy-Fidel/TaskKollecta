@@ -9,9 +9,12 @@ export function KanbanColumn({ column, tasks, onTaskClick }) {
   });
 
   return (
-    <div
-      ref={setNodeRef} // <--- Connect the hook to the div
-      className={`flex-1 rounded-xl p-4 flex flex-col ${column.color}`}
+        <div
+      ref={setNodeRef}
+      className={`
+        flex-1 rounded-2xl p-2.5 transition-colors duration-200
+        ${column.id === 'done' ? 'bg-secondary/40' : 'bg-secondary/70'} 
+      `}
     >
       {/* Column Header */}
       <div className="flex justify-between items-center mb-4">

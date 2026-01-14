@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'; // <--- Mobile Drawer
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, 
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger 
@@ -16,6 +16,7 @@ import {
 import { ModeToggle } from './ModeToggle';
 import { NotificationBell } from './NotificationBell';
 import { useAuth } from '../context/AuthContext';
+import { CommandMenu } from './CommandMenu';
 
 // --- Reusable Nav Content ---
 const SidebarContent = ({ isCollapsed }) => {
@@ -129,12 +130,20 @@ export default function AppLayout() {
              </Sheet>
 
              {/* Search Bar */}
-             <div className="relative w-full max-w-sm hidden md:block">
+             <div 
+                className="relative w-full max-w-sm hidden md:block cursor-pointer"
+                onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+             >
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                {/* Make input readOnly so it acts as a button to trigger the real menu */}
                 <Input 
+                  readOnly 
                   placeholder="Search..." 
-                  className="pl-10 bg-secondary/50 border-transparent focus:bg-background focus:border-border transition-all rounded-xl"
+                  className="pl-10 bg-secondary/50 border-transparent focus:bg-background focus:border-border transition-all rounded-xl cursor-pointer pointer-events-none"
                 />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 border border-border bg-background rounded px-1.5 text-[10px] text-muted-foreground font-medium">
+                    ⌘ K
+                </div>
              </div>
           </div>
 
@@ -189,6 +198,8 @@ export default function AppLayout() {
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth w-full">
           <Outlet />
         </main>
+        {/* COMMAND MENU (Global) */}
+        <CommandMenu />
 
       </div>
     </div>

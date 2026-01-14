@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { 
-  User, Lock, Bell, Shield, Camera, Loader2 
+  User, Lock, Bell, Camera, Loader2, Save 
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,66 +11,98 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { toast } from 'sonner'; // Use Toast instead of Alert
 
 export default function Settings() {
-  const { user, login } = useAuth(); // We might need to update the global user state
+  const { user, login } = useAuth(); // login() updates the local context
   
-  // Profile Form State
+  // Profile State
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatar || '');
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Password Form State
+  const [avatar, setAvatar] = useState(user?.avatar || '');
+  
+  // Password State
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [passwordMsg, setPasswordMsg] = useState('');
+  
+  const [loading, setLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Handlers
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    setIsSaving(true);
+  // 1. Handle Image Upload (Cloudinary)
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
     try {
-      // Send update
-      const { data } = await api.put('/users/profile', { name, email, avatar: avatarUrl });
-      // We need to update the local context/storage. 
-      // A quick hack is to reload, but ideally AuthContext exposes a setUser method.
-      localStorage.setItem('token', data.token);
-      alert('Profile updated! Please refresh to see changes.'); 
+        // Upload to the endpoint we created earlier
+        const { data } = await api.post('/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        setAvatar(data.url); // Update preview immediately
+        toast.success("Image uploaded (Click Save to apply)");
     } catch (error) {
-      alert('Failed to update profile');
+        toast.error("Upload failed");
     } finally {
-      setIsSaving(false);
+        setIsUploading(false);
     }
   };
 
+  // 2. Handle Profile Update
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data } = await api.put('/users/profile', { 
+          name, 
+          email, 
+          avatar 
+      });
+      
+      // Update global auth state (localStorage + Context)
+      login(data); 
+      toast.success("Profile updated successfully!");
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Update failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Handle Password Change
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    setIsSaving(true);
-    setPasswordMsg('');
+    setLoading(true);
     try {
-      await api.put('/users/password', { currentPassword, newPassword });
-      setPasswordMsg('Password changed successfully.');
+      // We send 'newPassword' to match our controller logic
+      await api.put('/users/profile', { 
+          newPassword, 
+          currentPassword // Optional: Backend can verify this if strict
+      });
+      
+      toast.success("Password changed successfully.");
       setCurrentPassword('');
       setNewPassword('');
     } catch (error) {
-      setPasswordMsg(error.response?.data?.message || 'Failed to change password');
+      toast.error("Failed to change password");
     } finally {
-      setIsSaving(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 pb-10">
       
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
-        <p className="text-slate-500">Manage your account settings and preferences.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Settings</h1>
+        <p className="text-muted-foreground">Manage your account settings and preferences.</p>
       </div>
 
       <Tabs defaultValue="general" className="w-full">
         
-        {/* Navigation Tabs */}
         <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
@@ -87,23 +119,23 @@ export default function Settings() {
             <CardContent>
               <form onSubmit={handleUpdateProfile} className="space-y-6">
                 
-                {/* Avatar Section */}
+                {/* Avatar Upload */}
                 <div className="flex items-center gap-6">
-                  <Avatar className="h-20 w-20 border-2 border-slate-100">
-                    <AvatarImage src={avatarUrl} />
-                    <AvatarFallback className="text-xl bg-slate-100">{name?.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="space-y-2">
-                    <Label>Profile Picture URL</Label>
-                    <div className="flex gap-2">
-                        <Input 
-                            value={avatarUrl} 
-                            onChange={(e) => setAvatarUrl(e.target.value)} 
-                            placeholder="https://example.com/me.jpg" 
-                            className="w-[300px]"
-                        />
-                    </div>
-                    <p className="text-xs text-slate-500">Enter a URL for now (File upload coming next).</p>
+                  <div className="relative group cursor-pointer">
+                      <Avatar className="h-24 w-24 border-2 border-border">
+                        <AvatarImage src={avatar} />
+                        <AvatarFallback className="text-2xl">{name?.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      {/* Overlay on hover */}
+                      <label className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white">
+                         {isUploading ? <Loader2 className="animate-spin" /> : <Camera />}
+                         <input type="file" className="hidden" onChange={handleAvatarUpload} accept="image/*" />
+                      </label>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <h3 className="font-medium text-foreground">Profile Picture</h3>
+                    <p className="text-xs text-muted-foreground">Click the image to upload a new one.</p>
                   </div>
                 </div>
 
@@ -118,8 +150,8 @@ export default function Settings() {
                     </div>
                 </div>
 
-                <Button type="submit" disabled={isSaving} className="bg-slate-900">
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" disabled={loading || isUploading} className="bg-primary text-primary-foreground">
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save Changes
                 </Button>
               </form>
@@ -153,14 +185,8 @@ export default function Settings() {
                     />
                 </div>
                 
-                {passwordMsg && (
-                    <p className={`text-sm ${passwordMsg.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
-                        {passwordMsg}
-                    </p>
-                )}
-
-                <Button type="submit" variant="outline" disabled={isSaving}>
-                    Change Password
+                <Button type="submit" variant="outline" disabled={loading}>
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Change Password'}
                 </Button>
               </form>
             </CardContent>
@@ -178,14 +204,14 @@ export default function Settings() {
                <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="space-y-0.5">
                      <Label className="text-base">Email Notifications</Label>
-                     <p className="text-xs text-slate-500">Receive emails about new task assignments.</p>
+                     <p className="text-xs text-muted-foreground">Receive emails about new task assignments.</p>
                   </div>
                   <Switch defaultChecked />
                </div>
                <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="space-y-0.5">
                      <Label className="text-base">Project Updates</Label>
-                     <p className="text-xs text-slate-500">Get notified when a project status changes.</p>
+                     <p className="text-xs text-muted-foreground">Get notified when a project status changes.</p>
                   </div>
                   <Switch defaultChecked />
                </div>

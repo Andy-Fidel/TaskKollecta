@@ -8,7 +8,7 @@ const activitySchema = new mongoose.Schema({
     required: true,
     enum: ['created', 'updated_status', 'updated_priority', 'assigned', 'renamed'] 
   },
-  details: { type: String } // e.g. "from Todo to Done" or "to Sarah"
+  details: { type: String } 
 }, { timestamps: true });
 
 module.exports = mongoose.model('Activity', activitySchema);

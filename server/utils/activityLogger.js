@@ -4,7 +4,7 @@ const logActivity = async (req, { task, action, details }) => {
   try {
     const activity = await Activity.create({
       task: task._id,
-      user: req.user._id, // The person doing the action
+      user: req.user._id, 
       action,
       details
     });

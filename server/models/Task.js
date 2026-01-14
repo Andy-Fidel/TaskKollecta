@@ -44,6 +44,21 @@ const taskSchema = new mongoose.Schema({
     name: String,
     color: String
   }],
+  attachments: [{
+    url: String,
+    filename: String,
+    type: String,
+    uploadedAt: { type: Date, default: Date.now }
+  }],
+  subtasks: [{
+    title: { type: String, required: true },
+    isCompleted: { type: Boolean, default: false }
+  }],
+  subtasks: [{
+    title: { type: String, required: true },
+    isCompleted: { type: Boolean, default: false }
+  }],
+  dependencies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Task', taskSchema);

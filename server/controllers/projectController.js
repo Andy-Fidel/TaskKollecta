@@ -1,6 +1,7 @@
 const Project = require('../models/Project');
 const Task = require('../models/Task');
 const ProjectUpdate = require('../models/ProjectUpdate');
+const Membership = require('../models/Membership');
 const mongoose = require('mongoose');
 
 // @desc    Create a new project
@@ -57,19 +58,19 @@ const getProjectAnalytics = async (req, res) => {
   try {
     const projectId = new mongoose.Types.ObjectId(req.params.id);
 
-    // 1. Count by Status
+    
     const statusStats = await Task.aggregate([
       { $match: { project: projectId } },
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
 
-    // 2. Count by Priority
+    
     const priorityStats = await Task.aggregate([
       { $match: { project: projectId } },
       { $group: { _id: '$priority', count: { $sum: 1 } } }
     ]);
 
-    // 3. Calculate Completion Rate
+    
     const totalTasks = await Task.countDocuments({ project: projectId });
     const completedTasks = await Task.countDocuments({ project: projectId, status: 'done' });
 
@@ -114,7 +115,7 @@ const updateProject = async (req, res) => {
   try {
     const project = await Project.findByIdAndUpdate(
       req.params.id,
-      req.body, // { name, color, status, tags }
+      req.body, 
       { new: true }
     );
     res.json(project);
@@ -127,10 +128,10 @@ const updateProject = async (req, res) => {
 // @route   DELETE /api/projects/:id
 const deleteProject = async (req, res) => {
   try {
-    // 1. Delete all tasks in this project first
+    
     await Task.deleteMany({ project: req.params.id });
     
-    // 2. Delete the project
+    
     await Project.findByIdAndDelete(req.params.id);
     
     res.json({ message: 'Project and tasks deleted' });
@@ -143,17 +144,80 @@ const deleteProject = async (req, res) => {
 // @route   GET /api/projects
 const getAllProjects = async (req, res) => {
   try {
-    // Find projects where the user is the lead OR the user belongs to the org
-    // For simplicity in this stage, we will return all projects in the user's organizations
+    const userId = req.user._id;
+
     
-    // 1. Find all orgs user belongs to
-    const memberships = await Membership.find({ user: req.user._id });
+    const memberships = await Membership.find({ user: userId });
     const orgIds = memberships.map(m => m.organization);
 
-    // 2. Find projects in those orgs
-    const projects = await Project.find({ organization: { $in: orgIds } })
-      .populate('lead', 'name avatar') // Get lead info
-      .sort({ updatedAt: -1 });
+    
+    const projects = await Project.aggregate([
+      
+      { $match: { organization: { $in: orgIds } } },
+
+      
+      {
+        $lookup: {
+          from: 'tasks',
+          localField: '_id',
+          foreignField: 'project',
+          as: 'projectTasks'
+        }
+      },
+
+      
+      {
+        $addFields: {
+          totalTasks: { $size: '$projectTasks' },
+          completedTasks: {
+            $size: { 
+              $filter: { 
+                input: '$projectTasks', 
+                as: 't', 
+                cond: { $eq: ['$$t.status', 'done'] } 
+              } 
+            }
+          },
+          
+          assigneeIds: { 
+             $filter: {
+               input: { $setUnion: '$projectTasks.assignee' }, 
+               as: 'id',
+               cond: { $ne: ['$$id', null] } 
+             }
+          }
+        }
+      },
+
+      
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'assigneeIds',
+          foreignField: '_id',
+          as: 'team'
+        }
+      },
+
+      
+      {
+        $project: {
+          name: 1, 
+          description: 1, 
+          updatedAt: 1, 
+          dueDate: 1, 
+          team: { name: 1, avatar: 1, _id: 1 },
+          progress: {
+            $cond: [ 
+              { $eq: ['$totalTasks', 0] }, 
+              0, 
+              { $multiply: [ { $divide: ['$completedTasks', '$totalTasks'] }, 100 ] } 
+            ]
+          }
+        }
+      },
+      { $sort: { updatedAt: -1 } }
+    ]);
 
     res.json(projects);
   } catch (error) {

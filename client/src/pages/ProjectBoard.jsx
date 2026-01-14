@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { 
-  Search, Filter, Users, Plus, LayoutGrid, List, Activity, CheckCircle2, Circle, ArrowLeft, Settings
+  Search, Filter, 
+  Users, Plus,
+   LayoutGrid, List as ListIcon, 
+   Activity, CheckCircle2, 
+   Circle, ArrowLeft, Settings, FileText,
+   Columns, Calendar as CalendarIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { ProjectSettingsDialog } from '@/components/ProjectSettingsDialog';
 
@@ -16,6 +21,8 @@ import { KanbanColumn } from '../components/KanbanColumn';
 import { TaskDetailsModal } from '../components/TaskDetailsModal';
 import { ProjectAnalytics } from '../components/ProjectAnalytics';
 import { ProjectUpdates } from '../components/ProjectUpdates';
+import { ProjectList } from '../components/ProjectList'; 
+import { ProjectCalendar } from '../components/ProjectCalendar';
 
 const COLUMNS = [
   { id: 'todo', label: 'To Do' },
@@ -26,12 +33,14 @@ const COLUMNS = [
 
 export default function ProjectBoard() {
   const { projectId } = useParams();
+  const navigate = useNavigate();
   const socket = useSocket(projectId);
   
   // State
   const [tasks, setTasks] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [projectDetails, setProjectDetails] = useState(null);
+  const [projectMembers, setProjectMembers] = useState([]);
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -39,7 +48,7 @@ export default function ProjectBoard() {
   const [selectedTask, setSelectedTask] = useState(null); 
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   
-  const [view, setView] = useState('board');
+  const [view, setView] = useState('board'); // 'board', 'list', 'analytics', 'updates'
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const sensors = useSensors(
@@ -48,7 +57,6 @@ export default function ProjectBoard() {
 
   // Effects
   useEffect(() => {
-    // Fetch Project Name & Details
     api.get(`/projects/single/${projectId}`).then(({ data }) => setProjectDetails(data));
     api.get(`/tasks/project/${projectId}`).then(({ data }) => setTasks(data));
   }, [projectId]);
@@ -60,6 +68,14 @@ export default function ProjectBoard() {
     });
     return () => socket.off('receive_task_update');
   }, [socket, tasks]);
+
+  useEffect(() => {
+    if (projectDetails?.organization) {
+      api.get(`/organizations/${projectDetails.organization}/members`)
+         .then(({ data }) => setProjectMembers(data))
+         .catch(err => console.error("Failed to load members", err));
+    }
+  }, [projectDetails]);
 
   // Handlers
   const handleDragStart = (event) => setActiveId(event.active.id);
@@ -103,38 +119,86 @@ export default function ProjectBoard() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background">
       
       {/* 1. Board Header */}
-      <div className="h-16 border-b border-gray-100 flex items-center justify-between px-8 bg-white shrink-0">
+      <div className="h-16 border-b border-border flex items-center justify-between px-8 bg-card shrink-0">
         <div className="flex items-center gap-6">
-            <h1 className="font-bold text-xl text-slate-800 tracking-tight">
+            <h1 className="font-bold text-xl text-foreground tracking-tight">
                 {projectDetails?.name || 'Loading...'}
             </h1>
-            <div className="h-6 w-[1px] bg-slate-200"></div>
+            <div className="h-6 w-[1px] bg-border"></div>
             
-            {/* View Toggle */}
-            <div className="flex bg-slate-100 p-1 rounded-lg">
-                <button onClick={() => setView('board')} className="...">Board</button>
-                <button onClick={() => setView('analytics')} className="...">Analytics</button>
-                <button onClick={() => setView('updates')} className={`flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md transition ${view === 'updates' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>
-                    <Activity className="w-3.5 h-3.5" /> Updates
+            {/* Analytics / Updates Toggle */}
+            <div className="flex bg-muted/50 p-1 rounded-lg">
+                <button onClick={() => setView('board')} className="hidden">Board</button> {/* Hidden accessible fallback */}
+                <button onClick={() => setView('analytics')} className={`flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md transition ${view === 'analytics' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                    <Activity className="w-3.5 h-3.5" /> Analytics
                 </button>
+                <button onClick={() => setView('updates')} className={`flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md transition ${view === 'updates' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Updates
+                </button>
+            </div>
+
+            {/* View Switcher (Board vs List) */}
+            <div className="flex bg-muted/50 p-1 rounded-lg border border-border">
+              <button 
+                  onClick={() => setView('board')} 
+                  className={`p-1.5 px-3 rounded-md flex items-center gap-2 text-sm transition-all ${view === 'board' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                  <LayoutGrid className="w-4 h-4" /> Board
+              </button>
+              <button 
+                  onClick={() => setView('list')} 
+                  className={`p-1.5 px-3 rounded-md flex items-center gap-2 text-sm transition-all ${view === 'list' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                  <ListIcon className="w-4 h-4" /> List
+              </button>
             </div>
         </div>
 
         <div className="flex items-center gap-3">
             {/* Avatars */}
             <div className="flex -space-x-2 mr-2">
-                {[1,2,3].map(i => (
-                    <Avatar key={i} className="w-8 h-8 border-2 border-white"><AvatarFallback className="bg-slate-100 text-[10px]">U{i}</AvatarFallback></Avatar>
+                {projectMembers.slice(0, 4).map((member) => (
+                    <Avatar key={member.user._id} className="w-8 h-8 border-2 border-background cursor-help" title={member.user.name}>
+                        <AvatarImage src={member.user.avatar || `https://ui-avatars.com/api/?name=${member.user.name}&background=random`} />
+                        <AvatarFallback className="bg-muted text-[10px] uppercase">
+                            {member.user.name.charAt(0)}
+                        </AvatarFallback>
+                    </Avatar>
                 ))}
-                <div className="w-8 h-8 rounded-full bg-slate-50 border-2 border-white flex items-center justify-center text-[10px] text-slate-400 font-bold">+2</div>
+                
+                {projectMembers.length > 4 && (
+                    <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] text-muted-foreground font-bold">
+                        +{projectMembers.length - 4}
+                    </div>
+                )}
             </div>
+
+            <button 
+                  onClick={() => setView('calendar')} 
+                  className={`p-1.5 px-3 rounded-md flex items-center gap-2 text-sm transition-all ${view === 'calendar' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                  <CalendarIcon className="w-4 h-4" /> Calendar
+              </button>
+            
+            {/* NEW: Forms Button */}
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-muted-foreground hover:text-foreground"
+                title="Create Intake Form"
+                onClick={() => navigate(`/project/${projectId}/forms/new`)}
+            >
+                <FileText className="w-5 h-5" />
+            </Button>
+
+            {/* Settings */}
             <Button 
               variant="ghost" 
               size="icon" 
-              className="text-slate-400 hover:text-slate-700"
+              className="text-muted-foreground hover:text-foreground"
               onClick={() => setIsSettingsOpen(true)}
           >
               <Settings className="w-5 h-5" />
@@ -142,30 +206,33 @@ export default function ProjectBoard() {
             
             <Separator orientation="vertical" className="h-6" />
             
-            <Button onClick={() => setIsCreateModalOpen(true)} className="bg-slate-900 text-white hover:bg-slate-800 h-9 px-4 shadow-sm">
+            <Button onClick={() => setIsCreateModalOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 shadow-sm">
                 <Plus className="w-4 h-4 mr-2" /> New Task
             </Button>
         </div>
       </div>
 
-      {/* 2. Filter Bar */}
-      <div className="h-14 border-b border-gray-50 flex items-center px-8 bg-white/50 backdrop-blur-sm shrink-0 gap-4">
-        <div className="relative w-64">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input className="pl-9 h-9 bg-transparent border-transparent hover:bg-slate-50 focus:bg-white focus:border-slate-200 transition-all rounded-lg text-sm" placeholder="Filter tasks..." />
+      {/* 2. Filter Bar (Only show on Board/List views) */}
+      {(view === 'board' || view === 'list') && (
+        <div className="h-14 border-b border-border flex items-center px-8 bg-card/50 backdrop-blur-sm shrink-0 gap-4">
+            <div className="relative w-64">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input className="pl-9 h-9 bg-transparent border-transparent hover:bg-muted/50 focus:bg-background focus:border-border transition-all rounded-lg text-sm" placeholder="Filter tasks..." />
+            </div>
+            <div className="h-6 w-[1px] bg-border"></div>
+            <Button variant="ghost" size="sm" className="text-muted-foreground h-8 gap-2">
+                <Filter className="w-3.5 h-3.5" /> Filter
+            </Button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground h-8 gap-2">
+                <Users className="w-3.5 h-3.5" /> Assignee
+            </Button>
         </div>
-        <div className="h-6 w-[1px] bg-slate-200"></div>
-        <Button variant="ghost" size="sm" className="text-slate-500 h-8 gap-2">
-            <Filter className="w-3.5 h-3.5" /> Filter
-        </Button>
-        <Button variant="ghost" size="sm" className="text-slate-500 h-8 gap-2">
-            <Users className="w-3.5 h-3.5" /> Assignee
-        </Button>
-      </div>
+      )}
 
-      {/* 3. Main Board Area */}
+      {/* 3. Main Content Area - SWITCH LOGIC */}
       {view === 'board' ? (
-        <div className="flex-1 overflow-x-auto overflow-y-hidden bg-slate-50/50 p-8">
+        // VIEW: BOARD
+        <div className="flex-1 overflow-x-auto overflow-y-hidden bg-secondary/30 p-8 dark:bg-background">
             <DndContext 
                 sensors={sensors} 
                 collisionDetection={closestCorners} 
@@ -185,26 +252,43 @@ export default function ProjectBoard() {
                 
                 <DragOverlay>
                     {activeId ? (
-                        <div className="w-72 bg-white p-4 rounded-xl shadow-2xl border border-blue-500/30 rotate-3 cursor-grabbing opacity-90">
+                        <div className="w-72 bg-card p-4 rounded-xl shadow-2xl border border-primary/30 rotate-3 cursor-grabbing opacity-90">
                            {tasks.find(t => t._id === activeId)?.title}
                         </div>
                     ) : null}
                 </DragOverlay>
             </DndContext>
         </div>
-      ) : ( 
-        <div className="flex-1 overflow-y-auto bg-slate-50 p-6">
-            {/* NAVIGATION FIX: Back Button Container */}
+      ) : view === 'list' ? (
+        // VIEW: LIST
+        <div className="flex-1 overflow-y-auto bg-background p-8">
+            <ProjectList 
+                tasks={tasks} 
+                onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }} 
+            />
+        </div>
+      ) : view === 'calendar' ? (
+         // VIEW: CALENDAR
+         <div className="flex-1 overflow-y-auto bg-background p-8">
+             <ProjectCalendar 
+                tasks={tasks} 
+                onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
+             />
+         </div>
+      ) : (
+
+        // VIEW: ANALYTICS / UPDATES
+        <div className="flex-1 overflow-y-auto bg-secondary/10 p-6">
             <div className="max-w-5xl mx-auto mb-6">
                 <Button 
                     variant="outline" 
                     onClick={() => setView('board')} 
-                    className="gap-2 bg-white"
+                    className="gap-2 bg-card"
                 >
                     <ArrowLeft className="w-4 h-4" /> Back to Board
                 </Button>
             </div>
-             {view ==='analytics'? ( 
+             {view === 'analytics' ? ( 
                 <ProjectAnalytics projectId={projectId} /> 
             ) : (
                 <ProjectUpdates projectId={projectId} /> 
@@ -214,10 +298,10 @@ export default function ProjectBoard() {
 
       {/* Modals */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-2xl w-96 shadow-2xl border border-white/20 transform transition-all scale-100">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-card text-card-foreground p-6 rounded-2xl w-96 shadow-2xl border border-border">
             <h3 className="font-bold text-lg mb-1">Add New Task</h3>
-            <p className="text-slate-500 text-sm mb-4">Create a card for your team.</p>
+            <p className="text-muted-foreground text-sm mb-4">Create a card for your team.</p>
             <form onSubmit={handleCreateTask}>
               <Input 
                 autoFocus
@@ -228,7 +312,7 @@ export default function ProjectBoard() {
               />
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="ghost" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
-                <Button type="submit" className="bg-slate-900">Create Task</Button>
+                <Button type="submit" className="bg-primary text-primary-foreground">Create Task</Button>
               </div>
             </form>
           </div>
@@ -242,6 +326,7 @@ export default function ProjectBoard() {
         projectId={projectId}
         socket={socket}
       />
+      
       <ProjectSettingsDialog 
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
