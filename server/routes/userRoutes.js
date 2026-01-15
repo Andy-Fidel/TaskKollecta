@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const passport = require('passport');
+const jwt = require('jsonwebtoken');
 const { registerUser, 
     loginUser, 
     getMe, 
@@ -19,5 +21,26 @@ router.put('/password', protect, updateUserPassword);
 
 router.post('/forgotpassword', forgotPassword);
 router.put('/resetpassword/:resettoken', resetPassword);
+
+// Google OAuth Routes
+// Helper to generate token (Reuse logic or import from controller)
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+};
+
+// Start Google Login
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+
+router.get(
+  '/google/callback',
+  passport.authenticate('google', { session: false, failureRedirect: '/login' }),
+  (req, res) => {
+    
+    const token = generateToken(req.user._id);
+
+    res.redirect(`${process.env.CLIENT_URL}/login?token=${token}`);
+  }
+);
 
 module.exports = router;

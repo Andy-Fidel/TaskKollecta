@@ -22,7 +22,7 @@ export default function MyTasks() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="max-w-5xl mx-auto space-y-8 font-[Poppins] py-10">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Tasks</h1>
         <p className="text-slate-500">All your assigned work in one place.</p>

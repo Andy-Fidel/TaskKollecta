@@ -7,7 +7,7 @@ import {
    LayoutGrid, List as ListIcon, 
    Activity, CheckCircle2, 
    Circle, ArrowLeft, Settings, FileText,
-   Columns, Calendar as CalendarIcon
+   Columns, Calendar as CalendarIcon, Zap, Archive
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,8 @@ import api from '../api/axios';
 import { useSocket } from '../hooks/useSocket';
 import { KanbanColumn } from '../components/KanbanColumn';
 import { TaskDetailsModal } from '../components/TaskDetailsModal';
+import { AutomationModal } from '../components/AutomationModal';
+import { ArchivedTasksModal } from '../components/ArchivedTasksModal';
 import { ProjectAnalytics } from '../components/ProjectAnalytics';
 import { ProjectUpdates } from '../components/ProjectUpdates';
 import { ProjectList } from '../components/ProjectList'; 
@@ -43,12 +45,14 @@ export default function ProjectBoard() {
   const [projectMembers, setProjectMembers] = useState([]);
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isAutoOpen, setIsAutoOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   
   const [selectedTask, setSelectedTask] = useState(null); 
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   
-  const [view, setView] = useState('board'); // 'board', 'list', 'analytics', 'updates'
+  const [view, setView] = useState('board'); 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const sensors = useSensors(
@@ -119,7 +123,7 @@ export default function ProjectBoard() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background">
+    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-[Poppins]">
       
       {/* 1. Board Header */}
       <div className="h-16 border-b border-border flex items-center justify-between px-8 bg-card shrink-0">
@@ -155,6 +159,9 @@ export default function ProjectBoard() {
                   <ListIcon className="w-4 h-4" /> List
               </button>
             </div>
+            <Button variant="outline" size="sm" onClick={() => setIsAutoOpen(true)}>
+              <Zap className="w-4 h-4 mr-2 text-yellow-500" /> Automations
+          </Button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -206,8 +213,8 @@ export default function ProjectBoard() {
             
             <Separator orientation="vertical" className="h-6" />
             
-            <Button onClick={() => setIsCreateModalOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 shadow-sm">
-                <Plus className="w-4 h-4 mr-2" /> New Task
+            <Button onClick={() => setIsCreateModalOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-2 shadow-sm">
+                <Plus className="w-3 h-3 mr-2" /> New Task
             </Button>
         </div>
       </div>
@@ -225,6 +232,9 @@ export default function ProjectBoard() {
             </Button>
             <Button variant="ghost" size="sm" className="text-muted-foreground h-8 gap-2">
                 <Users className="w-3.5 h-3.5" /> Assignee
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsArchiveOpen(true)} title="View Archive">
+                <Archive className="w-4 h-4 text-muted-foreground" /> Archived 
             </Button>
         </div>
       )}
@@ -332,6 +342,22 @@ export default function ProjectBoard() {
         onClose={() => setIsSettingsOpen(false)} 
         project={projectDetails}
         onUpdate={(updated) => setProjectDetails(updated)}
+      />
+
+      <AutomationModal 
+        isOpen={isAutoOpen} 
+        onClose={() => setIsAutoOpen(false)} 
+        projectId={projectId} 
+      />
+
+      <ArchivedTasksModal 
+          isOpen={isArchiveOpen} 
+          onClose={() => setIsArchiveOpen(false)}
+          projectId={projectId}
+          onRestore={() => {
+              // Refresh the main board to show the restored task
+              api.get(`/tasks/project/${projectId}`).then(res => setTasks(res.data));
+          }}
       />
     </div>
   );

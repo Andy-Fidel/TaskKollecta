@@ -54,11 +54,8 @@ const taskSchema = new mongoose.Schema({
     title: { type: String, required: true },
     isCompleted: { type: Boolean, default: false }
   }],
-  subtasks: [{
-    title: { type: String, required: true },
-    isCompleted: { type: Boolean, default: false }
-  }],
-  dependencies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
+  archived: { type: Boolean, default: false },
+   dependencies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Task', taskSchema);

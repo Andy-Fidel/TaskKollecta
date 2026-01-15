@@ -8,59 +8,76 @@ const Activity = require('../models/Activity');
 // @route   GET /api/dashboard
 const getDashboardStats = async (req, res) => {
   const userId = req.user._id;
-  
-  // Default to Last 30 Days if no dates provided
+  const activeOrgId = req.headers['x-active-org']; 
+
+  // 1. Initialize Dates (moved up so they are defined)
   const endDate = req.query.end ? new Date(req.query.end) : new Date();
   const startDate = req.query.start ? new Date(req.query.start) : new Date();
   if (!req.query.start) startDate.setDate(startDate.getDate() - 30);
 
-  // Set times to start/end of day
   startDate.setHours(0,0,0,0);
   endDate.setHours(23,59,59,999);
 
   try {
+    // 2. Fetch Memberships ONCE
     const memberships = await Membership.find({ user: userId });
-    const orgIds = memberships.map(m => m.organization);
+    
+    // 3. Determine Target Orgs (Filter Logic)
+    let targetOrgIds = memberships.map(m => m.organization.toString());
+    
+    // If user selected an org in UI, and they are actually a member of it, filter to just that one
+    if (activeOrgId && targetOrgIds.includes(activeOrgId)) {
+        targetOrgIds = [activeOrgId]; 
+    }
 
     
-    const totalProjects = await Project.countDocuments({ organization: { $in: orgIds } });
+
+    // Stats: Total Projects
+    const totalProjects = await Project.countDocuments({ organization: { $in: targetOrgIds } });
     
-    // Tasks assigned to user
-    const assignedTasksCount = await Task.countDocuments({ assignee: userId });
+    // Stats: Assigned to Me (Filtered by Org)
+    const assignedTasksCount = await Task.countDocuments({ 
+        assignee: userId,
+        organization: { $in: targetOrgIds }
+    });
     
-    // Active: Not done
+    // Stats: Active Tasks (Filtered)
     const activeTasksCount = await Task.countDocuments({ 
       assignee: userId, 
-      status: { $ne: 'done' } 
+      status: { $ne: 'done' },
+      organization: { $in: targetOrgIds } 
     });
 
-    // Overdue: Not done AND Due date is in the past
+    // Stats: Overdue
     const overdueCount = await Task.countDocuments({
       assignee: userId,
       status: { $ne: 'done' },
-      dueDate: { $lt: new Date() } 
+      dueDate: { $lt: new Date() },
+      organization: { $in: targetOrgIds } 
     });
 
-    // Completed: Status done AND updated within Date Range
+    // Stats: Completed in Period
     const completedTasksCount = await Task.countDocuments({ 
       assignee: userId, 
       status: 'done',
-      updatedAt: { $gte: startDate, $lte: endDate }
+      updatedAt: { $gte: startDate, $lte: endDate },
+      organization: { $in: targetOrgIds } 
     });
 
     const completionRate = assignedTasksCount === 0 
       ? 0 
       : Math.round((completedTasksCount / assignedTasksCount) * 100);
 
-    const teamCount = (await Membership.distinct('user', { organization: { $in: orgIds } })).length;
+    const teamCount = (await Membership.distinct('user', { organization: { $in: targetOrgIds } })).length;
 
-    // Productivity (Completed by Day in Range)
+    // Chart 1: Productivity (Filtered)
     const productivityData = await Task.aggregate([
       {
         $match: {
           assignee: userId,
           status: 'done',
-          updatedAt: { $gte: startDate, $lte: endDate }
+          updatedAt: { $gte: startDate, $lte: endDate },
+          organization: { $in: targetOrgIds.map(id => new mongoose.Types.ObjectId(id)) } 
         }
       },
       {
@@ -72,12 +89,13 @@ const getDashboardStats = async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
-    //  Tasks by Project (Pie Chart Data)
+    // Chart 2: Tasks by Project (Filtered)
     const tasksByProject = await Task.aggregate([
       {
         $match: {
           assignee: userId,
-          status: { $ne: 'done' } 
+          status: { $ne: 'done' },
+          organization: { $in: targetOrgIds.map(id => new mongoose.Types.ObjectId(id)) }
         }
       },
       {
@@ -97,21 +115,23 @@ const getDashboardStats = async (req, res) => {
       }
     ]);
 
-    // Activity & Today's Tasks (Standard)
+    // Today's Tasks
     const todaysTasks = await Task.find({
       assignee: userId,
       status: { $ne: 'done' },
-      dueDate: { $gte: new Date().setHours(0,0,0,0), $lte: new Date().setHours(23,59,59,999) }
+      dueDate: { $gte: new Date().setHours(0,0,0,0), $lte: new Date().setHours(23,59,59,999) },
+      organization: { $in: targetOrgIds }
     }).populate('project', 'name');
 
-    const allOrgTasks = await Task.find({ organization: { $in: orgIds } }).select('_id');
+    // Recent Activities (Complex Filter: Only show activities for tasks in target Orgs)
+    const allOrgTasks = await Task.find({ organization: { $in: targetOrgIds } }).select('_id');
     const recentActivities = await Activity.find({ task: { $in: allOrgTasks.map(t => t._id) } })
       .sort({ createdAt: -1 })
       .limit(10)
       .populate('user', 'name avatar')
       .populate({ path: 'task', select: 'title project', populate: { path: 'project', select: 'name' } });
 
-    const recentProjects = await Project.find({ organization: { $in: orgIds } }).sort({ updatedAt: -1 }).limit(3);
+    const recentProjects = await Project.find({ organization: { $in: targetOrgIds } }).sort({ updatedAt: -1 }).limit(3);
 
     res.json({
       stats: {
@@ -132,6 +152,7 @@ const getDashboardStats = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error); 
     res.status(500).json({ message: error.message });
   }
 };

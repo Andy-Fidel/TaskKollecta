@@ -97,13 +97,13 @@ export default function Team() {
       }
   };
 
-  // ... (Invite & Create Org logic remains the same) ...
+  
   const handleInvite = async (e) => {
       e.preventDefault();
       try {
         await api.post(`/organizations/${selectedOrgId}/members`, { email: inviteEmail });
         const { data } = await api.get(`/organizations/${selectedOrgId}/members`);
-        setMembers(data); // Refresh list
+        setMembers(data); 
         setIsInviteOpen(false);
         setInviteEmail('');
         toast.success('Member added!');
@@ -123,7 +123,7 @@ export default function Team() {
   // EMPTY STATE (Modified to include "Join" option)
   if (orgs.length === 0) {
     return (
-        <div className="max-w-2xl mx-auto mt-20 text-center space-y-6">
+        <div className="max-w-2xl mx-auto mt-20 text-center space-y-6 font-[Poppins]">
             <div className="bg-slate-100 h-20 w-20 rounded-full flex items-center justify-center mx-auto">
                 <Building2 className="h-10 w-10 text-slate-400" />
             </div>

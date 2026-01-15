@@ -7,13 +7,12 @@ const JoinRequest = require('../models/JoinRequest');
 // @route   POST /api/organizations
 // @access  Private
 const createOrganization = async (req, res) => {
-  const { name, description } = req.body;
+  const { name } = req.body;
 
   try {
-    
+    //Create the Organization
     const organization = await Organization.create({
       name,
-      description,
       createdBy: req.user._id,
     });
 
@@ -21,7 +20,7 @@ const createOrganization = async (req, res) => {
     await Membership.create({
       user: req.user._id,
       organization: organization._id,
-      role: 'admin',
+      role: 'admin' 
     });
 
     res.status(201).json(organization);
@@ -53,14 +52,24 @@ const getUserOrganizations = async (req, res) => {
   }
 };
 
-// @desc    Get all members of an organization
+// @desc    Get members of an organization
 // @route   GET /api/organizations/:id/members
 const getOrgMembers = async (req, res) => {
   try {
-    const memberships = await Membership.find({ organization: req.params.id })
-      .populate('user', 'name email avatar'); 
-    
-    res.status(200).json(memberships);
+    const isMember = await Membership.findOne({
+      user: req.user._id,
+      organization: req.params.id
+    });
+
+    if (!isMember) {
+      return res.status(403).json({ message: 'Not authorized to view members of this organization' });
+    }
+
+    // Fetch Members
+    const members = await Membership.find({ organization: req.params.id })
+      .populate('user', 'name email avatar');
+
+    res.json(members);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

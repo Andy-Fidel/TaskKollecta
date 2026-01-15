@@ -1,8 +1,10 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, MoreHorizontal } from 'lucide-react';
+import { Calendar, MoreHorizontal, User as UserIcon } from 'lucide-react';
+import { format, isPast, isToday } from 'date-fns';
+
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export function SortableTask({ task, onClick }) {
   const {
@@ -59,18 +61,36 @@ export function SortableTask({ task, onClick }) {
       </h4>
 
       {/* Footer (Date & Avatar) */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-2">
-        <div className="flex items-center text-slate-400 text-xs gap-1">
-          <Calendar className="h-3 w-3" />
-          <span>Dec 24</span>
-        </div>
+      <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100">
         
-        {/* Mock Avatar for Assignee */}
-        <Avatar className="h-6 w-6 border border-white">
-          <AvatarFallback className="text-[9px] bg-slate-100 text-slate-600">
-             {task.assignee ? task.assignee.name.charAt(0) : 'U'}
-          </AvatarFallback>
-        </Avatar>
+        {/* Due Date */}
+        {task.dueDate ? (
+           <div className={`flex items-center text-xs gap-1.5 transition-colors
+             ${task.status !== 'done' && isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate)) 
+                ? 'text-red-600 font-bold' 
+                : 'text-slate-400 font-medium' 
+             }`}
+           >
+             <Calendar className="h-3.5 w-3.5" />
+             <span>{format(new Date(task.dueDate), 'MMM d')}</span>
+           </div>
+        ) : (
+           <div className="h-4"></div> 
+        )}
+
+        {/* Assignee Avatar */}
+        {task.assignee ? (
+            <Avatar className="h-6 w-6 border border-slate-100">
+                <AvatarImage src={task.assignee.avatar} />
+                <AvatarFallback className="text-[9px] bg-slate-100 text-slate-600 font-bold">
+                    {task.assignee.name?.charAt(0)}
+                </AvatarFallback>
+            </Avatar>
+        ) : (
+            <div className="h-6 w-6 rounded-full border border-dashed border-slate-300 flex items-center justify-center bg-slate-50/50" title="Unassigned">
+                <UserIcon className="h-3 w-3 text-slate-300" />
+            </div>
+        )}
       </div>
     </div>
   );

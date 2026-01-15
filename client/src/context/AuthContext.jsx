@@ -31,8 +31,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
     setUser(null);
+    localStorage.removeItem('token');
+    
+    // Clear the active organization
+    localStorage.removeItem('activeOrgId'); 
+    
+    // Clear any other cached filters
+    localStorage.removeItem('project_filter');
   };
 
   return (

@@ -5,7 +5,7 @@ import {
   Calendar as CalendarIcon, User as UserIcon, Check, ChevronsUpDown, 
   History, MoreHorizontal, Trash2, Paperclip, FileText, 
   Image as ImageIcon, Link2, Link2Off, AlertCircle, X, Plus, 
-  AlignLeft, Layout, Tag, Clock, CheckCircle2
+  AlignLeft, Layout, Tag, Clock, CheckCircle2, ListChecks
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -65,7 +65,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
   const [pendingAssignee, setPendingAssignee] = useState(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  // --- 1. Initialization ---
+  // --- Initialization ---
   useEffect(() => {
     if (isOpen && task) {
       // Load Data
@@ -99,7 +99,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     }
   }, [isDependencySearchOpen, projectId, task]);
 
-  // --- 2. Real-time Listeners ---
+  // --- Real-time Listeners ---
   useEffect(() => {
     if (!socket || !task) return;
 
@@ -229,7 +229,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
         const { url, filename, type } = uploadRes.data;
         await api.post(`/tasks/${task._id}/attachments`, { url, filename, type });
         toast.success("File attached");
-        // Trigger parent refresh or simple reload if critical
     } catch (error) { toast.error("Upload failed"); } 
     finally { setIsUploading(false); }
   };
@@ -258,7 +257,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
         
-        {/* --- 1. HEADER --- */}
+        {/* --- HEADER --- */}
         <div className="bg-card border-b border-border p-4 px-6 flex justify-between items-center shrink-0 h-16">
              <div className="flex items-center gap-3 text-muted-foreground">
                 <Badge variant="outline" className="rounded-md font-mono text-xs">{task.project?.name || 'Project'}</Badge>
@@ -284,7 +283,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
              </div>
         </div>
 
-        {/* --- 2. MAIN BODY (Split View) --- */}
+        {/* --- MAIN BODY (Split View) --- */}
         <div className="flex flex-1 overflow-hidden">
             
             {/* --- LEFT: CONTENT (Document Style) --- */}
@@ -328,7 +327,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
 
                     <Separator />
 
-                    {/* Subtasks */}
+                    {/* --- SUBTASKS SECTION --- */}
                     <div>
                         <div className="flex justify-between items-end mb-4">
                             <div className="flex items-center gap-2">
@@ -336,35 +335,56 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
                                 <h3 className="text-sm font-semibold text-foreground">Subtasks</h3>
                             </div>
                             <span className="text-xs text-muted-foreground font-medium">
-                                {Math.round((subtasks.filter(s => s.isCompleted).length / (subtasks.length || 1)) * 100)}%
+                                {subtasks.length > 0 
+                                    ? `${Math.round((subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100)}%` 
+                                    : '0%'}
                             </span>
                         </div>
                         
-                        <Progress value={(subtasks.filter(s => s.isCompleted).length / (subtasks.length || 1)) * 100} className="h-1.5 mb-6" />
+                        {/* Only show progress bar if there are subtasks */}
+                        {subtasks.length > 0 && (
+                            <Progress value={(subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100} className="h-1.5 mb-6" />
+                        )}
 
-                        <div className="space-y-1">
-                            {subtasks.map((st) => (
-                                <div key={st._id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 group transition-colors">
-                                    <button 
-                                        onClick={() => handleToggleSubtask(st._id)}
-                                        className={`h-5 w-5 rounded border flex items-center justify-center transition-all 
-                                            ${st.isCompleted ? 'bg-primary border-primary' : 'border-muted-foreground hover:border-primary'}`}
-                                    >
-                                        {st.isCompleted && <Check className="h-3.5 w-3.5 text-primary-foreground" />}
-                                    </button>
-                                    <span className={`text-sm flex-1 ${st.isCompleted ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                                        {st.title}
-                                    </span>
-                                    <button onClick={() => handleDeleteSubtask(st._id)} className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-500 transition-opacity"><Trash2 className="w-4 h-4"/></button>
+                        {/* EMPTY STATE: Subtasks */}
+                        {subtasks.length === 0 ? (
+                            <div className="text-center py-6 border-2 border-dashed border-border/60 rounded-xl mb-4 bg-muted/5">
+                                <div className="flex justify-center mb-2">
+                                    <div className="bg-background p-2 rounded-full border border-border shadow-sm">
+                                        <ListChecks className="w-4 h-4 text-muted-foreground" />
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
+                                <p className="text-xs font-medium text-foreground">No subtasks yet</p>
+                                <p className="text-[10px] text-muted-foreground mt-1 px-8 leading-relaxed">
+                                    Break task into smaller steps.<br/>Assign and track progress separately.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-1 mb-4">
+                                {subtasks.map((st) => (
+                                    <div key={st._id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 group transition-colors">
+                                        <button 
+                                            onClick={() => handleToggleSubtask(st._id)}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center transition-all 
+                                                ${st.isCompleted ? 'bg-primary border-primary' : 'border-muted-foreground hover:border-primary'}`}
+                                        >
+                                            {st.isCompleted && <Check className="h-3.5 w-3.5 text-primary-foreground" />}
+                                        </button>
+                                        <span className={`text-sm flex-1 ${st.isCompleted ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                                            {st.title}
+                                        </span>
+                                        <button onClick={() => handleDeleteSubtask(st._id)} className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-500 transition-opacity"><Trash2 className="w-4 h-4"/></button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
 
-                        <form onSubmit={handleAddSubtask} className="mt-4 flex items-center gap-3 pl-2">
+                        {/* Add Subtask Input */}
+                        <form onSubmit={handleAddSubtask} className="flex items-center gap-3 pl-2">
                             <Plus className="h-4 w-4 text-muted-foreground" />
                             <input 
                                 className="text-sm bg-transparent outline-none flex-1 placeholder:text-muted-foreground/60 text-foreground"
-                                placeholder="Add a subtask..."
+                                placeholder={subtasks.length === 0 ? "Add your first subtask..." : "Add another subtask..."}
                                 value={newSubtask}
                                 onChange={e => setNewSubtask(e.target.value)}
                             />
@@ -505,18 +525,19 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
 
                     <Separator />
 
-                    {/* Dependencies */}
+                    {/* --- DEPENDENCIES SECTION --- */}
                     <div className="space-y-3">
                          <div className="flex justify-between items-center">
                             <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Link2 className="w-3.5 h-3.5"/> Blocking</span>
                             <Popover open={isDependencySearchOpen} onOpenChange={setIsDependencySearchOpen}>
                                 <PopoverTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-5 w-5"><Plus className="w-3 h-3" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-muted"><Plus className="w-3 h-3" /></Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-[250px] p-0" align="end">
                                     <Command>
                                         <CommandInput placeholder="Search tasks..." />
                                         <CommandGroup>
+                                            {projectTasks.length === 0 && <div className="p-3 text-xs text-muted-foreground text-center">No other tasks in project</div>}
                                             {projectTasks.slice(0, 8).map((t) => (
                                                <CommandItem key={t._id} onSelect={() => handleAddDependency(t._id)}>{t.title}</CommandItem>
                                             ))}
@@ -525,15 +546,25 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
                                 </PopoverContent>
                             </Popover>
                          </div>
-                         {dependencies.length === 0 ? <p className="text-xs text-muted-foreground/50 italic">No dependencies</p> : (
+                         
+                         {/* EMPTY STATE: Dependencies */}
+                         {dependencies.length === 0 ? (
+                             <div className="text-center py-4 border-2 border-dashed border-border/60 rounded-xl bg-muted/5">
+                                 <p className="text-[10px] font-medium text-muted-foreground">No dependencies</p>
+                                 <p className="text-[9px] text-muted-foreground/70 mt-1 px-2 leading-relaxed">
+                                     Link tasks (e.g. "Task B depends on A").<br/>
+                                     Types: "blocked by", "relates to".
+                                 </p>
+                             </div>
+                         ) : (
                              <div className="space-y-2">
                                 {dependencies.map(dep => (
-                                    <div key={dep._id} className="flex items-center justify-between p-2 rounded-md bg-background border border-border text-xs">
+                                    <div key={dep._id} className="flex items-center justify-between p-2 rounded-md bg-background border border-border text-xs shadow-sm">
                                         <div className="flex items-center gap-2 overflow-hidden">
                                             {dep.status !== 'done' ? <AlertCircle className="w-3 h-3 text-orange-500 shrink-0"/> : <Check className="w-3 h-3 text-green-500 shrink-0"/>}
-                                            <span className="truncate">{dep.title}</span>
+                                            <span className={`truncate ${dep.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>{dep.title}</span>
                                         </div>
-                                        <button onClick={() => handleRemoveDependency(dep._id)} className="text-muted-foreground hover:text-red-500"><Link2Off className="w-3 h-3"/></button>
+                                        <button onClick={() => handleRemoveDependency(dep._id)} className="text-muted-foreground hover:text-red-500 transition-colors"><Link2Off className="w-3 h-3"/></button>
                                     </div>
                                 ))}
                              </div>

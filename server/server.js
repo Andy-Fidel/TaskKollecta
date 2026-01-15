@@ -4,6 +4,7 @@ const cors = require("cors");
 const http = require("http"); 
 const { Server } = require("socket.io"); 
 const connectDB = require("./config/db");
+const passport = require('passport');
 
 // Routes
 const userRoutes = require('./routes/userRoutes');
@@ -16,6 +17,8 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const formRoutes = require('./routes/formRoutes');
+const passportConfig = require('./config/passport');
+const automationRoutes = require('./routes/automationRoutes');
 
 // Load environment variables
 
@@ -25,7 +28,15 @@ connectDB();
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",              // Local development
+    process.env.CLIENT_URL                // Production (Vercel URL)
+  ],
+  credentials: true
+ }));
+app.use(passport.initialize());
+passportConfig; 
 
 // --- SOCKET.IO SETUP START ---
 const server = http.createServer(app); 
@@ -86,6 +97,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/forms', formRoutes);
+app.use('/api/automations', automationRoutes);
 
 
 

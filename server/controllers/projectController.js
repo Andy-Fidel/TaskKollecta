@@ -6,19 +6,25 @@ const mongoose = require('mongoose');
 
 // @desc    Create a new project
 // @route   POST /api/projects
-// @access  Private + Org Member
 const createProject = async (req, res) => {
-  const { name, description, orgId } = req.body;
+  const { name, description, orgId, lead, dueDate, color } = req.body;
+  console.log("Incoming Data:", req.body);
 
   try {
     const project = await Project.create({
       name,
       description,
       organization: orgId,
-      lead: req.user._id
+      // Use provided lead OR default to creator
+      lead: lead || req.user._id, 
+      dueDate,
+      color
     });
 
-    res.status(201).json(project);
+    // Populate the lead immediately for the frontend
+    const populatedProject = await Project.findById(project._id).populate('lead', 'name avatar');
+
+    res.status(201).json(populatedProject);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -140,22 +146,33 @@ const deleteProject = async (req, res) => {
   }
 };
 
-// @desc    Get ALL projects for the logged-in user (across all orgs)
+// @desc    Get ALL projects for the logged-in user (Filtered by Active Org)
 // @route   GET /api/projects
 const getAllProjects = async (req, res) => {
   try {
     const userId = req.user._id;
+    const activeOrgId = req.headers['x-active-org']; 
 
-    
+    // Fetch User's Memberships
     const memberships = await Membership.find({ user: userId });
-    const orgIds = memberships.map(m => m.organization);
-
     
-    const projects = await Project.aggregate([
-      
-      { $match: { organization: { $in: orgIds } } },
+    // Logic to Determine Target Organization(s)
+    // Convert all membership org IDs to strings for comparison
+    let validOrgIds = memberships.map(m => m.organization.toString());
 
-      
+    // If header exists AND user is actually a member of that org, filter to just that one.
+    if (activeOrgId && validOrgIds.includes(activeOrgId)) {
+        validOrgIds = [activeOrgId];
+    }
+
+    // Convert back to Mongoose ObjectIds for the Aggregation Pipeline
+    // (Aggregations often require exact ObjectId types to match correctly)
+    const targetOrgObjectIds = validOrgIds.map(id => new mongoose.Types.ObjectId(id));
+
+    const projects = await Project.aggregate([
+      { $match: { organization: { $in: targetOrgObjectIds } } },
+
+      // Join with Tasks to calculate stats
       {
         $lookup: {
           from: 'tasks',
@@ -165,7 +182,7 @@ const getAllProjects = async (req, res) => {
         }
       },
 
-      
+      // Calculate Progress & Identify Team
       {
         $addFields: {
           totalTasks: { $size: '$projectTasks' },
@@ -178,7 +195,7 @@ const getAllProjects = async (req, res) => {
               } 
             }
           },
-          
+          // Get unique IDs of everyone assigned to tasks in this project
           assigneeIds: { 
              $filter: {
                input: { $setUnion: '$projectTasks.assignee' }, 
@@ -189,7 +206,7 @@ const getAllProjects = async (req, res) => {
         }
       },
 
-      
+      // Join with Users to get Avatar/Name for the team
       {
         $lookup: {
           from: 'users',
@@ -199,7 +216,7 @@ const getAllProjects = async (req, res) => {
         }
       },
 
-      
+      // Clean up output
       {
         $project: {
           name: 1, 
@@ -224,7 +241,6 @@ const getAllProjects = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 module.exports = { createProject, 
   getOrgProjects, getProjectDetails,
