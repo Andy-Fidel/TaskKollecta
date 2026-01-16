@@ -66,9 +66,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
   const [pendingAssignee, setPendingAssignee] = useState(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  if (!task) {
-    return null;
-  }
+  
 
   // --- Initialization ---
   useEffect(() => {
@@ -248,6 +246,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
         window.location.reload();
     } catch (error) { toast.error("Failed to delete"); }
   };
+
+  if (!task) {
+    return null;
+  }
 
   const Avatar = ({ user }) => {
   const { onlineUsers } = useSocket();
