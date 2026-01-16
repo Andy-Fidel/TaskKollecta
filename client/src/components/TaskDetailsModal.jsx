@@ -30,7 +30,6 @@ import { formatActivityAction } from '../utils/formatActivity';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { PriorityBadge } from './PriorityBadge';
-import { useSocket } from '../context/SocketContext';
 
 export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
   const { user } = useAuth();
@@ -59,8 +58,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
 
   const [pendingAssignee, setPendingAssignee] = useState(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const socketContext = useSocket();
-  const onlineUsers = socketContext?.onlineUsers || [];
+  const [onlineUsers, setOnlineUsers] = useState([]);
 
   // --- 2. EFFECTS ---
   useEffect(() => {
@@ -70,17 +68,14 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
       if (task.organization) {
          api.get(`/organizations/${task.organization}/members`).then(({ data }) => setTeamMembers(data));
       }
-      
-      api.get(`/tasks/single/${task._id}`).then(({data}) => {
-          setSubtasks(data.subtasks || []);
-          setDependencies(data.dependencies || []);
-      });
 
       setAssignee(task.assignee);
       setDueDate(task.dueDate ? new Date(task.dueDate) : null);
       setCurrentStatus(task.status || 'todo');
       setCurrentPriority(task.priority || 'medium');
       setDescInput(task.description || '');
+      setSubtasks(task.subtasks || []);
+      setDependencies(task.dependencies || []);
     }
   }, [isOpen, task]);
 
@@ -101,13 +96,18 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     const handleNewActivity = (activity) => {
         if (activity.task === task._id) setActivities((prev) => [activity, ...prev]); 
     };
+    const handleOnlineUsers = (users) => {
+      setOnlineUsers(users);
+    };
 
     socket.on('receive_new_comment', handleNewComment);
     socket.on('new_activity', handleNewActivity);
+    socket.on('get_online_users', handleOnlineUsers);
 
     return () => {
         socket.off('receive_new_comment', handleNewComment);
         socket.off('new_activity', handleNewActivity);
+        socket.off('get_online_users', handleOnlineUsers);
     };
   }, [socket, task]);
 
@@ -140,9 +140,13 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     try {
         await api.put(`/tasks/${task._id}`, { assignee: pendingAssignee._id });
         setAssignee(pendingAssignee);
+        setPendingAssignee(null);
         setIsConfirmOpen(false);
         toast.success(`Assigned to ${pendingAssignee.name}`);
-    } catch (error) { toast.error("Assignment failed"); }
+    } catch (error) { 
+        toast.error("Assignment failed");
+        setPendingAssignee(null);
+    }
   };
 
   const handleStatusChange = async (newStatus) => {
@@ -173,13 +177,25 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
   };
 
   const handleToggleSubtask = async (id) => {
+    const originalSubtasks = subtasks;
     setSubtasks(prev => prev.map(s => s._id === id ? { ...s, isCompleted: !s.isCompleted } : s));
-    try { await api.put(`/tasks/${task._id}/subtasks/${id}`); } catch (e) { toast.error("Sync error"); }
+    try { 
+      await api.put(`/tasks/${task._id}/subtasks/${id}`); 
+    } catch (e) { 
+      setSubtasks(originalSubtasks);
+      toast.error("Sync error"); 
+    }
   };
 
   const handleDeleteSubtask = async (id) => {
+    const originalSubtasks = subtasks;
     setSubtasks(prev => prev.filter(s => s._id !== id));
-    try { await api.delete(`/tasks/${task._id}/subtasks/${id}`); } catch (e) { toast.error("Delete error"); }
+    try { 
+      await api.delete(`/tasks/${task._id}/subtasks/${id}`); 
+    } catch (e) { 
+      setSubtasks(originalSubtasks);
+      toast.error("Delete error"); 
+    }
   };
 
   const handleAddDependency = async (dependencyId) => {
@@ -206,7 +222,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
       const { data } = await api.post('/comments', { content: newComment, taskId: task._id });
       setComments([...comments, data]);
       setNewComment('');
-      socket.emit('new_comment', { projectId, comment: data });
+      if (socket) socket.emit('new_comment', { projectId, comment: data });
+      toast.success("Comment added");
     } catch (error) { toast.error("Message failed"); }
   };
 
@@ -231,7 +248,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
         await api.delete(`/tasks/${task._id}`);
         toast.success("Task deleted");
         onClose();
-        window.location.reload();
     } catch (error) { toast.error("Failed to delete"); }
   };
 
@@ -239,10 +255,11 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
   const Avatar = ({ user }) => {
     if (!user) return null;
     const isOnline = onlineUsers.includes(user._id);
+    const displayName = user?.name || 'User';
 
     return (
       <div className="relative inline-block">
-        <img src={user.avatar} className="w-8 h-8 rounded-full object-cover" alt={user.name} />
+        <img src={user.avatar || ''} className="w-8 h-8 rounded-full object-cover" alt={displayName} onError={() => {}} />
         {isOnline && (
           <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
         )}
