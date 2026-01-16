@@ -23,15 +23,20 @@ const createTask = async (req, res) => {
       reporter: req.user._id
     });
 
-    
     const populatedTask = await Task.findById(task._id)
         .populate('assignee', 'name email avatar')
         .populate('project', 'name');
 
-    
+    // ✅ LOG ACTIVITY HERE
+    await logActivity(req, { 
+        task: task, 
+        action: 'created', 
+        details: `created the task "${task.title}"` 
+    });
+
+    // ... (Your existing email logic stays here) ...
     if (assignee && assignee !== req.user._id.toString()) {
         const assigneeUser = await User.findById(assignee);
-        
         if (assigneeUser) {
             await sendEmail({
                 email: assigneeUser.email,
@@ -219,8 +224,7 @@ const removeDependency = async (req, res) => {
 
 const updateTask = async (req, res) => {
   try {
-    
-        const oldTask = await Task.findById(req.params.id).populate('dependencies');
+    const oldTask = await Task.findById(req.params.id).populate('dependencies');
 
     if (!oldTask) {
       return res.status(404).json({ message: 'Task not found' });
@@ -237,7 +241,6 @@ const updateTask = async (req, res) => {
             });
         }
     }
-
   
     const updatedTask = await Task.findByIdAndUpdate(
       req.params.id, 
@@ -246,6 +249,15 @@ const updateTask = async (req, res) => {
     )
     .populate('dependencies', 'title status')
     .populate('assignee', 'name avatar');
+
+    // ✅ LOG ACTIVITY: Check if status changed
+    if (req.body.status && oldTask.status !== req.body.status) {
+        await logActivity(req, {
+            task: updatedTask,
+            action: 'moved',
+            details: `moved "${updatedTask.title}" to ${req.body.status}`
+        });
+    }
 
     // --- AUTOMATION TRIGGER ---
     if (req.body.status) {
@@ -256,6 +268,7 @@ const updateTask = async (req, res) => {
         runAutomations(updatedTask.project, 'priority_change', req.body.priority, updatedTask);
     }
 
+    // ... (Your existing notification logic stays here) ...
     // NOTIFICATIONS (Socket + Email)
     if (req.body.assignee && req.body.assignee !== oldTask.assignee?.toString()) {
         if (req.body.assignee !== req.user._id.toString()) {
@@ -269,9 +282,7 @@ const updateTask = async (req, res) => {
             });
         }
 
-        // Send Email Notification
         const assigneeUser = await User.findById(req.body.assignee);
-        
         if (assigneeUser) {
             await sendEmail({
                 email: assigneeUser.email,
