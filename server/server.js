@@ -1,4 +1,5 @@
 const express = require("express");
+const cookieParser = require('cookie-parser');
 const dotenv = require("dotenv");
 const cors = require("cors");
 const http = require("http"); 
@@ -31,6 +32,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(cors({
   origin: [
     "http://localhost:5173",              // Local development
