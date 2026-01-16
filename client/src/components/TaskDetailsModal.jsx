@@ -251,16 +251,15 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     return null;
   }
 
-  const Avatar = ({ user }) => {
-  const { onlineUsers } = useSocket();
-
-  const isOnline = onlineUsers.includes(user._id);
-
   // Timeline Merge
   const timeline = [
     ...comments.map(c => ({ ...c, type: 'comment' })),
     ...activities.map(a => ({ ...a, type: 'activity' }))
-  ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+const Avatar = ({ user }) => {
+    const { onlineUsers } = useSocket();
+    const isOnline = onlineUsers.includes(user?._id);
 
   if (!task) return null;
 
