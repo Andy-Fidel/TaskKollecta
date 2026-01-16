@@ -59,7 +59,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
 
   const [pendingAssignee, setPendingAssignee] = useState(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const { onlineUsers } = useSocket(); // Moved hook up here
+  const socketContext = useSocket();
+  const onlineUsers = socketContext?.onlineUsers || [];
 
   // --- 2. EFFECTS ---
   useEffect(() => {

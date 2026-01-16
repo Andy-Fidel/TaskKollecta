@@ -15,6 +15,7 @@ import { ThemeProvider } from "@/components/ThemeProvider"
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import LandingPage from './pages/LandingPage';
+import { SocketProvider } from './context/SocketContext';
 
 
 const PublicRoute = ({ children }) => {
@@ -33,6 +34,7 @@ function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
     <AuthProvider>
+      <SocketProvider>
       <Router>
         <Routes>
           <Route path="/" element={
@@ -63,6 +65,7 @@ function App() {
         </Routes>
       </Router>
       <Toaster position="top-center" richColors />
+      </SocketProvider>
     </AuthProvider>
     </ThemeProvider>
   );
