@@ -32,6 +32,7 @@ import { formatActivityAction } from '../utils/formatActivity';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { PriorityBadge } from './PriorityBadge';
+import { useSocket } from '../context/SocketContext';
 
 export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
   const { user } = useAuth();
@@ -244,6 +245,11 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     } catch (error) { toast.error("Failed to delete"); }
   };
 
+  const Avatar = ({ user }) => {
+  const { onlineUsers } = useSocket();
+
+  const isOnline = onlineUsers.includes(user._id);
+
   // Timeline Merge
   const timeline = [
     ...comments.map(c => ({ ...c, type: 'comment' })),
@@ -251,6 +257,17 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
   ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   if (!task) return null;
+
+  return (
+    <div className="relative inline-block">
+      <img src={user.avatar} className="w-8 h-8 rounded-full" />
+      
+      {isOnline && (
+        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+      )}
+    </div>
+  );
+};
 
   return (
     <>
@@ -572,74 +589,108 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
                     </div>
                 </div>
 
-                {/* Activity / Chat Stream */}
-                <div className="flex-1 flex flex-col min-h-0 bg-muted/20">
-                    <div className="p-3 border-b border-border bg-muted/10">
-                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Activity</h4>
+                {/* --- ACTIVITY & CHAT FEED --- */}
+                <div className="flex-1 flex flex-col min-h-0 bg-background">
+                    <div className="p-3 border-b border-border bg-muted/20 flex items-center gap-2">
+                        <History className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activity</span>
                     </div>
-                    
+
                     <ScrollArea className="flex-1 p-4">
-                        <div className="space-y-5">
-                            {timeline.length === 0 && <div className="text-center text-xs text-muted-foreground mt-4">No activity yet.</div>}
-                            
+                        <div className="space-y-6">
+                            {timeline.length === 0 && (
+                                <div className="text-center text-xs text-muted-foreground py-8 opacity-50">
+                                    No activity yet.
+                                </div>
+                            )}
+
                             {timeline.map((item) => (
-                                <div key={item._id} className="flex gap-3 text-sm">
-                                    {item.type === 'activity' ? (
-                                        <div className="flex gap-2 w-full">
-                                             <div className="mt-0.5"><History className="w-3 h-3 text-muted-foreground" /></div>
-                                             <div className="flex-1">
-                                                 <p className="text-xs text-muted-foreground">
-                                                     <span className="font-semibold text-foreground">{item.user?.name}</span> {formatActivityAction(item.action, item.details)}
-                                                 </p>
-                                                 <p className="text-[10px] text-muted-foreground/50">{new Date(item.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                                             </div>
+                                <div key={item._id} className="flex gap-3 text-sm group">
+                                    {/* Avatar with Online Status (Using the internal component) */}
+                                    <div className="shrink-0 pt-1">
+                                        <Avatar user={item.user || item.performer} />
+                                    </div>
+
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-semibold text-foreground text-xs">
+                                                {item.user?.name || item.performer?.name}
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground tabular-nums">
+                                                {format(new Date(item.createdAt), "MMM d, h:mm a")}
+                                            </span>
                                         </div>
-                                    ) : (
-                                        <div className="flex gap-2 w-full group">
-                                            <Avatar className="w-6 h-6 mt-0.5"><AvatarImage src={item.user?.avatar} /><AvatarFallback className="text-[9px]">{item.user?.name?.charAt(0)}</AvatarFallback></Avatar>
-                                            <div className="flex-1 space-y-1">
-                                                <div className="flex items-baseline justify-between">
-                                                    <span className="text-xs font-bold text-foreground">{item.user?.name}</span>
-                                                    <span className="text-[10px] text-muted-foreground">{new Date(item.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                                </div>
-                                                <div className="bg-background p-2.5 rounded-lg border border-border text-foreground shadow-sm">{item.content}</div>
+
+                                        {/* Render based on Type: Comment vs Activity */}
+                                        {item.type === 'comment' ? (
+                                            <div className="bg-muted/30 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-border/50 text-foreground shadow-sm">
+                                                <p className="whitespace-pre-wrap leading-relaxed">{item.content}</p>
                                             </div>
-                                        </div>
-                                    )}
+                                        ) : (
+                                            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                                <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
+                                                {formatActivityAction(item)}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </ScrollArea>
 
-                    {/* Chat Input */}
-                    <div className="p-3 bg-background border-t border-border">
-                         <form onSubmit={handleSendComment} className="flex gap-2">
-                            <Input 
-                                value={newComment} 
-                                onChange={(e) => setNewComment(e.target.value)} 
-                                placeholder="Leave a comment..." 
-                                className="h-9 text-xs bg-muted/30 border-transparent focus:bg-background focus:border-input transition-colors"
+                    {/* --- CHAT INPUT --- */}
+                    <div className="p-4 border-t border-border bg-background mt-auto">
+                        <form onSubmit={handleSendComment} className="relative">
+                            <Textarea 
+                                placeholder="Write a comment... (@ to mention)"
+                                value={newComment}
+                                onChange={e => setNewComment(e.target.value)}
+                                className="min-h-[80px] pr-12 resize-none bg-muted/20 focus:bg-background transition-all"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSendComment(e);
+                                    }
+                                }}
                             />
-                            <Button type="submit" size="icon" className="h-9 w-9 shrink-0"><Check className="w-4 h-4" /></Button>
+                            <Button 
+                                size="sm" 
+                                type="submit" 
+                                disabled={!newComment.trim()}
+                                className="absolute bottom-2 right-2 h-7 w-7 p-0 rounded-lg"
+                            >
+                                <div className="-rotate-90"><AlignLeft className="w-3 h-3" /></div>
+                                <span className="sr-only">Send</span>
+                            </Button>
                         </form>
+                        <div className="text-[10px] text-muted-foreground mt-2 flex justify-between px-1">
+                            <span>**Bold**, *Italic* supported</span>
+                            <span>Enter to send</span>
+                        </div>
                     </div>
                 </div>
 
+            {/* --- END RIGHT SIDEBAR --- */}
             </div>
+
+        {/* --- END MAIN BODY --- */}
         </div>
       </DialogContent>
     </Dialog>
 
-    {/* CONFIRM ASSIGNMENT */}
+    {/* --- ASSIGNMENT CONFIRMATION DIALOG --- */}
     <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <AlertDialogTitle>Assign Task?</AlertDialogTitle>
-                <AlertDialogDescription>Assigning <strong>{task.title}</strong> to <strong>{pendingAssignee?.name}</strong>.</AlertDialogDescription>
+                <AlertDialogTitle>Change Assignee?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Are you sure you want to assign this task to <strong>{pendingAssignee?.name}</strong>? 
+                    They will be notified immediately.
+                </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmAssignment}>Confirm</AlertDialogAction>
+                <AlertDialogCancel onClick={() => setPendingAssignee(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmAssignment}>Confirm Assignment</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>

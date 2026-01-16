@@ -56,37 +56,68 @@ const io = new Server(server, {
   }
 });
 
-// Run when a client connects
-io.on("connection", (socket) => {
-  console.log(`User Connected: ${socket.id}`);
+// Global Map to track online users (UserId -> SocketId)
+let onlineUsers = new Map();
 
-  // Join a specific "Room" (Project ID)
-  // This ensures User A only gets updates for the project they are looking at
+io.on('connection', (socket) => {
+  console.log("User Connected:", socket.id);
+
+  // --- 1. ONLINE PRESENCE ---
+  socket.on('join_app', (userId) => {
+    if (userId) {
+      onlineUsers.set(userId, socket.id);
+      // Broadcast online list to EVERYONE
+      io.emit('get_online_users', Array.from(onlineUsers.keys()));
+    }
+  });
+
+  // --- 2. ROOM MANAGEMENT ---
   socket.on("join_project", (projectId) => {
     socket.join(projectId);
-    console.log(`User joined project: ${projectId}`);
+    console.log(`User ${socket.id} joined project: ${projectId}`);
   });
 
   socket.on("join_user_room", (userId) => {
     socket.join(userId);
+    console.log(`User ${socket.id} joined private room: ${userId}`);
   });
 
-  // Listen for task updates from Client
+  // --- 3. TASK UPDATES ---
   socket.on("task_moved", (data) => {
     // Broadcast to everyone ELSE in that project room
     socket.to(data.projectId).emit("receive_task_update", data);
   });
 
-  // Listen for new comments
   socket.on("new_comment", (data) => {
     // Broadcast to everyone in the project
-    // data must include: projectId, comment object
     socket.to(data.projectId).emit("receive_new_comment", data.comment);
   });
 
-  socket.on("disconnect", () => {
+  // --- 4. DISCONNECT (Consolidated) ---
+  socket.on('disconnect', () => {
     console.log("User Disconnected", socket.id);
+
+    // Find userId by socketId and remove it from online list
+    let disconnectedUser = null;
+    for (const [userId, socketId] of onlineUsers.entries()) {
+      if (socketId === socket.id) {
+        disconnectedUser = userId;
+        onlineUsers.delete(userId);
+        break;
+      }
+    }
+    
+    // Send updated list to everyone if someone valid disconnected
+    if (disconnectedUser) {
+      io.emit('get_online_users', Array.from(onlineUsers.keys()));
+    }
   });
+});
+
+// Make io accessible in your controllers (if you haven't already)
+app.use((req, res, next) => {
+    req.io = io;
+    next();
 });
 // --- SOCKET.IO SETUP END ---
 
