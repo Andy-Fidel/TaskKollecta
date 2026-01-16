@@ -6,7 +6,6 @@ const { Server } = require("socket.io");
 const connectDB = require("./config/db");
 const passport = require('passport');
 
-app.set('trust proxy', 1);
 
 // Routes
 const userRoutes = require('./routes/userRoutes');
@@ -28,6 +27,8 @@ dotenv.config();
 connectDB();
 
 const app = express();
+
+app.set('trust proxy', 1);
 
 app.use(express.json());
 app.use(cors({
