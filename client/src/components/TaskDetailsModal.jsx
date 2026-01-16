@@ -437,12 +437,12 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
                                     <Button variant="outline" size="sm" className="w-full justify-start h-8 font-normal capitalize">
                                         <div className={`w-2 h-2 rounded-full mr-2 ${currentStatus === 'done' ? 'bg-green-500' : 'bg-slate-400'}`}></div>
                                         {/* FIX 1: Safe Replace */}
-                                        {(currentStatus || 'todo').toString().replace('-', ' ')}
+                                        {String(currentStatus || 'todo').replace(/-/g, ' ')}
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-[200px]">
                                     {['todo', 'in-progress', 'review', 'done'].map(s => (
-                                        <DropdownMenuItem key={s} onClick={() => handleStatusChange(s)} className="capitalize">{s.replace('-', ' ')}</DropdownMenuItem>
+                                        <DropdownMenuItem key={s} onClick={() => handleStatusChange(s)} className="capitalize">{String(s).replace(/-/g, ' ')}</DropdownMenuItem>
                                     ))}
                                 </DropdownMenuContent>
                             </DropdownMenu>
