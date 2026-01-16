@@ -87,14 +87,13 @@ const updateUserProfile = async (req, res) => {
     if (user) {
       user.name = req.body.name || user.name;
       user.email = req.body.email || user.email;
-      
-      
+
       if (req.body.avatar) {
         user.avatar = req.body.avatar;
       }
 
-      
       if (req.body.password) {
+        
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(req.body.password, salt);
       }
@@ -106,7 +105,7 @@ const updateUserProfile = async (req, res) => {
         name: updatedUser.name,
         email: updatedUser.email,
         avatar: updatedUser.avatar,
-        token: generateToken(updatedUser._id),
+        
       });
     } else {
       res.status(404).json({ message: 'User not found' });
