@@ -66,6 +66,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
   const [pendingAssignee, setPendingAssignee] = useState(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
+  if (!task) {
+    return null;
+  }
+
   // --- Initialization ---
   useEffect(() => {
     if (isOpen && task) {
