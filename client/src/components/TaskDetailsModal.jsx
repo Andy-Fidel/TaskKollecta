@@ -1,27 +1,25 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { 
-  Calendar as CalendarIcon, User as UserIcon, Check, ChevronsUpDown, 
-  History, MoreHorizontal, Trash2, Paperclip, FileText, 
+  User as UserIcon, Check, MoreHorizontal, Trash2, Paperclip, FileText, 
   Image as ImageIcon, Link2, Link2Off, AlertCircle, X, Plus, 
-  AlignLeft, Layout, Tag, Clock, CheckCircle2, ListChecks
+  AlignLeft, Layout, Clock, CheckCircle2, ListChecks, History 
 } from 'lucide-react';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar as UIAvatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
+import { Command, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
 import { 
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
@@ -37,14 +35,13 @@ import { useSocket } from '../context/SocketContext';
 export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
   const { user } = useAuth();
   
-  // --- Data State ---
+  // --- 1. HOOKS (Always run first) ---
   const [comments, setComments] = useState([]);
   const [activities, setActivities] = useState([]); 
   const [teamMembers, setTeamMembers] = useState([]);
   const [subtasks, setSubtasks] = useState(task?.subtasks || []);
   const [dependencies, setDependencies] = useState(task?.dependencies || []);
   
-  // --- UI/Form State ---
   const [newComment, setNewComment] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
   const [assignee, setAssignee] = useState(task?.assignee);
@@ -53,47 +50,39 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
   const [descInput, setDescInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   
-  // Menus
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const [isDependencySearchOpen, setIsDependencySearchOpen] = useState(false);
   const [projectTasks, setProjectTasks] = useState([]);
   
-  // Optimistic UI
   const [currentStatus, setCurrentStatus] = useState(task?.status || 'todo');
   const [currentPriority, setCurrentPriority] = useState(task?.priority || 'medium');
 
-  // Confirmation
   const [pendingAssignee, setPendingAssignee] = useState(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const { onlineUsers } = useSocket(); // Moved hook up here
 
-  
-
-  // --- Initialization ---
+  // --- 2. EFFECTS ---
   useEffect(() => {
     if (isOpen && task) {
-      // Load Data
       api.get(`/comments/${task._id}`).then(({ data }) => setComments(data));
       api.get(`/activities/task/${task._id}`).then(({ data }) => setActivities(data));
       if (task.organization) {
          api.get(`/organizations/${task.organization}/members`).then(({ data }) => setTeamMembers(data));
       }
       
-      // Fetch fresh details (for populated dependencies/subtasks)
       api.get(`/tasks/single/${task._id}`).then(({data}) => {
           setSubtasks(data.subtasks || []);
           setDependencies(data.dependencies || []);
       });
 
-      // Sync Local State
       setAssignee(task.assignee);
       setDueDate(task.dueDate ? new Date(task.dueDate) : null);
-      setCurrentStatus(task.status);
-      setCurrentPriority(task.priority);
+      setCurrentStatus(task.status || 'todo');
+      setCurrentPriority(task.priority || 'medium');
       setDescInput(task.description || '');
     }
   }, [isOpen, task]);
 
-  // Load Tasks for Dependency Search
   useEffect(() => {
     if (isDependencySearchOpen && projectTasks.length === 0 && task) {
         api.get(`/tasks/project/${projectId}`).then(({ data }) => {
@@ -102,7 +91,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     }
   }, [isDependencySearchOpen, projectId, task]);
 
-  // --- Real-time Listeners ---
   useEffect(() => {
     if (!socket || !task) return;
 
@@ -122,10 +110,16 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     };
   }, [socket, task]);
 
+  // --- 3. GUARD CLAUSE (After hooks) ---
+  if (!task) return null;
 
-  // --- HANDLERS ---
+  // --- 4. DATA PROCESSING (Safe) ---
+  const timeline = [
+    ...comments.map(c => ({ ...c, type: 'comment' })),
+    ...activities.map(a => ({ ...a, type: 'activity' }))
+  ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-  // Description
+  // --- 5. HANDLERS ---
   const handleSaveDescription = async () => {
       try {
           await api.put(`/tasks/${task._id}`, { description: descInput });
@@ -134,7 +128,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
       } catch (e) { toast.error("Failed to update description"); }
   };
 
-  // Assignment
   const initiateAssignment = (memberUser) => {
     setPendingAssignee(memberUser);
     setOpenUserSelect(false);
@@ -151,13 +144,12 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     } catch (error) { toast.error("Assignment failed"); }
   };
 
-  // Status & Priority
   const handleStatusChange = async (newStatus) => {
     setCurrentStatus(newStatus);
     try {
         await api.put(`/tasks/${task._id}`, { status: newStatus });
         if (socket) socket.emit("task_moved", { _id: task._id, status: newStatus, projectId });
-        toast.success(`Status: ${newStatus.replace('-', ' ')}`);
+        toast.success(`Status updated`);
     } catch (error) { toast.error("Failed update status"); }
   };
 
@@ -165,11 +157,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     setCurrentPriority(newPriority);
     try {
         await api.put(`/tasks/${task._id}`, { priority: newPriority });
-        toast.success(`Priority: ${newPriority}`);
+        toast.success(`Priority updated`);
     } catch (error) { toast.error("Failed update priority"); }
   };
 
-  // Subtasks
   const handleAddSubtask = async (e) => {
     e.preventDefault();
     if (!newSubtask.trim()) return;
@@ -190,7 +181,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     try { await api.delete(`/tasks/${task._id}/subtasks/${id}`); } catch (e) { toast.error("Delete error"); }
   };
 
-  // Dependencies
   const handleAddDependency = async (dependencyId) => {
     try {
         const { data } = await api.post(`/tasks/${task._id}/dependencies`, { dependencyId });
@@ -208,7 +198,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     } catch (e) { toast.error("Failed to unlink task"); }
   };
 
-  // Comments
   const handleSendComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
@@ -220,7 +209,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     } catch (error) { toast.error("Message failed"); }
   };
 
-  // Files
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -236,7 +224,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     finally { setIsUploading(false); }
   };
 
-  // Delete Task
   const handleDeleteTask = async () => {
     if (!window.confirm("Delete this task permanently?")) return;
     try {
@@ -247,39 +234,28 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     } catch (error) { toast.error("Failed to delete"); }
   };
 
-  if (!task) {
-    return null;
-  }
+  // --- 6. HELPER COMPONENT ---
+  const Avatar = ({ user }) => {
+    if (!user) return null;
+    const isOnline = onlineUsers.includes(user._id);
 
-  // Timeline Merge
-  const timeline = [
-    ...comments.map(c => ({ ...c, type: 'comment' })),
-    ...activities.map(a => ({ ...a, type: 'activity' }))
-].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    return (
+      <div className="relative inline-block">
+        <img src={user.avatar} className="w-8 h-8 rounded-full object-cover" alt={user.name} />
+        {isOnline && (
+          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+        )}
+      </div>
+    );
+  };
 
-const Avatar = ({ user }) => {
-    const { onlineUsers } = useSocket();
-    const isOnline = onlineUsers.includes(user?._id);
-
-  if (!task) return null;
-
-  return (
-    <div className="relative inline-block">
-      <img src={user.avatar} className="w-8 h-8 rounded-full" />
-      
-      {isOnline && (
-        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
-      )}
-    </div>
-  );
-};
-
+  // --- 7. RENDER ---
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
         
-        {/* --- HEADER --- */}
+        {/* HEADER */}
         <div className="bg-card border-b border-border p-4 px-6 flex justify-between items-center shrink-0 h-16">
              <div className="flex items-center gap-3 text-muted-foreground">
                 <Badge variant="outline" className="rounded-md font-mono text-xs">{task.project?.name || 'Project'}</Badge>
@@ -289,7 +265,6 @@ const Avatar = ({ user }) => {
              
              <div className="flex items-center gap-2">
                 <Button variant="ghost" size="icon" onClick={() => toast.info("Share link copied!")}><Link2 className="w-4 h-4 text-muted-foreground" /></Button>
-                
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></Button>
@@ -300,40 +275,34 @@ const Avatar = ({ user }) => {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-                
                 <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></Button>
              </div>
         </div>
 
-        {/* --- MAIN BODY (Split View) --- */}
+        {/* SPLIT VIEW */}
         <div className="flex flex-1 overflow-hidden">
             
-            {/* --- LEFT: CONTENT (Document Style) --- */}
+            {/* LEFT: CONTENT */}
             <ScrollArea className="flex-1 bg-background p-8">
                 <div className="max-w-3xl mx-auto space-y-8 pb-20">
-                    
-                    {/* Title */}
-                    <div>
-                        <DialogTitle className="text-3xl font-bold text-foreground leading-tight">{task.title}</DialogTitle>
-                    </div>
+                    <DialogTitle className="text-3xl font-bold text-foreground leading-tight">{task.title}</DialogTitle>
 
-                    {/* Description (Click to Edit) */}
+                    {/* Description */}
                     <div className="group">
                         <div className="flex items-center gap-2 mb-2">
                             <AlignLeft className="w-4 h-4 text-muted-foreground" />
                             <h3 className="text-sm font-semibold text-foreground">Description</h3>
                         </div>
-                        
                         {isEditingDesc ? (
                             <div className="space-y-3">
                                 <Textarea 
                                     value={descInput} 
                                     onChange={e => setDescInput(e.target.value)} 
-                                    className="min-h-[150px] bg-card text-foreground border-border resize-none focus-visible:ring-1"
+                                    className="min-h-[150px] bg-card resize-none"
                                     autoFocus
                                 />
                                 <div className="flex gap-2">
-                                    <Button size="sm" onClick={handleSaveDescription} className="bg-primary text-primary-foreground">Save</Button>
+                                    <Button size="sm" onClick={handleSaveDescription}>Save</Button>
                                     <Button size="sm" variant="ghost" onClick={() => setIsEditingDesc(false)}>Cancel</Button>
                                 </div>
                             </div>
@@ -349,7 +318,7 @@ const Avatar = ({ user }) => {
 
                     <Separator />
 
-                    {/* --- SUBTASKS SECTION --- */}
+                    {/* Subtasks */}
                     <div>
                         <div className="flex justify-between items-end mb-4">
                             <div className="flex items-center gap-2">
@@ -357,18 +326,14 @@ const Avatar = ({ user }) => {
                                 <h3 className="text-sm font-semibold text-foreground">Subtasks</h3>
                             </div>
                             <span className="text-xs text-muted-foreground font-medium">
-                                {subtasks.length > 0 
-                                    ? `${Math.round((subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100)}%` 
-                                    : '0%'}
+                                {subtasks.length > 0 ? `${Math.round((subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100)}%` : '0%'}
                             </span>
                         </div>
                         
-                        {/* Only show progress bar if there are subtasks */}
                         {subtasks.length > 0 && (
                             <Progress value={(subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100} className="h-1.5 mb-6" />
                         )}
 
-                        {/* EMPTY STATE: Subtasks */}
                         {subtasks.length === 0 ? (
                             <div className="text-center py-6 border-2 border-dashed border-border/60 rounded-xl mb-4 bg-muted/5">
                                 <div className="flex justify-center mb-2">
@@ -377,9 +342,6 @@ const Avatar = ({ user }) => {
                                     </div>
                                 </div>
                                 <p className="text-xs font-medium text-foreground">No subtasks yet</p>
-                                <p className="text-[10px] text-muted-foreground mt-1 px-8 leading-relaxed">
-                                    Break task into smaller steps.<br/>Assign and track progress separately.
-                                </p>
                             </div>
                         ) : (
                             <div className="space-y-1 mb-4">
@@ -387,8 +349,7 @@ const Avatar = ({ user }) => {
                                     <div key={st._id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 group transition-colors">
                                         <button 
                                             onClick={() => handleToggleSubtask(st._id)}
-                                            className={`h-5 w-5 rounded border flex items-center justify-center transition-all 
-                                                ${st.isCompleted ? 'bg-primary border-primary' : 'border-muted-foreground hover:border-primary'}`}
+                                            className={`h-5 w-5 rounded border flex items-center justify-center transition-all ${st.isCompleted ? 'bg-primary border-primary' : 'border-muted-foreground hover:border-primary'}`}
                                         >
                                             {st.isCompleted && <Check className="h-3.5 w-3.5 text-primary-foreground" />}
                                         </button>
@@ -401,7 +362,6 @@ const Avatar = ({ user }) => {
                             </div>
                         )}
 
-                        {/* Add Subtask Input */}
                         <form onSubmit={handleAddSubtask} className="flex items-center gap-3 pl-2">
                             <Plus className="h-4 w-4 text-muted-foreground" />
                             <input 
@@ -445,12 +405,11 @@ const Avatar = ({ user }) => {
                 </div>
             </ScrollArea>
 
-            {/* --- RIGHT: SIDEBAR (Properties & Chat) --- */}
+            {/* RIGHT: SIDEBAR */}
             <div className="w-[350px] bg-muted/10 border-l border-border flex flex-col shrink-0">
                 
-                {/* Properties Panel */}
+                {/* Properties */}
                 <div className="p-6 space-y-6 overflow-y-auto max-h-[50%] border-b border-border">
-                    
                     {/* Status */}
                     <div className="grid grid-cols-3 items-center gap-4">
                         <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Layout className="w-3.5 h-3.5"/> Status</span>
@@ -459,7 +418,8 @@ const Avatar = ({ user }) => {
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="w-full justify-start h-8 font-normal capitalize">
                                         <div className={`w-2 h-2 rounded-full mr-2 ${currentStatus === 'done' ? 'bg-green-500' : 'bg-slate-400'}`}></div>
-                                        {currentStatus.replace('-', ' ')}
+                                        {/* FIX 1: Safe Replace */}
+                                        {(currentStatus || 'todo').toString().replace('-', ' ')}
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-[200px]">
@@ -477,7 +437,7 @@ const Avatar = ({ user }) => {
                         <div className="col-span-2">
                              <DropdownMenu>
                                 <DropdownMenuTrigger className="focus:outline-none w-full text-left">
-                                     <div className="w-full border border-input bg-background hover:bg-accent hover:text-accent-foreground px-3 py-1.5 rounded-md flex items-center text-sm h-8">
+                                     <div className="w-full border border-input bg-background hover:bg-accent px-3 py-1.5 rounded-md flex items-center text-sm h-8">
                                          <PriorityBadge priority={currentPriority} />
                                      </div>
                                 </DropdownMenuTrigger>
@@ -499,7 +459,7 @@ const Avatar = ({ user }) => {
                                     <Button variant="outline" size="sm" className="w-full justify-start h-8 font-normal px-2">
                                         {assignee ? (
                                             <div className="flex items-center gap-2">
-                                                <Avatar className="h-5 w-5"><AvatarImage src={assignee.avatar} /><AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback></Avatar>
+                                                <UIAvatar className="h-5 w-5"><AvatarImage src={assignee.avatar} /><AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback></UIAvatar>
                                                 <span className="truncate">{assignee.name}</span>
                                             </div>
                                         ) : <span className="text-muted-foreground">Unassigned</span>}
@@ -513,7 +473,7 @@ const Avatar = ({ user }) => {
                                                 <CommandItem key={m.user._id} value={m.user.name} onSelect={() => initiateAssignment(m.user)}>
                                                     <Check className={`mr-2 h-4 w-4 ${assignee?._id === m.user._id ? "opacity-100" : "opacity-0"}`} />
                                                     <div className="flex items-center gap-2">
-                                                        <Avatar className="h-5 w-5"><AvatarImage src={m.user.avatar} /><AvatarFallback>{m.user.name.charAt(0)}</AvatarFallback></Avatar>
+                                                        <UIAvatar className="h-5 w-5"><AvatarImage src={m.user.avatar} /><AvatarFallback>{m.user.name.charAt(0)}</AvatarFallback></UIAvatar>
                                                         {m.user.name}
                                                     </div>
                                                 </CommandItem>
@@ -547,7 +507,7 @@ const Avatar = ({ user }) => {
 
                     <Separator />
 
-                    {/* --- DEPENDENCIES SECTION --- */}
+                    {/* Dependencies */}
                     <div className="space-y-3">
                          <div className="flex justify-between items-center">
                             <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Link2 className="w-3.5 h-3.5"/> Blocking</span>
@@ -569,14 +529,9 @@ const Avatar = ({ user }) => {
                             </Popover>
                          </div>
                          
-                         {/* EMPTY STATE: Dependencies */}
                          {dependencies.length === 0 ? (
                              <div className="text-center py-4 border-2 border-dashed border-border/60 rounded-xl bg-muted/5">
                                  <p className="text-[10px] font-medium text-muted-foreground">No dependencies</p>
-                                 <p className="text-[9px] text-muted-foreground/70 mt-1 px-2 leading-relaxed">
-                                     Link tasks (e.g. "Task B depends on A").<br/>
-                                     Types: "blocked by", "relates to".
-                                 </p>
                              </div>
                          ) : (
                              <div className="space-y-2">
@@ -594,7 +549,7 @@ const Avatar = ({ user }) => {
                     </div>
                 </div>
 
-                {/* --- ACTIVITY & CHAT FEED --- */}
+                {/* ACTIVITY & CHAT FEED */}
                 <div className="flex-1 flex flex-col min-h-0 bg-background">
                     <div className="p-3 border-b border-border bg-muted/20 flex items-center gap-2">
                         <History className="w-3.5 h-3.5 text-muted-foreground" />
@@ -610,23 +565,19 @@ const Avatar = ({ user }) => {
                             )}
 
                             {timeline.map((item) => (
-                                <div key={item._id} className="flex gap-3 text-sm group">
-                                    {/* Avatar with Online Status (Using the internal component) */}
+                                <div key={item._id || Math.random()} className="flex gap-3 text-sm group">
                                     <div className="shrink-0 pt-1">
                                         <Avatar user={item.user || item.performer} />
                                     </div>
-
                                     <div className="flex-1 space-y-1">
                                         <div className="flex items-center justify-between">
                                             <span className="font-semibold text-foreground text-xs">
                                                 {item.user?.name || item.performer?.name}
                                             </span>
                                             <span className="text-[10px] text-muted-foreground tabular-nums">
-                                                {format(new Date(item.createdAt), "MMM d, h:mm a")}
+                                                {item.createdAt ? format(new Date(item.createdAt), "MMM d, h:mm a") : ''}
                                             </span>
                                         </div>
-
-                                        {/* Render based on Type: Comment vs Activity */}
                                         {item.type === 'comment' ? (
                                             <div className="bg-muted/30 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-border/50 text-foreground shadow-sm">
                                                 <p className="whitespace-pre-wrap leading-relaxed">{item.content}</p>
@@ -634,7 +585,8 @@ const Avatar = ({ user }) => {
                                         ) : (
                                             <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                                                 <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-                                                {formatActivityAction(item)}
+                                                {/* FIX 2: Check if helper function exists and is safe */}
+                                                {formatActivityAction ? formatActivityAction(item) : "Action performed"}
                                             </div>
                                         )}
                                     </div>
@@ -643,11 +595,10 @@ const Avatar = ({ user }) => {
                         </div>
                     </ScrollArea>
 
-                    {/* --- CHAT INPUT --- */}
                     <div className="p-4 border-t border-border bg-background mt-auto">
                         <form onSubmit={handleSendComment} className="relative">
                             <Textarea 
-                                placeholder="Write a comment... (@ to mention)"
+                                placeholder="Write a comment..."
                                 value={newComment}
                                 onChange={e => setNewComment(e.target.value)}
                                 className="min-h-[80px] pr-12 resize-none bg-muted/20 focus:bg-background transition-all"
@@ -658,39 +609,23 @@ const Avatar = ({ user }) => {
                                     }
                                 }}
                             />
-                            <Button 
-                                size="sm" 
-                                type="submit" 
-                                disabled={!newComment.trim()}
-                                className="absolute bottom-2 right-2 h-7 w-7 p-0 rounded-lg"
-                            >
+                            <Button size="sm" type="submit" disabled={!newComment.trim()} className="absolute bottom-2 right-2 h-7 w-7 p-0 rounded-lg">
                                 <div className="-rotate-90"><AlignLeft className="w-3 h-3" /></div>
-                                <span className="sr-only">Send</span>
                             </Button>
                         </form>
-                        <div className="text-[10px] text-muted-foreground mt-2 flex justify-between px-1">
-                            <span>**Bold**, *Italic* supported</span>
-                            <span>Enter to send</span>
-                        </div>
                     </div>
                 </div>
-
-            {/* --- END RIGHT SIDEBAR --- */}
             </div>
-
-        {/* --- END MAIN BODY --- */}
         </div>
       </DialogContent>
     </Dialog>
 
-    {/* --- ASSIGNMENT CONFIRMATION DIALOG --- */}
     <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Change Assignee?</AlertDialogTitle>
                 <AlertDialogDescription>
                     Are you sure you want to assign this task to <strong>{pendingAssignee?.name}</strong>? 
-                    They will be notified immediately.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
