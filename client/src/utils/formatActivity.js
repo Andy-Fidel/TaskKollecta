@@ -15,6 +15,6 @@ export const formatActivityAction = (action, details) => {
     case 'deleted':
         return 'deleted a task';
     default:
-      return action ? action.replace(/_/g, ' ') : 'updated task';
+      return action ? String(action).replace(/_/g, ' ') : 'updated task';
   }
 };
