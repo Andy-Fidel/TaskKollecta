@@ -19,37 +19,37 @@ const createTask = async (req, res) => {
       dueDate,
       project: projectId,
       organization: orgId,
-      assignee, 
+      assignee,
       reporter: req.user._id
     });
 
     const populatedTask = await Task.findById(task._id)
-        .populate('assignee', 'name email avatar')
-        .populate('project', 'name');
+      .populate('assignee', 'name email avatar')
+      .populate('project', 'name');
 
     // ✅ LOG ACTIVITY HERE
-    await logActivity(req, { 
-        task: task, 
-        action: 'created', 
-        details: `created the task "${task.title}"` 
+    await logActivity(req, {
+      task: task,
+      action: 'created',
+      details: `created the task "${task.title}"`
     });
 
     // ... (Your existing email logic stays here) ...
     if (assignee && assignee !== req.user._id.toString()) {
-        const assigneeUser = await User.findById(assignee);
-        if (assigneeUser) {
-            await sendEmail({
-                email: assigneeUser.email,
-                subject: `New Task Assigned: ${populatedTask.title}`,
-                message: `
+      const assigneeUser = await User.findById(assignee);
+      if (assigneeUser) {
+        await sendEmail({
+          email: assigneeUser.email,
+          subject: `New Task Assigned: ${populatedTask.title}`,
+          message: `
                     <h2>New Task Assigned</h2>
                     <p><strong>${req.user.name}</strong> created a task for you.</p>
                     <p><strong>Task:</strong> ${populatedTask.title}</p>
                     <p><strong>Project:</strong> ${populatedTask.project?.name || 'General'}</p>
                     <a href="${process.env.CLIENT_URL}/project/${projectId}" style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Task</a>
                 `
-            });
-        }
+        });
+      }
     }
 
     res.status(201).json(populatedTask);
@@ -65,16 +65,16 @@ const getProjectTasks = async (req, res) => {
     // Check if client specifically asked for archived tasks
     const showArchived = req.query.archived === 'true';
 
-    const query = { 
-        project: req.params.projectId,
-    
-        archived: showArchived ? true : { $ne: true } 
+    const query = {
+      project: req.params.projectId,
+
+      archived: showArchived ? true : { $ne: true }
     };
 
     const tasks = await Task.find(query)
       .populate('assignee', 'name avatar')
       .populate('dependencies', 'title status')
-      .sort({ index: 1 }); 
+      .sort({ index: 1 });
 
     res.json(tasks);
   } catch (error) {
@@ -88,9 +88,9 @@ const getProjectTasks = async (req, res) => {
 const getMyTasks = async (req, res) => {
   try {
     const tasks = await Task.find({ assignee: req.user._id })
-      .populate('project', 'name') 
-      .sort({ dueDate: 1 }); 
-      
+      .populate('project', 'name')
+      .sort({ dueDate: 1 });
+
     res.status(200).json(tasks);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -103,10 +103,10 @@ const getTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id)
       .populate('assignee', 'name avatar')
-      .populate('dependencies', 'title status'); 
-      
+      .populate('dependencies', 'title status');
+
     if (!task) return res.status(404).json({ message: 'Task not found' });
-    
+
     res.json(task);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -127,7 +127,7 @@ const deleteTask = async (req, res) => {
     await logActivity(req, { task, action: 'deleted', details: 'Task removed permanently' });
 
     await Task.deleteOne({ _id: req.params.id });
-    
+
     res.json({ id: req.params.id, message: 'Task removed' });
   } catch (error) {
     console.error("Delete Error:", error);
@@ -182,12 +182,12 @@ const toggleSubtask = async (req, res) => {
 // @desc Delete subtask
 // @route DELETE /api/tasks/:id/subtasks/:subtaskId
 const deleteSubtask = async (req, res) => {
-    try {
-        const task = await Task.findById(req.params.id);
-        task.subtasks.pull(req.params.subtaskId);
-        await task.save();
-        res.json(task);
-    } catch (error) { res.status(500).json({ message: error.message }); }
+  try {
+    const task = await Task.findById(req.params.id);
+    task.subtasks.pull(req.params.subtaskId);
+    await task.save();
+    res.json(task);
+  } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
 // --- DEPENDENCY LOGIC ---
@@ -195,31 +195,31 @@ const deleteSubtask = async (req, res) => {
 // @desc Add dependency (Blocker)
 // @route POST /api/tasks/:id/dependencies
 const addDependency = async (req, res) => {
-    const { dependencyId } = req.body; 
-    try {
-        if (req.params.id === dependencyId) return res.status(400).json({ message: "Task cannot block itself" });
+  const { dependencyId } = req.body;
+  try {
+    if (req.params.id === dependencyId) return res.status(400).json({ message: "Task cannot block itself" });
 
-        const task = await Task.findByIdAndUpdate(
-            req.params.id,
-            { $addToSet: { dependencies: dependencyId } },
-            { new: true }
-        ).populate('dependencies', 'title status');
-        
-        res.json(task);
-    } catch (error) { res.status(500).json({ message: error.message }); }
+    const task = await Task.findByIdAndUpdate(
+      req.params.id,
+      { $addToSet: { dependencies: dependencyId } },
+      { new: true }
+    ).populate('dependencies', 'title status');
+
+    res.json(task);
+  } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
 // @desc Remove dependency
 // @route DELETE /api/tasks/:id/dependencies/:dependencyId
 const removeDependency = async (req, res) => {
-    try {
-        const task = await Task.findByIdAndUpdate(
-            req.params.id,
-            { $pull: { dependencies: req.params.dependencyId } },
-            { new: true }
-        ).populate('dependencies', 'title status');
-        res.json(task);
-    } catch (error) { res.status(500).json({ message: error.message }); }
+  try {
+    const task = await Task.findByIdAndUpdate(
+      req.params.id,
+      { $pull: { dependencies: req.params.dependencyId } },
+      { new: true }
+    ).populate('dependencies', 'title status');
+    res.json(task);
+  } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
 const updateTask = async (req, res) => {
@@ -232,62 +232,62 @@ const updateTask = async (req, res) => {
 
     // BLOCKING LOGIC: Check dependencies if marking as done
     if (req.body.status === 'done' && oldTask.dependencies.length > 0) {
-        const incompleteDependencies = oldTask.dependencies.filter(dep => dep.status !== 'done');
-        
-        if (incompleteDependencies.length > 0) {
-            const titles = incompleteDependencies.map(t => t.title).join(', ');
-            return res.status(400).json({ 
-                message: `Cannot complete task. It is waiting on: ${titles}` 
-            });
-        }
+      const incompleteDependencies = oldTask.dependencies.filter(dep => dep.status !== 'done');
+
+      if (incompleteDependencies.length > 0) {
+        const titles = incompleteDependencies.map(t => t.title).join(', ');
+        return res.status(400).json({
+          message: `Cannot complete task. It is waiting on: ${titles}`
+        });
+      }
     }
-  
+
     const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id, 
-      req.body, 
+      req.params.id,
+      req.body,
       { new: true }
     )
-    .populate('dependencies', 'title status')
-    .populate('assignee', 'name avatar');
+      .populate('dependencies', 'title status')
+      .populate('assignee', 'name avatar');
 
     // ✅ LOG ACTIVITY: Check if status changed
     if (req.body.status && oldTask.status !== req.body.status) {
-        await logActivity(req, {
-            task: updatedTask,
-            action: 'moved',
-            details: `moved "${updatedTask.title}" to ${req.body.status}`
-        });
+      await logActivity(req, {
+        task: updatedTask,
+        action: 'moved',
+        details: `moved "${updatedTask.title}" to ${req.body.status}`
+      });
     }
 
     // --- AUTOMATION TRIGGER ---
     if (req.body.status) {
-        runAutomations(updatedTask.project, 'status_change', req.body.status, updatedTask);
+      runAutomations(updatedTask.project, 'status_change', req.body.status, updatedTask);
     }
-    
+
     if (req.body.priority) {
-        runAutomations(updatedTask.project, 'priority_change', req.body.priority, updatedTask);
+      runAutomations(updatedTask.project, 'priority_change', req.body.priority, updatedTask);
     }
 
     // ... (Your existing notification logic stays here) ...
     // NOTIFICATIONS (Socket + Email)
     if (req.body.assignee && req.body.assignee !== oldTask.assignee?.toString()) {
-        if (req.body.assignee !== req.user._id.toString()) {
-            await sendNotification(req.io, {
-                recipientId: req.body.assignee,
-                senderId: req.user._id,
-                type: 'task_assigned',
-                relatedId: updatedTask._id, 
-                relatedModel: 'Task',
-                message: `assigned you to task: ${updatedTask.title}`
-            });
-        }
+      if (req.body.assignee !== req.user._id.toString()) {
+        await sendNotification(req.io, {
+          recipientId: req.body.assignee,
+          senderId: req.user._id,
+          type: 'task_assigned',
+          relatedId: updatedTask._id,
+          relatedModel: 'Task',
+          message: `assigned you to task: ${updatedTask.title}`
+        });
+      }
 
-        const assigneeUser = await User.findById(req.body.assignee);
-        if (assigneeUser) {
-            await sendEmail({
-                email: assigneeUser.email,
-                subject: `You were assigned to: ${updatedTask.title}`,
-                message: `
+      const assigneeUser = await User.findById(req.body.assignee);
+      if (assigneeUser) {
+        await sendEmail({
+          email: assigneeUser.email,
+          subject: `You were assigned to: ${updatedTask.title}`,
+          message: `
                     <h2>New Task Assignment</h2>
                     <p><strong>${req.user.name}</strong> assigned you to a task.</p>
                     <div style="padding: 15px; border: 1px solid #eee; border-radius: 5px; margin: 10px 0;">
@@ -296,8 +296,8 @@ const updateTask = async (req, res) => {
                     </div>
                     <a href="${process.env.CLIENT_URL}/project/${updatedTask.project}" style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Task</a>
                 `
-            });
-        }
+        });
+      }
     }
 
     res.status(200).json(updatedTask);
@@ -323,7 +323,51 @@ const toggleArchiveTask = async (req, res) => {
   }
 };
 
-module.exports = { createTask, getProjectTasks,  getTask,
-  getMyTasks, deleteTask, addAttachment, 
-  addSubtask, toggleSubtask, 
-  addDependency, removeDependency, updateTask, deleteSubtask, toggleArchiveTask };
+// --- TAG LOGIC ---
+
+// @desc Add tag to task
+// @route POST /api/tasks/:id/tags
+const addTag = async (req, res) => {
+  try {
+    const { name, color } = req.body;
+    if (!name) return res.status(400).json({ message: 'Tag name is required' });
+
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    // Check if tag already exists
+    const existingTag = task.tags.find(t => t.name.toLowerCase() === name.toLowerCase());
+    if (existingTag) return res.status(400).json({ message: 'Tag already exists' });
+
+    task.tags.push({ name, color: color || '#6366f1' });
+    await task.save();
+
+    res.json(task);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc Remove tag from task
+// @route DELETE /api/tasks/:id/tags/:tagId
+const removeTag = async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    task.tags.pull(req.params.tagId);
+    await task.save();
+
+    res.json(task);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  createTask, getProjectTasks, getTask,
+  getMyTasks, deleteTask, addAttachment,
+  addSubtask, toggleSubtask,
+  addDependency, removeDependency, updateTask, deleteSubtask, toggleArchiveTask,
+  addTag, removeTag
+};

@@ -2,8 +2,8 @@ const express = require("express");
 const cookieParser = require('cookie-parser');
 const dotenv = require("dotenv");
 const cors = require("cors");
-const http = require("http"); 
-const { Server } = require("socket.io"); 
+const http = require("http");
+const { Server } = require("socket.io");
 const connectDB = require("./config/db");
 const passport = require('passport');
 
@@ -21,6 +21,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const formRoutes = require('./routes/formRoutes');
 const passportConfig = require('./config/passport');
 const automationRoutes = require('./routes/automationRoutes');
+const searchRoutes = require('./routes/searchRoutes');
 
 // Load environment variables
 
@@ -39,12 +40,12 @@ app.use(cors({
     process.env.CLIENT_URL                // Production (Vercel URL)
   ],
   credentials: true
- }));
+}));
 app.use(passport.initialize());
-passportConfig; 
+passportConfig;
 
 // --- SOCKET.IO SETUP START ---
-const server = http.createServer(app); 
+const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
@@ -106,7 +107,7 @@ io.on('connection', (socket) => {
         break;
       }
     }
-    
+
     // Send updated list to everyone if someone valid disconnected
     if (disconnectedUser) {
       io.emit('get_online_users', Array.from(onlineUsers.keys()));
@@ -116,14 +117,14 @@ io.on('connection', (socket) => {
 
 // Make io accessible in your controllers (if you haven't already)
 app.use((req, res, next) => {
-    req.io = io;
-    next();
+  req.io = io;
+  next();
 });
 // --- SOCKET.IO SETUP END ---
 
 app.use((req, res, next) => {
   req.io = io;
-    next();
+  next();
 });
 
 // Mount Routes
@@ -138,6 +139,7 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/forms', formRoutes);
 app.use('/api/automations', automationRoutes);
+app.use('/api/search', searchRoutes);
 
 
 
@@ -145,4 +147,4 @@ const PORT = process.env.PORT || 5000;
 
 // IMPORTANT: Change app.listen to server.listen
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-module.exports = {app, server, io};
+module.exports = { app, server, io };

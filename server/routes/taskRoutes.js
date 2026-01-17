@@ -1,18 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { createTask, 
+const { createTask,
     getProjectTasks,
     getTask,
     updateTask,
     getMyTasks,
     deleteTask,
     addAttachment,
-    addSubtask, 
-    toggleSubtask, 
-    deleteSubtask, 
-    addDependency, 
-    removeDependency, 
-    toggleArchiveTask } = require('../controllers/taskController');
+    addSubtask,
+    toggleSubtask,
+    deleteSubtask,
+    addDependency,
+    removeDependency,
+    toggleArchiveTask,
+    addTag,
+    removeTag } = require('../controllers/taskController');
 const { protect } = require('../middleware/authMiddleware');
 
 
@@ -33,5 +35,9 @@ router.delete('/:id/subtasks/:subtaskId', protect, deleteSubtask);
 // Dependencies
 router.post('/:id/dependencies', protect, addDependency);
 router.delete('/:id/dependencies/:dependencyId', protect, removeDependency);
+
+// Tags
+router.post('/:id/tags', protect, addTag);
+router.delete('/:id/tags/:tagId', protect, removeTag);
 
 module.exports = router;
