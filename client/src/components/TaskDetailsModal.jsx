@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
     User as UserIcon, Check, MoreHorizontal, Trash2, Paperclip, FileText,
     Image as ImageIcon, Link2, Link2Off, AlertCircle, X, Plus,
-    AlignLeft, Layout, Clock, CheckCircle2, ListChecks, History, Tag
+    AlignLeft, Layout, Clock, CheckCircle2, ListChecks, History, Tag, Repeat
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -31,6 +31,7 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { PriorityBadge } from './PriorityBadge';
 import { TagPicker } from './TagPicker';
+import { RecurrencePicker } from './RecurrencePicker';
 
 export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     const { user } = useAuth();
@@ -42,6 +43,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     const [subtasks, setSubtasks] = useState(task?.subtasks || []);
     const [dependencies, setDependencies] = useState(task?.dependencies || []);
     const [tags, setTags] = useState(task?.tags || []);
+    const [recurrence, setRecurrence] = useState(task?.recurrence || null);
 
     const [newComment, setNewComment] = useState('');
     const [newSubtask, setNewSubtask] = useState('');
@@ -79,6 +81,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
             setSubtasks(task.subtasks || []);
             setDependencies(task.dependencies || []);
             setTags(task.tags || []);
+            setRecurrence(task.recurrence || null);
         }
     }, [isOpen, task]);
 
@@ -534,6 +537,18 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
                                             taskId={task._id}
                                             tags={tags}
                                             onTagsChange={setTags}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Recurrence */}
+                                <div className="grid grid-cols-3 items-center gap-4">
+                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Repeat className="w-3.5 h-3.5" /> Repeat</span>
+                                    <div className="col-span-2">
+                                        <RecurrencePicker
+                                            taskId={task._id}
+                                            recurrence={recurrence}
+                                            onRecurrenceChange={setRecurrence}
                                         />
                                     </div>
                                 </div>

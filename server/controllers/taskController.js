@@ -364,10 +364,70 @@ const removeTag = async (req, res) => {
   }
 };
 
+// --- RECURRENCE LOGIC ---
+
+// @desc Set recurrence for a task
+// @route PUT /api/tasks/:id/recurrence
+const setRecurrence = async (req, res) => {
+  try {
+    const { enabled, pattern, interval, daysOfWeek, endDate } = req.body;
+
+    const task = await Task.findByIdAndUpdate(
+      req.params.id,
+      {
+        recurrence: {
+          enabled: enabled !== false,
+          pattern: pattern || 'weekly',
+          interval: interval || 1,
+          daysOfWeek: daysOfWeek || [],
+          endDate: endDate || null,
+          lastGenerated: null
+        }
+      },
+      { new: true }
+    ).populate('assignee', 'name email avatar')
+      .populate('project', 'name');
+
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    res.json(task);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc Remove recurrence from a task
+// @route DELETE /api/tasks/:id/recurrence
+const removeRecurrence = async (req, res) => {
+  try {
+    const task = await Task.findByIdAndUpdate(
+      req.params.id,
+      {
+        recurrence: {
+          enabled: false,
+          pattern: 'weekly',
+          interval: 1,
+          daysOfWeek: [],
+          endDate: null,
+          lastGenerated: null
+        }
+      },
+      { new: true }
+    ).populate('assignee', 'name email avatar')
+      .populate('project', 'name');
+
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    res.json(task);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createTask, getProjectTasks, getTask,
   getMyTasks, deleteTask, addAttachment,
   addSubtask, toggleSubtask,
   addDependency, removeDependency, updateTask, deleteSubtask, toggleArchiveTask,
-  addTag, removeTag
+  addTag, removeTag, setRecurrence, removeRecurrence
 };

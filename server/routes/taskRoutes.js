@@ -14,7 +14,9 @@ const { createTask,
     removeDependency,
     toggleArchiveTask,
     addTag,
-    removeTag } = require('../controllers/taskController');
+    removeTag,
+    setRecurrence,
+    removeRecurrence } = require('../controllers/taskController');
 const { protect } = require('../middleware/authMiddleware');
 
 
@@ -39,5 +41,9 @@ router.delete('/:id/dependencies/:dependencyId', protect, removeDependency);
 // Tags
 router.post('/:id/tags', protect, addTag);
 router.delete('/:id/tags/:tagId', protect, removeTag);
+
+// Recurrence
+router.put('/:id/recurrence', protect, setRecurrence);
+router.delete('/:id/recurrence', protect, removeRecurrence);
 
 module.exports = router;
