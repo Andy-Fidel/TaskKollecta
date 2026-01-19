@@ -1,23 +1,31 @@
 const mongoose = require('mongoose');
 
 const activitySchema = new mongoose.Schema({
-  // 1. Link to Project (CRITICAL for fetching logs later)
-  project: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: 'Project', 
-      required: true 
+  // Link to Project (for project-level activity feeds)
+  project: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project',
+    required: true,
+    index: true // Index for project activity lookups
   },
-  
-  task: { type: mongoose.Schema.Types.ObjectId, ref: 'Task' },
+
+  task: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Task',
+    index: true // Index for task history lookups
+  },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  
-  // 2. Removed 'enum' strict check so 'moved', 'deleted', etc. won't fail
-  action: { 
-    type: String, 
+
+  action: {
+    type: String,
     required: true
   },
 
-  details: { type: String } 
+  details: { type: String }
 }, { timestamps: true });
+
+// Compound indexes for paginated queries
+activitySchema.index({ task: 1, createdAt: -1 }); // Task history (newest first)
+activitySchema.index({ project: 1, createdAt: -1 }); // Project feed (newest first)
 
 module.exports = mongoose.model('Activity', activitySchema);

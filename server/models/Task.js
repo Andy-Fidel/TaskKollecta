@@ -69,4 +69,11 @@ const taskSchema = new mongoose.Schema({
   dependencies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
 }, { timestamps: true });
 
+// Indexes for common queries
+taskSchema.index({ project: 1, status: 1 }); // Tasks by project and status (kanban)
+taskSchema.index({ assignee: 1, status: 1 }); // My tasks
+taskSchema.index({ project: 1, createdAt: -1 }); // Project tasks sorted by date
+taskSchema.index({ dueDate: 1 }); // Calendar view / overdue queries
+taskSchema.index({ organization: 1 }); // Org-scoped queries
+
 module.exports = mongoose.model('Task', taskSchema);

@@ -16,7 +16,7 @@ const createProject = async (req, res) => {
       description,
       organization: orgId,
       // Use provided lead OR default to creator
-      lead: lead || req.user._id, 
+      lead: lead || req.user._id,
       dueDate,
       color
     });
@@ -64,19 +64,19 @@ const getProjectAnalytics = async (req, res) => {
   try {
     const projectId = new mongoose.Types.ObjectId(req.params.id);
 
-    
+
     const statusStats = await Task.aggregate([
       { $match: { project: projectId } },
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
 
-    
+
     const priorityStats = await Task.aggregate([
       { $match: { project: projectId } },
       { $group: { _id: '$priority', count: { $sum: 1 } } }
     ]);
 
-    
+
     const totalTasks = await Task.countDocuments({ project: projectId });
     const completedTasks = await Task.countDocuments({ project: projectId, status: 'done' });
 
@@ -121,7 +121,7 @@ const updateProject = async (req, res) => {
   try {
     const project = await Project.findByIdAndUpdate(
       req.params.id,
-      req.body, 
+      req.body,
       { new: true }
     );
     res.json(project);
@@ -134,12 +134,12 @@ const updateProject = async (req, res) => {
 // @route   DELETE /api/projects/:id
 const deleteProject = async (req, res) => {
   try {
-    
+
     await Task.deleteMany({ project: req.params.id });
-    
-    
+
+
     await Project.findByIdAndDelete(req.params.id);
-    
+
     res.json({ message: 'Project and tasks deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -151,18 +151,18 @@ const deleteProject = async (req, res) => {
 const getAllProjects = async (req, res) => {
   try {
     const userId = req.user._id;
-    const activeOrgId = req.headers['x-active-org']; 
+    const activeOrgId = req.headers['x-active-org'];
 
     // Fetch User's Memberships
     const memberships = await Membership.find({ user: userId });
-    
+
     // Logic to Determine Target Organization(s)
     // Convert all membership org IDs to strings for comparison
     let validOrgIds = memberships.map(m => m.organization.toString());
 
     // If header exists AND user is actually a member of that org, filter to just that one.
     if (activeOrgId && validOrgIds.includes(activeOrgId)) {
-        validOrgIds = [activeOrgId];
+      validOrgIds = [activeOrgId];
     }
 
     // Convert back to Mongoose ObjectIds for the Aggregation Pipeline
@@ -187,21 +187,21 @@ const getAllProjects = async (req, res) => {
         $addFields: {
           totalTasks: { $size: '$projectTasks' },
           completedTasks: {
-            $size: { 
-              $filter: { 
-                input: '$projectTasks', 
-                as: 't', 
-                cond: { $eq: ['$$t.status', 'done'] } 
-              } 
+            $size: {
+              $filter: {
+                input: '$projectTasks',
+                as: 't',
+                cond: { $eq: ['$$t.status', 'done'] }
+              }
             }
           },
           // Get unique IDs of everyone assigned to tasks in this project
-          assigneeIds: { 
-             $filter: {
-               input: { $setUnion: '$projectTasks.assignee' }, 
-               as: 'id',
-               cond: { $ne: ['$$id', null] } 
-             }
+          assigneeIds: {
+            $filter: {
+              input: { $setUnion: '$projectTasks.assignee' },
+              as: 'id',
+              cond: { $ne: ['$$id', null] }
+            }
           }
         }
       },
@@ -219,16 +219,20 @@ const getAllProjects = async (req, res) => {
       // Clean up output
       {
         $project: {
-          name: 1, 
-          description: 1, 
-          updatedAt: 1, 
-          dueDate: 1, 
+          name: 1,
+          description: 1,
+          updatedAt: 1,
+          dueDate: 1,
+          color: 1,
+          status: 1,
+          lead: 1,
+          organization: 1,
           team: { name: 1, avatar: 1, _id: 1 },
           progress: {
-            $cond: [ 
-              { $eq: ['$totalTasks', 0] }, 
-              0, 
-              { $multiply: [ { $divide: ['$completedTasks', '$totalTasks'] }, 100 ] } 
+            $cond: [
+              { $eq: ['$totalTasks', 0] },
+              0,
+              { $multiply: [{ $divide: ['$completedTasks', '$totalTasks'] }, 100] }
             ]
           }
         }
@@ -242,7 +246,9 @@ const getAllProjects = async (req, res) => {
   }
 };
 
-module.exports = { createProject, 
+module.exports = {
+  createProject,
   getOrgProjects, getProjectDetails,
-   getProjectAnalytics, createUpdate,
-    getUpdates, updateProject, deleteProject, getAllProjects };
+  getProjectAnalytics, createUpdate,
+  getUpdates, updateProject, deleteProject, getAllProjects
+};

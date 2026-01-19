@@ -277,14 +277,14 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
+                <DialogContent className="w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
 
                     {/* HEADER */}
-                    <div className="bg-card border-b border-border p-4 px-6 flex justify-between items-center shrink-0 h-16">
-                        <div className="flex items-center gap-3 text-muted-foreground">
-                            <Badge variant="outline" className="rounded-md font-mono text-xs">{task.project?.name || 'Project'}</Badge>
-                            <span className="text-sm">/</span>
-                            <span className="text-sm font-medium font-mono">TASK-{task._id.slice(-4)}</span>
+                    <div className="bg-card border-b border-border p-3 md:p-4 px-4 md:px-6 flex justify-between items-center shrink-0 min-h-[56px] md:h-16">
+                        <div className="flex items-center gap-2 md:gap-3 text-muted-foreground overflow-hidden">
+                            <Badge variant="outline" className="rounded-md font-mono text-[10px] md:text-xs shrink-0">{task.project?.name || 'Project'}</Badge>
+                            <span className="text-sm hidden md:inline">/</span>
+                            <span className="text-xs md:text-sm font-medium font-mono truncate">TASK-{task._id.slice(-4)}</span>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -303,13 +303,13 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
                         </div>
                     </div>
 
-                    {/* SPLIT VIEW */}
-                    <div className="flex flex-1 overflow-hidden">
+                    {/* SPLIT VIEW - Stack on mobile, side-by-side on desktop */}
+                    <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
 
                         {/* LEFT: CONTENT */}
-                        <ScrollArea className="flex-1 bg-background p-8">
-                            <div className="max-w-3xl mx-auto space-y-8 pb-20">
-                                <DialogTitle className="text-3xl font-bold text-foreground leading-tight">{task.title}</DialogTitle>
+                        <ScrollArea className="flex-1 bg-background p-4 md:p-8 order-1">
+                            <div className="max-w-3xl mx-auto space-y-6 md:space-y-8 pb-20">
+                                <DialogTitle className="text-xl md:text-3xl font-bold text-foreground leading-tight">{task.title}</DialogTitle>
 
                                 {/* Description */}
                                 <div className="group">
@@ -429,11 +429,11 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
                             </div>
                         </ScrollArea>
 
-                        {/* RIGHT: SIDEBAR */}
-                        <div className="w-[350px] bg-muted/10 border-l border-border flex flex-col shrink-0">
+                        {/* RIGHT: SIDEBAR - Full width on mobile, fixed on desktop */}
+                        <div className="w-full lg:w-[350px] bg-muted/10 border-t lg:border-t-0 lg:border-l border-border flex flex-col shrink-0 order-2 lg:order-none max-h-[40vh] lg:max-h-none overflow-y-auto lg:overflow-visible">
 
                             {/* Properties */}
-                            <div className="p-6 space-y-6 overflow-y-auto max-h-[50%] border-b border-border">
+                            <div className="p-4 md:p-6 space-y-4 md:space-y-6 overflow-y-auto lg:max-h-[50%] border-b border-border">
                                 {/* Status */}
                                 <div className="grid grid-cols-3 items-center gap-4">
                                     <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Layout className="w-3.5 h-3.5" /> Status</span>
@@ -598,7 +598,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
                             </div>
 
                             {/* ACTIVITY & CHAT FEED */}
-                            <div className="flex-1 flex flex-col min-h-0 bg-background">
+                            <div className="flex-1 flex flex-col min-h-0 bg-background hidden lg:flex">
                                 <div className="p-3 border-b border-border bg-muted/20 flex items-center gap-2">
                                     <History className="w-3.5 h-3.5 text-muted-foreground" />
                                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activity</span>

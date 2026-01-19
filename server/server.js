@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
+const rateLimit = require('express-rate-limit');
 const connectDB = require("./config/db");
 const passport = require('passport');
 
@@ -32,6 +33,34 @@ const app = express();
 
 app.set('trust proxy', 1);
 
+// --- RATE LIMITERS ---
+// General API rate limiter: 100 requests per 15 minutes
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: { message: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter limiter for auth routes: 10 requests per 15 minutes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many login attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter limiter for write operations: 30 requests per minute
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30,
+  message: { message: 'Too many write operations, please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
@@ -41,6 +70,15 @@ app.use(cors({
   ],
   credentials: true
 }));
+
+// Apply general rate limiter to all API routes
+app.use('/api', generalLimiter);
+
+// Apply stricter limiters to specific routes
+app.use('/api/users/login', authLimiter);
+app.use('/api/users/register', authLimiter);
+app.use('/api/comments', writeLimiter);
+
 app.use(passport.initialize());
 passportConfig;
 
@@ -57,60 +95,87 @@ const io = new Server(server, {
   }
 });
 
-// Global Map to track online users (UserId -> SocketId)
-let onlineUsers = new Map();
+// Global Map to track online users per organization
+let onlineUsersByOrg = new Map(); // orgId -> Set of userIds
 
 io.on('connection', (socket) => {
   console.log("User Connected:", socket.id);
 
-  // --- 1. ONLINE PRESENCE ---
-  socket.on('join_app', (userId) => {
-    if (userId) {
-      onlineUsers.set(userId, socket.id);
-      // Broadcast online list to EVERYONE
-      io.emit('get_online_users', Array.from(onlineUsers.keys()));
+  // --- 1. ORGANIZATION-BASED PRESENCE ---
+  socket.on('join_org', ({ userId, orgId }) => {
+    if (userId && orgId) {
+      socket.join(`org_${orgId}`);
+      socket.userId = userId;
+      socket.orgId = orgId;
+
+      // Track online users per org
+      if (!onlineUsersByOrg.has(orgId)) {
+        onlineUsersByOrg.set(orgId, new Set());
+      }
+      onlineUsersByOrg.get(orgId).add(userId);
+
+      // Broadcast to org room only (not globally!)
+      io.to(`org_${orgId}`).emit('get_online_users', Array.from(onlineUsersByOrg.get(orgId)));
     }
   });
 
-  // --- 2. ROOM MANAGEMENT ---
+  // --- 2. PROJECT ROOM MANAGEMENT ---
   socket.on("join_project", (projectId) => {
-    socket.join(projectId);
-    console.log(`User ${socket.id} joined project: ${projectId}`);
+    if (projectId) {
+      socket.join(`project_${projectId}`);
+      socket.currentProjectId = projectId;
+      console.log(`User ${socket.id} joined project room: project_${projectId}`);
+    }
   });
 
+  socket.on("leave_project", (projectId) => {
+    if (projectId) {
+      socket.leave(`project_${projectId}`);
+      console.log(`User ${socket.id} left project room: project_${projectId}`);
+    }
+  });
+
+  // --- 3. USER ROOM (for private notifications) ---
   socket.on("join_user_room", (userId) => {
-    socket.join(userId);
-    console.log(`User ${socket.id} joined private room: ${userId}`);
+    if (userId) {
+      socket.join(`user_${userId}`);
+      console.log(`User ${socket.id} joined private room: user_${userId}`);
+    }
   });
 
-  // --- 3. TASK UPDATES ---
+  // --- 4. TASK UPDATES (PROJECT-SCOPED) ---
   socket.on("task_moved", (data) => {
-    // Broadcast to everyone ELSE in that project room
-    socket.to(data.projectId).emit("receive_task_update", data);
+    // Broadcast to project room only
+    socket.to(`project_${data.projectId}`).emit("receive_task_update", data);
   });
 
   socket.on("new_comment", (data) => {
-    // Broadcast to everyone in the project
-    socket.to(data.projectId).emit("receive_new_comment", data.comment);
+    // Broadcast to project room only
+    socket.to(`project_${data.projectId}`).emit("receive_new_comment", data.comment);
   });
 
-  // --- 4. DISCONNECT (Consolidated) ---
+  socket.on("task_created", (data) => {
+    // Notify others in the project
+    socket.to(`project_${data.projectId}`).emit("receive_new_task", data.task);
+  });
+
+  // --- 5. DISCONNECT (Clean up rooms and presence) ---
   socket.on('disconnect', () => {
     console.log("User Disconnected", socket.id);
 
-    // Find userId by socketId and remove it from online list
-    let disconnectedUser = null;
-    for (const [userId, socketId] of onlineUsers.entries()) {
-      if (socketId === socket.id) {
-        disconnectedUser = userId;
-        onlineUsers.delete(userId);
-        break;
-      }
-    }
+    // Remove from online users tracking
+    if (socket.orgId && socket.userId) {
+      const orgUsers = onlineUsersByOrg.get(socket.orgId);
+      if (orgUsers) {
+        orgUsers.delete(socket.userId);
+        // Notify remaining org members
+        io.to(`org_${socket.orgId}`).emit('get_online_users', Array.from(orgUsers));
 
-    // Send updated list to everyone if someone valid disconnected
-    if (disconnectedUser) {
-      io.emit('get_online_users', Array.from(onlineUsers.keys()));
+        // Clean up empty sets
+        if (orgUsers.size === 0) {
+          onlineUsersByOrg.delete(socket.orgId);
+        }
+      }
     }
   });
 });
