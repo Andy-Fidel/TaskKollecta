@@ -1,8 +1,11 @@
 const Comment = require('../models/Comment');
 const Task = require('../models/Task');
 const User = require('../models/User');
-const { sendNotification } = require('../utils/notificationService');
-const sendEmail = require('../utils/sendEmail');
+const {
+  sendNotification,
+  sendCommentEmail,
+  sendMentionEmail
+} = require('../utils/notificationService');
 
 // @desc    Add a comment to a task
 // @route   POST /api/comments
@@ -19,7 +22,7 @@ const addComment = async (req, res) => {
     const fullComment = await Comment.findById(comment._id).populate('user', 'name avatar');
     const task = await Task.findById(taskId);
 
-    // --- NOTIFICATION 1: ASSIGNEE (Existing) ---
+    // --- NOTIFICATION 1: ASSIGNEE ---
     if (task && task.assignee && task.assignee.toString() !== req.user._id.toString()) {
       await sendNotification(req.io, {
         recipientId: task.assignee,
@@ -28,6 +31,14 @@ const addComment = async (req, res) => {
         relatedId: taskId,
         relatedModel: 'Task',
         message: `commented on: ${task.title}`
+      });
+
+      // Send email notification
+      await sendCommentEmail(task.assignee, {
+        commenterName: req.user.name,
+        task,
+        projectId: task.project,
+        comment: content
       });
     }
 
@@ -52,23 +63,18 @@ const addComment = async (req, res) => {
           await sendNotification(req.io, {
             recipientId: mentionedUser._id,
             senderId: req.user._id,
-            type: 'mention', // Specific type for icons
+            type: 'mention',
             relatedId: taskId,
             relatedModel: 'Task',
             message: `mentioned you in a comment`
           });
 
-          // 2. Email Notification
-          await sendEmail({
-            email: mentionedUser.email,
-            subject: `${req.user.name} mentioned you`,
-            message: `
-                        <p><strong>${req.user.name}</strong> mentioned you in a task:</p>
-                        <blockquote style="background: #f9f9f9; padding: 10px; border-left: 4px solid #333;">
-                            "${content}"
-                        </blockquote>
-                        <a href="${process.env.CLIENT_URL}/project/${task.project}" style="display:inline-block; margin-top:10px; background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reply</a>
-                    `
+          // 2. Email Notification using template
+          await sendMentionEmail(mentionedUser._id, {
+            mentionerName: req.user.name,
+            task,
+            projectId: task.project,
+            comment: content
           });
         }
       }

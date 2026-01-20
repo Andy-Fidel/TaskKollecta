@@ -3,27 +3,36 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs'); // Ensure this is installed: npm install bcryptjs
 
 const userSchema = new mongoose.Schema({
-  name: { 
-    type: String, 
-    required: [true, 'Please add a name'] 
+  name: {
+    type: String,
+    required: [true, 'Please add a name']
   },
-  email: { 
-    type: String, 
-    required: [true, 'Please add an email'], 
+  email: {
+    type: String,
+    required: [true, 'Please add an email'],
     unique: true,
     match: [
       /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
       'Please add a valid email'
     ]
   },
-  password: { 
-    type: String, 
+  password: {
+    type: String,
     // REMOVED required: true so Google Login works
   },
   avatar: { type: String, default: "" },
   resetPasswordToken: String,
-  resetPasswordExpire: Date, 
-  googleId: { type: String }
+  resetPasswordExpire: Date,
+  googleId: { type: String },
+
+  // Notification Preferences
+  notificationPreferences: {
+    emailAssignments: { type: Boolean, default: true },
+    emailComments: { type: Boolean, default: true },
+    emailDueDates: { type: Boolean, default: true },
+    emailStatusChanges: { type: Boolean, default: false },
+    emailMentions: { type: Boolean, default: true }
+  }
 }, { timestamps: true });
 
 // --- PASSWORD ENCRYPTION MIDDLEWARE ---

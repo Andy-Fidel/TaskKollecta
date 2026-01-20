@@ -1,7 +1,10 @@
 const Task = require('../models/Task');
 const User = require('../models/User');
-const sendEmail = require('../utils/sendEmail');
-const { sendNotification } = require('../utils/notificationService');
+const {
+  sendNotification,
+  sendTaskAssignmentEmail,
+  sendStatusChangeEmail
+} = require('../utils/notificationService');
 const { logActivity } = require('../utils/activityLogger');
 const runAutomations = require('../utils/automationEngine');
 
@@ -34,22 +37,14 @@ const createTask = async (req, res) => {
       details: `created the task "${task.title}"`
     });
 
-    // ... (Your existing email logic stays here) ...
+    // Send email notification for assignment
     if (assignee && assignee !== req.user._id.toString()) {
-      const assigneeUser = await User.findById(assignee);
-      if (assigneeUser) {
-        await sendEmail({
-          email: assigneeUser.email,
-          subject: `New Task Assigned: ${populatedTask.title}`,
-          message: `
-                    <h2>New Task Assigned</h2>
-                    <p><strong>${req.user.name}</strong> created a task for you.</p>
-                    <p><strong>Task:</strong> ${populatedTask.title}</p>
-                    <p><strong>Project:</strong> ${populatedTask.project?.name || 'General'}</p>
-                    <a href="${process.env.CLIENT_URL}/project/${projectId}" style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Task</a>
-                `
-        });
-      }
+      await sendTaskAssignmentEmail(assignee, {
+        assignerName: req.user.name,
+        task: populatedTask,
+        projectName: populatedTask.project?.name,
+        projectId
+      });
     }
 
     res.status(201).json(populatedTask);
@@ -268,7 +263,6 @@ const updateTask = async (req, res) => {
       runAutomations(updatedTask.project, 'priority_change', req.body.priority, updatedTask);
     }
 
-    // ... (Your existing notification logic stays here) ...
     // NOTIFICATIONS (Socket + Email)
     if (req.body.assignee && req.body.assignee !== oldTask.assignee?.toString()) {
       if (req.body.assignee !== req.user._id.toString()) {
@@ -280,22 +274,27 @@ const updateTask = async (req, res) => {
           relatedModel: 'Task',
           message: `assigned you to task: ${updatedTask.title}`
         });
-      }
 
-      const assigneeUser = await User.findById(req.body.assignee);
-      if (assigneeUser) {
-        await sendEmail({
-          email: assigneeUser.email,
-          subject: `You were assigned to: ${updatedTask.title}`,
-          message: `
-                    <h2>New Task Assignment</h2>
-                    <p><strong>${req.user.name}</strong> assigned you to a task.</p>
-                    <div style="padding: 15px; border: 1px solid #eee; border-radius: 5px; margin: 10px 0;">
-                        <h3>${updatedTask.title}</h3>
-                        <p>Priority: ${updatedTask.priority}</p>
-                    </div>
-                    <a href="${process.env.CLIENT_URL}/project/${updatedTask.project}" style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Task</a>
-                `
+        // Send email using new template system
+        await sendTaskAssignmentEmail(req.body.assignee, {
+          assignerName: req.user.name,
+          task: updatedTask,
+          projectName: updatedTask.project?.name || 'General',
+          projectId: updatedTask.project
+        });
+      }
+    }
+
+    // Send status change email to assignee
+    if (req.body.status && oldTask.status !== req.body.status && updatedTask.assignee) {
+      const assigneeId = updatedTask.assignee._id || updatedTask.assignee;
+      if (assigneeId.toString() !== req.user._id.toString()) {
+        await sendStatusChangeEmail(assigneeId, {
+          changerName: req.user.name,
+          task: updatedTask,
+          projectId: updatedTask.project,
+          oldStatus: oldTask.status,
+          newStatus: req.body.status
         });
       }
     }

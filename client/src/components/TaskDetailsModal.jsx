@@ -32,6 +32,7 @@ import { useAuth } from '../context/AuthContext';
 import { PriorityBadge } from './PriorityBadge';
 import { TagPicker } from './TagPicker';
 import { RecurrencePicker } from './RecurrencePicker';
+import { MentionInput, renderMentions } from './MentionInput';
 
 export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     const { user } = useAuth();
@@ -628,7 +629,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
                                                     </div>
                                                     {item.type === 'comment' ? (
                                                         <div className="bg-muted/30 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-border/50 text-foreground shadow-sm">
-                                                            <p className="whitespace-pre-wrap leading-relaxed">{item.content}</p>
+                                                            <p className="whitespace-pre-wrap leading-relaxed">{renderMentions(item.content)}</p>
                                                         </div>
                                                     ) : (
                                                         <div className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -645,17 +646,13 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
 
                                 <div className="p-4 border-t border-border bg-background mt-auto">
                                     <form onSubmit={handleSendComment} className="relative">
-                                        <Textarea
-                                            placeholder="Write a comment..."
+                                        <MentionInput
                                             value={newComment}
-                                            onChange={e => setNewComment(e.target.value)}
-                                            className="min-h-[80px] pr-12 resize-none bg-muted/20 focus:bg-background transition-all"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    handleSendComment(e);
-                                                }
-                                            }}
+                                            onChange={setNewComment}
+                                            users={teamMembers.map(m => m.user)}
+                                            placeholder="Write a comment... Use @ to mention someone"
+                                            className="pr-12 bg-muted/20 focus:bg-background transition-all"
+                                            onSubmit={handleSendComment}
                                         />
                                         <Button size="sm" type="submit" disabled={!newComment.trim()} className="absolute bottom-2 right-2 h-7 w-7 p-0 rounded-lg">
                                             <div className="-rotate-90"><AlignLeft className="w-3 h-3" /></div>

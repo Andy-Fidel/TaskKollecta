@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   User, Lock, Bell, Camera, Loader2, Save, Moon, Sun, Monitor
 } from 'lucide-react';
@@ -12,10 +12,10 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import api from '../api/axios';
-import { toast } from 'sonner'; // Use Toast instead of Alert
+import { toast } from 'sonner';
 
 export default function Settings() {
-  const { user, login } = useAuth(); // login() updates the local context
+  const { user, login } = useAuth();
   const { theme, setTheme } = useTheme();
 
   // Profile State
@@ -27,8 +27,31 @@ export default function Settings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
+  // Notification Preferences State
+  const [notifPrefs, setNotifPrefs] = useState({
+    emailAssignments: true,
+    emailComments: true,
+    emailDueDates: true,
+    emailStatusChanges: false,
+    emailMentions: true
+  });
+  const [notifLoading, setNotifLoading] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Load notification preferences on mount
+  useEffect(() => {
+    const fetchPrefs = async () => {
+      try {
+        const { data } = await api.get('/users/notifications');
+        setNotifPrefs(data);
+      } catch (error) {
+        console.error('Failed to load notification preferences');
+      }
+    };
+    fetchPrefs();
+  }, []);
 
   // 1. Handle Image Upload (Cloudinary)
   const handleAvatarUpload = async (e) => {
@@ -40,11 +63,10 @@ export default function Settings() {
     formData.append('file', file);
 
     try {
-      // Upload to the endpoint we created earlier
       const { data } = await api.post('/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setAvatar(data.url); // Update preview immediately
+      setAvatar(data.url);
       toast.success("Image uploaded (Click Save to apply)");
     } catch (error) {
       toast.error("Upload failed");
@@ -63,8 +85,6 @@ export default function Settings() {
         email,
         avatar
       });
-
-      // Update global auth state (localStorage + Context)
       login(data);
       toast.success("Profile updated successfully!");
     } catch (error) {
@@ -79,12 +99,10 @@ export default function Settings() {
     e.preventDefault();
     setLoading(true);
     try {
-      // We send 'newPassword' to match our controller logic
       await api.put('/users/profile', {
         newPassword,
-        currentPassword // Optional: Backend can verify this if strict
+        currentPassword
       });
-
       toast.success("Password changed successfully.");
       setCurrentPassword('');
       setNewPassword('');
@@ -94,6 +112,51 @@ export default function Settings() {
       setLoading(false);
     }
   };
+
+  // 4. Handle Notification Preference Toggle
+  const handleNotifToggle = async (key, value) => {
+    setNotifPrefs(prev => ({ ...prev, [key]: value }));
+    setNotifLoading(true);
+
+    try {
+      await api.put('/users/notifications', { [key]: value });
+      toast.success("Preference saved");
+    } catch (error) {
+      // Revert on error
+      setNotifPrefs(prev => ({ ...prev, [key]: !value }));
+      toast.error("Failed to save preference");
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  const notificationOptions = [
+    {
+      key: 'emailAssignments',
+      title: 'Task Assignments',
+      description: 'Receive emails when assigned to a task'
+    },
+    {
+      key: 'emailComments',
+      title: 'Comments',
+      description: 'Receive emails when someone comments on your task'
+    },
+    {
+      key: 'emailMentions',
+      title: 'Mentions',
+      description: 'Receive emails when someone @mentions you'
+    },
+    {
+      key: 'emailDueDates',
+      title: 'Due Date Reminders',
+      description: 'Receive reminder emails before tasks are due'
+    },
+    {
+      key: 'emailStatusChanges',
+      title: 'Status Updates',
+      description: 'Receive emails when your task status changes'
+    }
+  ];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-10 font-[Poppins]">
@@ -131,8 +194,8 @@ export default function Settings() {
                     key={value}
                     onClick={() => setTheme(value)}
                     className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 ${theme === value
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'
                       }`}
                   >
                     <Icon className="h-6 w-6 mb-2" />
@@ -158,7 +221,6 @@ export default function Settings() {
                       <AvatarImage src={avatar} />
                       <AvatarFallback className="text-2xl">{name?.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    {/* Overlay on hover */}
                     <label className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white">
                       {isUploading ? <Loader2 className="animate-spin" /> : <Camera />}
                       <input type="file" className="hidden" onChange={handleAvatarUpload} accept="image/*" />
@@ -229,24 +291,23 @@ export default function Settings() {
         <TabsContent value="notifications" className="space-y-4 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Notifications</CardTitle>
-              <CardDescription>Manage how you receive alerts.</CardDescription>
+              <CardTitle>Email Notifications</CardTitle>
+              <CardDescription>Choose what email notifications you receive.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Email Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Receive emails about new task assignments.</p>
+              {notificationOptions.map(({ key, title, description }) => (
+                <div key={key} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">{title}</Label>
+                    <p className="text-xs text-muted-foreground">{description}</p>
+                  </div>
+                  <Switch
+                    checked={notifPrefs[key]}
+                    onCheckedChange={(checked) => handleNotifToggle(key, checked)}
+                    disabled={notifLoading}
+                  />
                 </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Project Updates</Label>
-                  <p className="text-xs text-muted-foreground">Get notified when a project status changes.</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>
