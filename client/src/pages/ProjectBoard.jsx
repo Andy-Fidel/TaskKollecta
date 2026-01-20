@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import {
-  Search, Filter,
+  Search,
   Users, Plus,
   LayoutGrid, List as ListIcon,
   Activity, CheckCircle2,
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { ProjectSettingsDialog } from '@/components/ProjectSettingsDialog';
+import { AdvancedFilters, applyFilters } from '@/components/Filters/AdvancedFilters';
 
 import api from '../api/axios';
 import { useSocket } from '../hooks/useSocket';
@@ -62,6 +63,18 @@ export default function ProjectBoard() {
   const [view, setView] = useState('board');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // Advanced Filters State
+  const [filters, setFilters] = useState({
+    statuses: [],
+    priorities: [],
+    assignees: [],
+    tags: [],
+    dateFrom: null,
+    dateTo: null
+  });
+  const [filterPresets, setFilterPresets] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
@@ -87,6 +100,44 @@ export default function ProjectBoard() {
         .catch(err => console.error("Failed to load members", err));
     }
   }, [projectDetails]);
+
+  // Fetch filter presets
+  useEffect(() => {
+    if (projectId) {
+      api.get(`/filter-presets/project/${projectId}`)
+        .then(({ data }) => setFilterPresets(data))
+        .catch(err => console.error("Failed to load filter presets", err));
+    }
+  }, [projectId]);
+
+  // Extract unique tags from all tasks
+  const availableTags = useMemo(() => {
+    const tagMap = new Map();
+    tasks.forEach(task => {
+      task.tags?.forEach(tag => {
+        if (!tagMap.has(tag.name)) {
+          tagMap.set(tag.name, tag);
+        }
+      });
+    });
+    return Array.from(tagMap.values());
+  }, [tasks]);
+
+  // Filter tasks
+  const filteredTasks = useMemo(() => {
+    let result = applyFilters(tasks, filters);
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(task =>
+        task.title.toLowerCase().includes(query) ||
+        task.description?.toLowerCase().includes(query)
+      );
+    }
+
+    return result;
+  }, [tasks, filters, searchQuery]);
 
   // Handlers
   const handleDragStart = (event) => setActiveId(event.active.id);
@@ -245,15 +296,23 @@ export default function ProjectBoard() {
         <div className="h-14 border-b border-border flex items-center px-8 bg-card/50 backdrop-blur-sm shrink-0 gap-4">
           <div className="relative w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9 h-9 bg-transparent border-transparent hover:bg-muted/50 focus:bg-background focus:border-border transition-all rounded-lg text-sm" placeholder="Filter tasks..." />
+            <Input
+              className="pl-9 h-9 bg-transparent border-transparent hover:bg-muted/50 focus:bg-background focus:border-border transition-all rounded-lg text-sm"
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
           <div className="h-6 w-[1px] bg-border"></div>
-          <Button variant="ghost" size="sm" className="text-muted-foreground h-8 gap-2">
-            <Filter className="w-3.5 h-3.5" /> Filter
-          </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground h-8 gap-2">
-            <Users className="w-3.5 h-3.5" /> Assignee
-          </Button>
+          <AdvancedFilters
+            projectId={projectId}
+            filters={filters}
+            onFiltersChange={setFilters}
+            members={projectMembers}
+            availableTags={availableTags}
+            presets={filterPresets}
+            onPresetsChange={setFilterPresets}
+          />
           <Button variant="ghost" size="sm" onClick={() => setIsArchiveOpen(true)} title="View Archive">
             <Archive className="w-4 h-4 text-muted-foreground" /> Archived
           </Button>
@@ -275,7 +334,7 @@ export default function ProjectBoard() {
                 <KanbanColumn
                   key={col.id}
                   column={col}
-                  tasks={tasks.filter(t => t.status === col.id)}
+                  tasks={filteredTasks.filter(t => t.status === col.id)}
                   onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
                 />
               ))}
@@ -294,7 +353,7 @@ export default function ProjectBoard() {
         // VIEW: LIST
         <div className="flex-1 overflow-y-auto bg-background p-8">
           <ProjectList
-            tasks={tasks}
+            tasks={filteredTasks}
             onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
           />
         </div>
@@ -302,7 +361,7 @@ export default function ProjectBoard() {
         // VIEW: CALENDAR
         <div className="flex-1 overflow-y-auto bg-background p-8">
           <ProjectCalendar
-            tasks={tasks}
+            tasks={filteredTasks}
             onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
           />
         </div>

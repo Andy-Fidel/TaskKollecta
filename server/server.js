@@ -23,6 +23,7 @@ const formRoutes = require('./routes/formRoutes');
 const passportConfig = require('./config/passport');
 const automationRoutes = require('./routes/automationRoutes');
 const searchRoutes = require('./routes/searchRoutes');
+const filterPresetRoutes = require('./routes/filterPresetRoutes');
 
 // Load environment variables
 
@@ -205,6 +206,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/forms', formRoutes);
 app.use('/api/automations', automationRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/filter-presets', filterPresetRoutes);
 
 
 
