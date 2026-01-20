@@ -324,16 +324,20 @@ const completeOnboarding = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Save onboarding data
-    user.onboardingData = { role, teamSize, goals };
+    // Save onboarding data - only set provided fields
+    user.onboardingData = {
+      role: role || 'personal',
+      teamSize: teamSize || '',
+      goals: goals || []
+    };
     user.onboardingCompleted = true;
     await user.save();
 
     let organization = null;
     let project = null;
 
-    // Create organization if name provided
-    if (organizationName) {
+    // Create organization if name provided (Creator path only)
+    if (organizationName && !user.isInvitee) {
       const Organization = require('../models/Organization');
       organization = await Organization.create({
         name: organizationName,
@@ -361,7 +365,6 @@ const completeOnboarding = async (req, res) => {
 
     // Handle invites (just log for now, or send invite emails)
     if (inviteEmails && inviteEmails.length > 0) {
-      // Could send invite emails here
       console.log('Invite emails:', inviteEmails);
     }
 
@@ -378,6 +381,7 @@ const completeOnboarding = async (req, res) => {
       project
     });
   } catch (error) {
+    console.error('Onboarding error:', error);
     res.status(500).json({ message: error.message });
   }
 };
