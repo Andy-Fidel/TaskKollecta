@@ -9,16 +9,24 @@ const protect = async (req, res, next) => {
 
   // 2. Fallback: Check for Bearer Header (Useful for Postman testing)
   if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
+    token = req.headers.authorization.split(' ')[1];
   }
 
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
+
       // matches 'userId' from your generateToken.js
       req.user = await User.findById(decoded.userId).select('-password');
-      
+
+      // Check if user account is active
+      if (req.user && req.user.status && req.user.status !== 'active') {
+        const statusMessage = req.user.status === 'suspended'
+          ? 'Your account has been suspended. Please contact support.'
+          : 'Your account has been banned.';
+        return res.status(403).json({ message: statusMessage, status: req.user.status });
+      }
+
       next();
     } catch (error) {
       console.error(error);

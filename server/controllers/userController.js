@@ -9,7 +9,7 @@ const sendEmail = require('../utils/sendEmail');
 // @route   POST /api/users
 // @access  Public
 const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, inviteToken } = req.body;
 
   try {
     const userExists = await User.findOne({ email });
@@ -17,17 +17,53 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
 
+    // Check for valid invite
+    let invite = null;
+    let isInvitee = false;
+    let invitedToOrg = null;
+
+    if (inviteToken) {
+      const Invite = require('../models/Invite');
+      invite = await Invite.findOne({ token: inviteToken, status: 'pending' });
+
+      if (invite && invite.isValid()) {
+        isInvitee = true;
+        invitedToOrg = invite.organization;
+      }
+    }
+
     const user = await User.create({
       name,
       email,
       password,
+      isInvitee,
+      invitedToOrg
     });
+
+    // If invite exists, add user to organization
+    if (invite) {
+      const Membership = require('../models/Membership');
+      await Membership.create({
+        user: user._id,
+        organization: invite.organization,
+        role: invite.role || 'member'
+      });
+
+      // Mark invite as accepted
+      invite.status = 'accepted';
+      invite.acceptedAt = new Date();
+      invite.acceptedBy = user._id;
+      await invite.save();
+    }
 
     if (user) {
       res.status(201).json({
         _id: user.id,
         name: user.name,
         email: user.email,
+        isInvitee: user.isInvitee,
+        invitedToOrg: user.invitedToOrg,
+        onboardingCompleted: user.onboardingCompleted,
         token: generateToken(res, user._id),
       });
     } else {
@@ -35,7 +71,7 @@ const registerUser = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
-  }
+  };
 };
 
 // @desc    Authenticate a user
@@ -277,6 +313,74 @@ const getNotificationPreferences = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// @desc    Complete onboarding wizard
+// @route   POST /api/users/onboarding
+const completeOnboarding = async (req, res) => {
+  try {
+    const { role, teamSize, goals, organizationName, projectName, inviteEmails } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Save onboarding data
+    user.onboardingData = { role, teamSize, goals };
+    user.onboardingCompleted = true;
+    await user.save();
+
+    let organization = null;
+    let project = null;
+
+    // Create organization if name provided
+    if (organizationName) {
+      const Organization = require('../models/Organization');
+      organization = await Organization.create({
+        name: organizationName,
+        createdBy: user._id
+      });
+
+      // Add user as owner
+      const Membership = require('../models/Membership');
+      await Membership.create({
+        user: user._id,
+        organization: organization._id,
+        role: 'owner'
+      });
+
+      // Create project if name provided
+      if (projectName) {
+        const Project = require('../models/Project');
+        project = await Project.create({
+          name: projectName,
+          organization: organization._id,
+          createdBy: user._id
+        });
+      }
+    }
+
+    // Handle invites (just log for now, or send invite emails)
+    if (inviteEmails && inviteEmails.length > 0) {
+      // Could send invite emails here
+      console.log('Invite emails:', inviteEmails);
+    }
+
+    res.json({
+      message: 'Onboarding completed',
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        onboardingCompleted: user.onboardingCompleted,
+        role: user.role
+      },
+      organization,
+      project
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 module.exports = {
   registerUser,
@@ -287,5 +391,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   updateNotificationPreferences,
-  getNotificationPreferences
+  getNotificationPreferences,
+  completeOnboarding
 };

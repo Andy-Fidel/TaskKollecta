@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -11,6 +11,8 @@ import CalendarView from './pages/CalendarView';
 import Settings from './pages/Settings';
 import FormBuilder from './pages/FormBuilder';
 import PublicForm from './pages/PublicForm';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import OnboardingWizard from './pages/OnboardingWizard';
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/ThemeProvider"
 import ForgotPassword from './pages/ForgotPassword';
@@ -22,13 +24,35 @@ import { SocketProvider } from './context/SocketContext';
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div>Loading...</div>;
-  return user ? <Navigate to="/dashboard" replace /> : children;
+  if (user) {
+    // Redirect to onboarding if not completed
+    if (!user.onboardingCompleted) return <Navigate to="/onboarding" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
 };
 
-// A wrapper to protect routes
+// A wrapper to protect routes - redirects to onboarding if not completed
 const PrivateRoute = ({ children }) => {
   const { user } = useAuth();
-  return user ? children : <Navigate to="/login" />;
+  const location = useLocation();
+
+  if (!user) return <Navigate to="/login" />;
+
+  // Allow access to onboarding page even if not completed
+  if (!user.onboardingCompleted && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  return children;
+};
+
+// A wrapper for superadmin routes
+const AdminRoute = ({ children }) => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" />;
+  if (user.role !== 'superadmin') return <Navigate to="/dashboard" />;
+  return children;
 };
 
 function App() {
@@ -44,11 +68,17 @@ function App() {
                 </PublicRoute>
               } />
 
-
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password/:token" element={<ResetPassword />} />
               <Route path="/forms/:formId" element={<PublicForm />} />
+
+              {/* Onboarding - outside AppLayout */}
+              <Route path="/onboarding" element={
+                <PrivateRoute>
+                  <OnboardingWizard />
+                </PrivateRoute>
+              } />
 
               {/* Wrap all internal pages with AppLayout */}
               <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
@@ -61,7 +91,7 @@ function App() {
                 <Route path="/calendar" element={<CalendarView />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/project/:projectId/forms/new" element={<FormBuilder />} />
-                {/* Add placeholders for other sidebar links if needed */}
+                <Route path="/admin" element={<AdminRoute><SuperAdminDashboard /></AdminRoute>} />
               </Route>
 
             </Routes>

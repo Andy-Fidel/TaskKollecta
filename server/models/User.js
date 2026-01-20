@@ -32,7 +32,35 @@ const userSchema = new mongoose.Schema({
     emailDueDates: { type: Boolean, default: true },
     emailStatusChanges: { type: Boolean, default: false },
     emailMentions: { type: Boolean, default: true }
-  }
+  },
+
+  // Role and Account Status
+  role: {
+    type: String,
+    enum: ['user', 'admin', 'superadmin'],
+    default: 'user'
+  },
+  status: {
+    type: String,
+    enum: ['active', 'suspended', 'banned'],
+    default: 'active'
+  },
+  suspendedAt: { type: Date },
+  bannedAt: { type: Date },
+  suspendReason: { type: String },
+  banReason: { type: String },
+
+  // Onboarding
+  onboardingCompleted: { type: Boolean, default: false },
+  onboardingData: {
+    role: { type: String }, // personal, team_lead, manager
+    teamSize: { type: String },
+    goals: [{ type: String }]
+  },
+
+  // Invite tracking
+  isInvitee: { type: Boolean, default: false },
+  invitedToOrg: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' }
 }, { timestamps: true });
 
 // --- PASSWORD ENCRYPTION MIDDLEWARE ---

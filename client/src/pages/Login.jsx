@@ -7,41 +7,63 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Eye, EyeOff, HelpCircle } from 'lucide-react';
+import { Loader2, Eye, EyeOff, HelpCircle, Users } from 'lucide-react';
 
 export default function Login() {
-  const [isLogin, setIsLogin] = useState(true); 
+  const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
+  // Invite State
+  const [inviteToken, setInviteToken] = useState('');
+  const [inviteInfo, setInviteInfo] = useState(null);
+
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // --- 1. Handle Google Redirect ---
+  // --- Detect invite token and OAuth redirect ---
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const token = params.get('token');
+    const invite = params.get('invite');
 
+    // Handle Google OAuth redirect
     if (token) {
-      // Store token
       localStorage.setItem('token', token);
-      
-      // Force reload to initialize AuthContext with the new token
-      window.location.href = '/dashboard'; 
+      window.location.href = '/dashboard';
+      return;
+    }
+
+    // Handle invite link
+    if (invite) {
+      setInviteToken(invite);
+      setIsLogin(false); // Switch to signup
+
+      // Validate invite
+      api.get(`/invites/${invite}`)
+        .then(({ data }) => {
+          setInviteInfo(data);
+          if (data.email) setEmail(data.email);
+        })
+        .catch(() => {
+          setError('Invalid or expired invite link');
+        });
     }
   }, [location]);
 
-  // --- 2. Google Button Handler ---
+  // --- Google Button Handler ---
   const handleGoogleLogin = () => {
-    // Redirects browser to your Backend Passport route
-    window.location.href = 'http://localhost:5000/api/users/google';
+    const googleUrl = inviteToken
+      ? `http://localhost:5000/api/users/google?invite=${inviteToken}`
+      : 'http://localhost:5000/api/users/google';
+    window.location.href = googleUrl;
   };
 
   const handleSubmit = async (e) => {
@@ -54,10 +76,13 @@ export default function Login() {
         await login(email, password);
         navigate('/dashboard');
       } else {
-        // Register Logic
-        const { data } = await api.post('/users', { name, email, password });
+        // Register Logic - include invite token if present
+        const payload = { name, email, password };
+        if (inviteToken) payload.inviteToken = inviteToken;
+
+        const { data } = await api.post('/users', payload);
         localStorage.setItem('token', data.token);
-        window.location.href = '/dashboard'; 
+        window.location.href = '/onboarding';
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong');
@@ -68,15 +93,15 @@ export default function Login() {
 
   return (
     <div className="w-full h-screen lg:grid lg:grid-cols-2">
-      
+
       {/* LEFT SIDE: Image & Branding */}
       <div className="hidden lg:flex relative h-full flex-col bg-slate-900 text-white p-10 dark:border-r">
         <div className="absolute inset-0 bg-slate-900">
-            <img 
-              src="https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=2000" 
-              alt="Team collaboration" 
-              className="w-full h-full object-cover opacity-50"
-            />
+          <img
+            src="https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=2000"
+            alt="Team collaboration"
+            className="w-full h-full object-cover opacity-50"
+          />
         </div>
         <div className="relative z-20 flex items-center text-lg font-medium">
           <div className="bg-purple-600 text-white p-1 rounded mr-2 font-bold">TK</div>
@@ -95,7 +120,7 @@ export default function Login() {
       {/* RIGHT SIDE: Form */}
       <div className="flex items-center justify-center p-8 bg-white">
         <div className="mx-auto w-full max-w-[400px] flex flex-col justify-center space-y-6">
-          
+
           <div className="flex flex-col space-y-2 text-center">
             <h1 className="text-2xl font-semibold tracking-tight">
               {isLogin ? 'Welcome back' : 'Create an account'}
@@ -120,7 +145,7 @@ export default function Login() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            
+
             {!isLogin && (
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
@@ -170,7 +195,7 @@ export default function Login() {
 
         </div>
       </div>
-      
+
       {/* Help Button */}
       <button className="fixed bottom-6 right-6 bg-slate-900 text-white p-3 rounded-full shadow-lg hover:bg-slate-800 transition">
         <HelpCircle className="h-6 w-6" />

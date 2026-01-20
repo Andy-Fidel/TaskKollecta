@@ -24,6 +24,8 @@ const passportConfig = require('./config/passport');
 const automationRoutes = require('./routes/automationRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const filterPresetRoutes = require('./routes/filterPresetRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const inviteRoutes = require('./routes/inviteRoutes');
 
 // Load environment variables
 
@@ -207,6 +209,8 @@ app.use('/api/forms', formRoutes);
 app.use('/api/automations', automationRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/filter-presets', filterPresetRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/invites', inviteRoutes);
 
 
 

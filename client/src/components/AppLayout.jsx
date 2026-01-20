@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Menu, Search, User, Settings, LogOut } from 'lucide-react';
+import { Menu, Search, User, Settings, LogOut, Shield } from 'lucide-react';
 
 // UI Components
 import { Button } from '@/components/ui/button';
@@ -110,6 +110,11 @@ export default function AppLayout() {
                   <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" /> Settings
                   </DropdownMenuItem>
+                  {user?.role === 'superadmin' && (
+                    <DropdownMenuItem onClick={() => navigate('/admin')} className="cursor-pointer text-purple-600 focus:text-purple-600">
+                      <Shield className="mr-2 h-4 w-4" /> Admin Dashboard
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
