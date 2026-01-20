@@ -349,7 +349,7 @@ const completeOnboarding = async (req, res) => {
       await Membership.create({
         user: user._id,
         organization: organization._id,
-        role: 'owner'
+        role: 'admin'
       });
 
       // Create project if name provided
