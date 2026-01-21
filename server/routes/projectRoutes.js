@@ -1,32 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  createProject, 
-  getOrgProjects, 
+const {
+  createProject,
+  getOrgProjects,
   getProjectDetails,
-  getProjectAnalytics, 
-  createUpdate, 
-  getUpdates, 
-  updateProject, 
-  deleteProject, 
-  getAllProjects 
+  getProjectAnalytics,
+  createUpdate,
+  getUpdates,
+  updateProject,
+  deleteProject,
+  getAllProjects
 } = require('../controllers/projectController');
 
 const { protect } = require('../middleware/authMiddleware');
-const { checkOrgRole } = require('../middleware/roleMiddleware'); 
+const { checkRole } = require('../middleware/roleMiddleware');
 
 // Create Project
-router.post('/', protect, checkOrgRole('member'), createProject);
+router.post('/', protect, checkRole('owner', 'admin', 'member'), createProject);
 
 // Get All Projects (Global)
 router.get('/', protect, getAllProjects);
 
 // Update/Delete
-router.put('/:id', protect, updateProject); 
+router.put('/:id', protect, updateProject);
 router.delete('/:id', protect, deleteProject);
 
 // Org Specific Routes
-router.get('/:orgId', protect, checkOrgRole('member'), getOrgProjects);
+router.get('/:orgId', protect, checkRole('owner', 'admin', 'member', 'guest'), getOrgProjects);
 
 // Project Specific Routes
 router.get('/single/:id', protect, getProjectDetails);
