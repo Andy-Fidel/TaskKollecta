@@ -29,7 +29,51 @@ const createOrganization = async (req, res) => {
   }
 };
 
-// ... (getUserOrganizations, getOrgMembers remain same) ...
+// @desc    Get all organizations user belongs to
+// @route   GET /api/organizations
+// @access  Private
+const getUserOrganizations = async (req, res) => {
+  try {
+
+    const memberships = await Membership.find({ user: req.user._id })
+      .populate('organization', 'name description');
+
+
+    const organizations = memberships.map(m => ({
+      _id: m.organization._id,
+      name: m.organization.name,
+      role: m.role,
+      joinedAt: m.joinedAt
+    }));
+
+    res.status(200).json(organizations);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get members of an organization
+// @route   GET /api/organizations/:id/members
+const getOrgMembers = async (req, res) => {
+  try {
+    const isMember = await Membership.findOne({
+      user: req.user._id,
+      organization: req.params.id
+    });
+
+    if (!isMember) {
+      return res.status(403).json({ message: 'Not authorized to view members of this organization' });
+    }
+
+    // Fetch Members
+    const members = await Membership.find({ organization: req.params.id })
+      .populate('user', 'name email avatar');
+
+    res.json(members);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 // @desc    Update member role
 // @route   PUT /api/organizations/:id/members/:userId
@@ -194,5 +238,6 @@ module.exports = {
   searchOrganizations,
   requestToJoin,
   getJoinRequests,
-  resolveJoinRequest
+  resolveJoinRequest,
+  updateMemberRole
 };
