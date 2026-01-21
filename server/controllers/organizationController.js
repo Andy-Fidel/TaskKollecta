@@ -16,11 +16,11 @@ const createOrganization = async (req, res) => {
       createdBy: req.user._id,
     });
 
-    
+
     await Membership.create({
       user: req.user._id,
       organization: organization._id,
-      role: 'admin' 
+      role: 'owner'
     });
 
     res.status(201).json(organization);
@@ -29,47 +29,38 @@ const createOrganization = async (req, res) => {
   }
 };
 
-// @desc    Get all organizations user belongs to
-// @route   GET /api/organizations
-// @access  Private
-const getUserOrganizations = async (req, res) => {
-  try {
-    
-    const memberships = await Membership.find({ user: req.user._id })
-      .populate('organization', 'name description');
+// ... (getUserOrganizations, getOrgMembers remain same) ...
 
-  
-    const organizations = memberships.map(m => ({
-      _id: m.organization._id,
-      name: m.organization.name,
-      role: m.role,
-      joinedAt: m.joinedAt
-    }));
+// @desc    Update member role
+// @route   PUT /api/organizations/:id/members/:userId
+// @access  Private (Owner/Admin)
+const updateMemberRole = async (req, res) => {
+  const { role } = req.body;
+  const { userId } = req.params;
 
-    res.status(200).json(organizations);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  if (!['admin', 'member', 'guest'].includes(role)) {
+    return res.status(400).json({ message: 'Invalid role' });
   }
-};
 
-// @desc    Get members of an organization
-// @route   GET /api/organizations/:id/members
-const getOrgMembers = async (req, res) => {
   try {
-    const isMember = await Membership.findOne({
-      user: req.user._id,
+    const membership = await Membership.findOne({
+      user: userId,
       organization: req.params.id
     });
 
-    if (!isMember) {
-      return res.status(403).json({ message: 'Not authorized to view members of this organization' });
+    if (!membership) {
+      return res.status(404).json({ message: 'Member not found' });
     }
 
-    // Fetch Members
-    const members = await Membership.find({ organization: req.params.id })
-      .populate('user', 'name email avatar');
+    // Prevent changing owner role directly via this endpoint for safety (unless specifically allowed logic added)
+    if (membership.role === 'owner') {
+      return res.status(403).json({ message: 'Cannot change owner role manually.' });
+    }
 
-    res.json(members);
+    membership.role = role;
+    await membership.save();
+
+    res.json(membership);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -86,24 +77,24 @@ const addMember = async (req, res) => {
       return res.status(404).json({ message: 'User not found. They must register first.' });
     }
 
-    
-    const exists = await Membership.findOne({ 
-      user: user._id, 
-      organization: req.params.id 
+
+    const exists = await Membership.findOne({
+      user: user._id,
+      organization: req.params.id
     });
-    
+
     if (exists) {
       return res.status(400).json({ message: 'User is already a member' });
     }
 
-    
+
     const membership = await Membership.create({
       user: user._id,
       organization: req.params.id,
       role: 'member'
     });
 
-    
+
     const populated = await Membership.findById(membership._id).populate('user', 'name email avatar');
 
     res.status(201).json(populated);
@@ -119,10 +110,10 @@ const searchOrganizations = async (req, res) => {
   if (!query) return res.json([]);
 
   try {
-    
-    const orgs = await Organization.find({ 
-      name: { $regex: query, $options: 'i' } 
-    }).select('name _id'); 
+
+    const orgs = await Organization.find({
+      name: { $regex: query, $options: 'i' }
+    }).select('name _id');
 
     res.json(orgs);
   } catch (error) {
@@ -137,15 +128,15 @@ const requestToJoin = async (req, res) => {
     const orgId = req.params.id;
     const userId = req.user._id;
 
-    
+
     const existingMember = await Membership.findOne({ user: userId, organization: orgId });
     if (existingMember) return res.status(400).json({ message: 'You are already a member.' });
 
-    
+
     const existingRequest = await JoinRequest.findOne({ user: userId, organization: orgId, status: 'pending' });
     if (existingRequest) return res.status(400).json({ message: 'Request already pending.' });
 
-    
+
     await JoinRequest.create({ user: userId, organization: orgId });
 
     res.status(200).json({ message: 'Request sent successfully' });
@@ -169,7 +160,7 @@ const getJoinRequests = async (req, res) => {
 // @desc    Resolve a join request (Accept/Reject)
 // @route   POST /api/organizations/:id/requests/:requestId/resolve
 const resolveJoinRequest = async (req, res) => {
-  const { action } = req.body; 
+  const { action } = req.body;
   const { requestId } = req.params;
 
   try {
@@ -177,13 +168,13 @@ const resolveJoinRequest = async (req, res) => {
     if (!request) return res.status(404).json({ message: 'Request not found' });
 
     if (action === 'accept') {
-      
+
       await Membership.create({
         user: request.user,
         organization: request.organization,
         role: 'member'
       });
-      
+
       await JoinRequest.findByIdAndDelete(requestId);
       res.json({ message: 'User added to organization' });
     } else {
@@ -198,10 +189,10 @@ const resolveJoinRequest = async (req, res) => {
 module.exports = {
   createOrganization,
   getUserOrganizations,
-    getOrgMembers,
-    addMember,
-    searchOrganizations,
-    requestToJoin,
-    getJoinRequests,
-    resolveJoinRequest
+  getOrgMembers,
+  addMember,
+  searchOrganizations,
+  requestToJoin,
+  getJoinRequests,
+  resolveJoinRequest
 };

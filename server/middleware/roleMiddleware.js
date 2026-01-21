@@ -1,40 +1,44 @@
 const Membership = require('../models/Membership');
 
-const checkOrgRole = (requiredRole) => async (req, res, next) => {
-  try {
-    // Determine where the Org ID is
-    const orgId = req.params.id || req.params.orgId || req.body.orgId;
+// Middleware to check if user has required role in the organization
+// Usage: router.post('/:id/members', protect, checkRole('owner', 'admin'), addMember);
+// Assumes req.params.id is the organization ID
+const checkRole = (...roles) => {
+  return async (req, res, next) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Not authorized' });
+      }
 
-    if (!orgId) {
-      return res.status(400).json({ message: 'Organization ID is required for permission check' });
+      const orgId = req.params.id || req.body.orgId || req.query.orgId;
+
+      if (!orgId) {
+        // If no org ID is found in standard places, we can't check org-specific roles
+        // You might want to handle this differently depending on your API structure
+        return res.status(400).json({ message: 'Organization ID required for permission check' });
+      }
+
+      const membership = await Membership.findOne({
+        user: req.user._id,
+        organization: orgId
+      });
+
+      if (!membership) {
+        return res.status(403).json({ message: 'Not a member of this organization' });
+      }
+
+      if (!roles.includes(membership.role)) {
+        return res.status(403).json({ message: `Access denied. Requires one of: ${roles.join(', ')}` });
+      }
+
+      // Attach membership to req for convenience in controllers
+      req.membership = membership;
+      next();
+    } catch (error) {
+      console.error('Role check error:', error);
+      res.status(500).json({ message: 'Server error checking permissions' });
     }
-
-    // Find Membership
-    const membership = await Membership.findOne({
-      user: req.user._id,
-      organization: orgId
-    });
-
-    if (!membership) {
-      return res.status(403).json({ message: 'Not a member of this organization' });
-    }
-
-    // 3. Check Role Hierarchy
-    // 'admin' can do everything. 'member' has limited access.
-    // If we require 'admin', user MUST be 'admin'.
-    // If we require 'member', user can be 'admin' OR 'member'.
-    
-    if (requiredRole === 'admin' && membership.role !== 'admin') {
-      return res.status(403).json({ message: 'Admin privileges required' });
-    }
-
-    // If we just require 'member', both roles pass because admin is also a member effectively.
-    
-    req.membership = membership; 
-    next();
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+  };
 };
 
-module.exports = { checkOrgRole };
+module.exports = { checkRole };

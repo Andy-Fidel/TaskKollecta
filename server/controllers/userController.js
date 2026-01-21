@@ -90,6 +90,11 @@ const loginUser = async (req, res) => {
         _id: user.id,
         name: user.name,
         email: user.email,
+        avatar: user.avatar,
+        role: user.role,
+        onboardingCompleted: user.onboardingCompleted,
+        isInvitee: user.isInvitee,
+        invitedToOrg: user.invitedToOrg,
         token: generateToken(res, user._id),
       });
     } else {

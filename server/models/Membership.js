@@ -1,20 +1,20 @@
 const mongoose = require('mongoose');
 
 const membershipSchema = new mongoose.Schema({
-  user: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  organization: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Organization', 
-    required: true 
+  organization: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: true
   },
-  role: { 
-    type: String, 
-    enum: ['admin', 'manager', 'member'], 
-    default: 'member' 
+  role: {
+    type: String,
+    enum: ['owner', 'admin', 'member', 'guest'],
+    default: 'member'
   }
 }, { timestamps: true });
 
