@@ -289,7 +289,7 @@ export default function Team() {
                 </TabsContent>
 
                 {/* REQUESTS TAB (Admin Only) */}
-                {isAdmin && (
+                {canManage && (
                     <TabsContent value="requests">
                         <Card className="border border-slate-200 shadow-sm rounded-xl">
                             <CardHeader><CardTitle>Pending Requests</CardTitle><CardDescription>Users requesting to join this workspace.</CardDescription></CardHeader>
