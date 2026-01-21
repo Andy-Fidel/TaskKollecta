@@ -34,7 +34,7 @@ import { TagPicker } from './TagPicker';
 import { RecurrencePicker } from './RecurrencePicker';
 import { MentionInput, renderMentions } from './MentionInput';
 
-export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
+export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, socket }) {
     const { user } = useAuth();
 
     // --- 1. HOOKS (Always run first) ---
@@ -68,10 +68,12 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
     // --- 2. EFFECTS ---
     useEffect(() => {
         if (isOpen && task) {
-            api.get(`/ comments / ${task._id} `).then(({ data }) => setComments(data));
-            api.get(`/ activities / task / ${task._id} `).then(({ data }) => setActivities(data));
-            if (task.organization) {
-                api.get(`/ organizations / ${task.organization}/members`).then(({ data }) => setTeamMembers(data));
+            api.get(`/comments/${task._id}`).then(({ data }) => setComments(data)).catch(() => { });
+            api.get(`/activities/task/${task._id}`).then(({ data }) => setActivities(data)).catch(() => { });
+
+            // Fetch team members from organization
+            if (orgId) {
+                api.get(`/organizations/${orgId}/members`).then(({ data }) => setTeamMembers(data)).catch(() => { });
             }
 
             setAssignee(task.assignee);
@@ -84,7 +86,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, socket }) {
             setTags(task.tags || []);
             setRecurrence(task.recurrence || null);
         }
-    }, [isOpen, task]);
+    }, [isOpen, task, orgId]);
 
     useEffect(() => {
         if (isDependencySearchOpen && projectTasks.length === 0 && task) {

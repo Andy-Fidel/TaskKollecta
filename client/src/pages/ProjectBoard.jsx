@@ -466,6 +466,7 @@ export default function ProjectBoard() {
         onClose={() => setIsDetailsOpen(false)}
         task={selectedTask}
         projectId={projectId}
+        orgId={projectDetails?.organization}
         socket={socket}
       />
 
