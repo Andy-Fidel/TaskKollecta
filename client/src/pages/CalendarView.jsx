@@ -57,17 +57,17 @@ export default function CalendarView() {
     // Event styling based on status
     const eventStyleGetter = (event) => {
         const statusColors = {
-            'todo': 'hsl(var(--primary))',
-            'in-progress': '#f59e0b',
-            'review': '#8b5cf6',
-            'done': '#10b981'
+            'todo': '#6366f1',        // Indigo
+            'in-progress': '#f59e0b', // Amber
+            'review': '#8b5cf6',      // Violet
+            'done': '#22c55e'         // Green
         };
 
         return {
             style: {
-                backgroundColor: statusColors[event.status] || 'hsl(var(--primary))',
+                backgroundColor: statusColors[event.status] || '#6366f1',
                 borderRadius: '6px',
-                opacity: event.status === 'done' ? 0.6 : 0.9,
+                opacity: 1,
                 color: 'white',
                 border: '0px',
                 fontSize: '12px',
@@ -200,10 +200,10 @@ export default function CalendarView() {
             {/* Legend */}
             <div className="flex flex-wrap gap-4 justify-center">
                 {[
-                    { status: 'Todo', color: 'hsl(var(--primary))' },
+                    { status: 'Todo', color: '#6366f1' },
                     { status: 'In Progress', color: '#f59e0b' },
                     { status: 'Review', color: '#8b5cf6' },
-                    { status: 'Done', color: '#10b981' },
+                    { status: 'Done', color: '#22c55e' },
                 ].map(item => (
                     <div key={item.status} className="flex items-center gap-2 text-xs text-muted-foreground">
                         <div className="w-3 h-3 rounded" style={{ backgroundColor: item.color }} />
