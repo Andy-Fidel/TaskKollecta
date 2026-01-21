@@ -496,12 +496,12 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                                 <Command>
                                                     <CommandInput placeholder="Search team..." />
                                                     <CommandGroup>
-                                                        {teamMembers.map((m) => (
-                                                            <CommandItem key={m.user._id} value={m.user.name} onSelect={() => initiateAssignment(m.user)}>
-                                                                <Check className={`mr-2 h-4 w-4 ${assignee?._id === m.user._id ? "opacity-100" : "opacity-0"}`} />
+                                                        {Array.isArray(teamMembers) && teamMembers.map((m) => (
+                                                            <CommandItem key={m.user?._id} value={m.user?.name} onSelect={() => initiateAssignment(m.user)}>
+                                                                <Check className={`mr-2 h-4 w-4 ${assignee?._id === m.user?._id ? "opacity-100" : "opacity-0"}`} />
                                                                 <div className="flex items-center gap-2">
-                                                                    <UIAvatar className="h-5 w-5"><AvatarImage src={m.user.avatar} /><AvatarFallback>{m.user.name.charAt(0)}</AvatarFallback></UIAvatar>
-                                                                    {m.user.name}
+                                                                    <UIAvatar className="h-5 w-5"><AvatarImage src={m.user?.avatar} /><AvatarFallback>{m.user?.name?.charAt(0)}</AvatarFallback></UIAvatar>
+                                                                    {m.user?.name}
                                                                 </div>
                                                             </CommandItem>
                                                         ))}
@@ -651,7 +651,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                         <MentionInput
                                             value={newComment}
                                             onChange={setNewComment}
-                                            users={teamMembers.map(m => m.user)}
+                                            users={Array.isArray(teamMembers) ? teamMembers.map(m => m.user).filter(Boolean) : []}
                                             placeholder="Write a comment... Use @ to mention someone"
                                             className="pr-12 bg-muted/20 focus:bg-background transition-all"
                                             onSubmit={handleSendComment}
