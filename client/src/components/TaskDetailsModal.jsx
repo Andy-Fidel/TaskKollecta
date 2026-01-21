@@ -125,8 +125,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
 
     // --- 4. DATA PROCESSING (Safe) ---
     const timeline = [
-        ...comments.map(c => ({ ...c, type: 'comment' })),
-        ...activities.map(a => ({ ...a, type: 'activity' }))
+        ...(Array.isArray(comments) ? comments : []).map(c => ({ ...c, type: 'comment' })),
+        ...(Array.isArray(activities) ? activities : []).map(a => ({ ...a, type: 'activity' }))
     ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
     // --- 5. HANDLERS ---
@@ -357,11 +357,11 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                         </span>
                                     </div>
 
-                                    {subtasks.length > 0 && (
+                                    {Array.isArray(subtasks) && subtasks.length > 0 && (
                                         <Progress value={(subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100} className="h-1.5 mb-6" />
                                     )}
 
-                                    {subtasks.length === 0 ? (
+                                    {!Array.isArray(subtasks) || subtasks.length === 0 ? (
                                         <div className="text-center py-6 border-2 border-dashed border-border/60 rounded-xl mb-4 bg-muted/5">
                                             <div className="flex justify-center mb-2">
                                                 <div className="bg-background p-2 rounded-full border border-border shadow-sm">
@@ -372,7 +372,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                         </div>
                                     ) : (
                                         <div className="space-y-1 mb-4">
-                                            {subtasks.map((st) => (
+                                            {Array.isArray(subtasks) && subtasks.map((st) => (
                                                 <div key={st._id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 group transition-colors">
                                                     <button
                                                         onClick={() => handleToggleSubtask(st._id)}
@@ -570,8 +570,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                                 <Command>
                                                     <CommandInput placeholder="Search tasks..." />
                                                     <CommandGroup>
-                                                        {projectTasks.length === 0 && <div className="p-3 text-xs text-muted-foreground text-center">No other tasks in project</div>}
-                                                        {projectTasks.slice(0, 8).map((t) => (
+                                                        {Array.isArray(projectTasks) && projectTasks.length === 0 && <div className="p-3 text-xs text-muted-foreground text-center">No other tasks in project</div>}
+                                                        {Array.isArray(projectTasks) && projectTasks.slice(0, 8).map((t) => (
                                                             <CommandItem key={t._id} onSelect={() => handleAddDependency(t._id)}>{t.title}</CommandItem>
                                                         ))}
                                                     </CommandGroup>
@@ -580,7 +580,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                         </Popover>
                                     </div>
 
-                                    {dependencies.length === 0 ? (
+                                    {!Array.isArray(dependencies) || dependencies.length === 0 ? (
                                         <div className="text-center py-4 border-2 border-dashed border-border/60 rounded-xl bg-muted/5">
                                             <p className="text-[10px] font-medium text-muted-foreground">No dependencies</p>
                                         </div>
