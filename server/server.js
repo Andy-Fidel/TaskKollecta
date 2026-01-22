@@ -26,6 +26,7 @@ const searchRoutes = require('./routes/searchRoutes');
 const filterPresetRoutes = require('./routes/filterPresetRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const inviteRoutes = require('./routes/inviteRoutes');
+const reminderRoutes = require('./routes/reminderRoutes');
 
 // Load environment variables
 
@@ -211,6 +212,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/filter-presets', filterPresetRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/invites', inviteRoutes);
+app.use('/api/reminders', reminderRoutes);
 
 
 

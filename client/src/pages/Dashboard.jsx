@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector,  Legend 
+import {
+  BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector, Legend
 } from 'recharts';
-import { 
-  CheckCircle2, TrendingUp, Users, FolderOpen, 
-  Plus, AlertCircle, Loader2, History, Calendar as CalendarIcon 
+import {
+  CheckCircle2, TrendingUp, Users, FolderOpen,
+  Plus, AlertCircle, Loader2, History, Calendar as CalendarIcon
 } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,14 +23,15 @@ import { formatActivityAction } from "../utils/formatActivity";
 
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { ReminderWidget } from '@/components/ReminderWidget';
 
 // Using CSS variables for Recharts (Theme Compatible)
 const COLORS = [
-    'hsl(var(--chart-1))', 
-    'hsl(var(--chart-2))', 
-    'hsl(var(--chart-3))', 
-    'hsl(var(--chart-4))', 
-    'hsl(var(--chart-5))'
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))'
 ];
 
 export default function Dashboard() {
@@ -38,7 +39,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
-  
+
   // Date Filters
   const [dateRange, setDateRange] = useState({
     from: subDays(new Date(), 30),
@@ -62,10 +63,10 @@ export default function Dashboard() {
         setLoading(true);
         const start = dateRange.from ? dateRange.from.toISOString() : '';
         const end = dateRange.to ? dateRange.to.toISOString() : '';
-        
+
         const dashboardRes = await api.get(`/dashboard?start=${start}&end=${end}`);
         setData(dashboardRes.data);
-        
+
         const orgRes = await api.get('/organizations');
         setUserOrgs(orgRes.data);
       } catch (error) {
@@ -90,54 +91,54 @@ export default function Dashboard() {
       const { data } = await api.post('/projects', {
         name: newProjectName,
         description: newProjectDesc,
-        orgId: userOrgs[0]._id 
+        orgId: userOrgs[0]._id
       });
-      navigate(`/project/${data._id}`); 
+      navigate(`/project/${data._id}`);
     } catch (error) { alert("Failed to create project"); }
   };
 
-  if (loading && !data) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
+  if (loading && !data) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   if (!data) return <div className="p-8 text-center text-muted-foreground">Unable to load dashboard data.</div>;
 
   const cardStyle = "border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-xl";
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-10 font-[Poppins]">
-      
+
       {/* Header & Date Picker */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
           <p className="text-muted-foreground">Overview for <span className="font-semibold text-foreground">{user?.name}</span></p>
         </div>
-        
+
         <div className="flex items-center gap-2">
-            <Popover>
-                <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[240px] justify-start text-left font-normal bg-card hover:bg-accent hover:text-accent-foreground border-input">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateRange.from ? (
-                            dateRange.to ? (
-                                <>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</>
-                            ) : (
-                                format(dateRange.from, "LLL dd, y")
-                            )
-                        ) : (
-                            <span>Pick a date</span>
-                        )}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={dateRange.from}
-                        selected={dateRange}
-                        onSelect={setDateRange}
-                        numberOfMonths={2}
-                    />
-                </PopoverContent>
-            </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[240px] justify-start text-left font-normal bg-card hover:bg-accent hover:text-accent-foreground border-input">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange.from ? (
+                  dateRange.to ? (
+                    <>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</>
+                  ) : (
+                    format(dateRange.from, "LLL dd, y")
+                  )
+                ) : (
+                  <span>Pick a date</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange.from}
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -168,122 +169,122 @@ export default function Dashboard() {
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
+
         {/* LEFT COLUMN: Charts & Activity */}
         <div className="lg:col-span-2 space-y-8">
-          
+
           {/* Charts Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* CHART 1: Task Status (Interactive Pie) */}
-              <Card className={cardStyle}>
-                <CardHeader>
-                  <CardTitle className="text-sm font-bold text-foreground">Task Status Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[250px] w-full min-h-[250px] min-w-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={statusData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                          label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-                        >
-                          {statusData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} stroke="var(--background)" strokeWidth={2} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                            contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', color: 'var(--foreground)' }} 
-                            itemStyle={{ color: 'var(--foreground)' }}
-                        />
-                        <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* CHART 2: Workload (Donut Active) */}
-              <Card className={cardStyle}>
-                <CardHeader>
-                  <CardTitle className="text-sm font-bold text-foreground">Workload by Project</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[250px] w-full min-h-[250px] min-w-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          activeIndex={activeIndex}
-                          activeShape={renderActiveShape}
-                          data={data.charts.byProject}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          fill="var(--primary)"
-                          dataKey="value"
-                          onMouseEnter={onPieEnter}
-                          paddingAngle={2}
-                        >
-                          {data.charts.byProject.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={`hsl(var(--chart-${(index % 5) + 1}))`} stroke="var(--background)" strokeWidth={2} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="text-center text-xs text-muted-foreground mt-[-10px]">
-                      Hover segments for details
-                  </div>
-                </CardContent>
-              </Card>
+            {/* CHART 1: Task Status (Interactive Pie) */}
+            <Card className={cardStyle}>
+              <CardHeader>
+                <CardTitle className="text-sm font-bold text-foreground">Task Status Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[250px] w-full min-h-[250px] min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={statusData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                      >
+                        {statusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="var(--background)" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', color: 'var(--foreground)' }}
+                        itemStyle={{ color: 'var(--foreground)' }}
+                      />
+                      <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* CHART 2: Workload (Donut Active) */}
+            <Card className={cardStyle}>
+              <CardHeader>
+                <CardTitle className="text-sm font-bold text-foreground">Workload by Project</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[250px] w-full min-h-[250px] min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        activeIndex={activeIndex}
+                        activeShape={renderActiveShape}
+                        data={data.charts.byProject}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        fill="var(--primary)"
+                        dataKey="value"
+                        onMouseEnter={onPieEnter}
+                        paddingAngle={2}
+                      >
+                        {data.charts.byProject.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={`hsl(var(--chart-${(index % 5) + 1}))`} stroke="var(--background)" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="text-center text-xs text-muted-foreground mt-[-10px]">
+                  Hover segments for details
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Recent Activity */}
           <Card className={cardStyle}>
             <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-border/50">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <History className="w-5 h-5 text-primary" /> 
+                <History className="w-5 h-5 text-primary" />
                 Recent Activity
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-               <ScrollArea className="h-[300px] p-6 pt-4">
-                  {data.recentActivities?.length > 0 ? (
-                      <div className="space-y-6 relative border-l border-border ml-2 my-2">
-                          {data.recentActivities.map((activity) => (
-                              <div key={activity._id} className="relative pl-6 group">
-                                  <div className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full bg-border ring-4 ring-card group-hover:bg-primary transition-colors"></div>
-                                  <div className="flex flex-col gap-1">
-                                      <div className="flex items-center gap-2">
-                                          <Avatar className="h-6 w-6 border border-border">
-                                              <AvatarImage src={activity.user?.avatar} />
-                                              <AvatarFallback className="text-[9px] bg-muted text-muted-foreground">{activity.user?.name?.charAt(0)}</AvatarFallback>
-                                          </Avatar>
-                                          <p className="text-xs text-muted-foreground">
-                                              <span className="font-semibold text-foreground">{activity.user?.name}</span>
-                                              <span className="mx-1">{formatActivityAction(activity.action, activity.details)}</span>
-                                          </p>
-                                      </div>
-                                      <div className="bg-muted/30 p-2.5 rounded-lg border border-border/50 mt-1 hover:border-primary/20 transition-colors">
-                                          <p className="text-xs font-medium text-foreground line-clamp-1">{activity.task?.title || "Deleted Task"}</p>
-                                          <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                                              <span className="w-1.5 h-1.5 rounded-full bg-primary/50 inline-block"></span>
-                                              {activity.task?.project?.name || "Unknown Project"} • {new Date(activity.createdAt).toLocaleDateString()}
-                                          </p>
-                                      </div>
-                                  </div>
-                              </div>
-                          ))}
+              <ScrollArea className="h-[300px] p-6 pt-4">
+                {data.recentActivities?.length > 0 ? (
+                  <div className="space-y-6 relative border-l border-border ml-2 my-2">
+                    {data.recentActivities.map((activity) => (
+                      <div key={activity._id} className="relative pl-6 group">
+                        <div className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full bg-border ring-4 ring-card group-hover:bg-primary transition-colors"></div>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6 border border-border">
+                              <AvatarImage src={activity.user?.avatar} />
+                              <AvatarFallback className="text-[9px] bg-muted text-muted-foreground">{activity.user?.name?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-semibold text-foreground">{activity.user?.name}</span>
+                              <span className="mx-1">{formatActivityAction(activity.action, activity.details)}</span>
+                            </p>
+                          </div>
+                          <div className="bg-muted/30 p-2.5 rounded-lg border border-border/50 mt-1 hover:border-primary/20 transition-colors">
+                            <p className="text-xs font-medium text-foreground line-clamp-1">{activity.task?.title || "Deleted Task"}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary/50 inline-block"></span>
+                              {activity.task?.project?.name || "Unknown Project"} • {new Date(activity.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                  ) : <div className="text-center py-8 text-muted-foreground text-sm">No recent activity.</div>}
-               </ScrollArea>
+                    ))}
+                  </div>
+                ) : <div className="text-center py-8 text-muted-foreground text-sm">No recent activity.</div>}
+              </ScrollArea>
             </CardContent>
           </Card>
 
@@ -297,6 +298,11 @@ export default function Dashboard() {
             <QuickAction icon={CheckCircle2} label="My Tasks" color="text-foreground" bg="bg-accent" onClick={() => navigate('/tasks')} />
           </div>
 
+          {/* Reminder Widget */}
+          <div className="h-[320px]">
+            <ReminderWidget />
+          </div>
+
           {/* Today's Tasks */}
           <Card className={cardStyle}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -306,7 +312,7 @@ export default function Dashboard() {
             <CardContent className="space-y-3 pt-4">
               {data.todaysTasks?.length > 0 ? (
                 data.todaysTasks.map(task => (
-                    <TaskItem key={task._id} title={task.title} project={task.project?.name} priority={task.priority} />
+                  <TaskItem key={task._id} title={task.title} project={task.project?.name} priority={task.priority} />
                 ))
               ) : <div className="text-center text-muted-foreground text-sm py-8 bg-muted/20 rounded-lg border border-dashed border-border">All clear for today!</div>}
             </CardContent>
@@ -314,9 +320,9 @@ export default function Dashboard() {
 
           {/* Calendar (Mini) */}
           <Card className={cardStyle}>
-             <CardContent className="flex justify-center p-4">
-                <Calendar mode="single" selected={new Date()} className="rounded-md border-none" />
-             </CardContent>
+            <CardContent className="flex justify-center p-4">
+              <Calendar mode="single" selected={new Date()} className="rounded-md border-none" />
+            </CardContent>
           </Card>
         </div>
       </div>
@@ -324,15 +330,15 @@ export default function Dashboard() {
       {/* Create Project Modal */}
       <Dialog open={isProjectModalOpen} onOpenChange={setIsProjectModalOpen}>
         <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Quick Create Project</DialogTitle>
-                <DialogDescription>Start a new project immediately.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateProject} className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Name</Label><Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} required /></div>
-                <div className="space-y-2"><Label>Description</Label><Textarea value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} /></div>
-                <DialogFooter><Button type="submit" className="bg-primary text-primary-foreground">Create Project</Button></DialogFooter>
-            </form>
+          <DialogHeader>
+            <DialogTitle>Quick Create Project</DialogTitle>
+            <DialogDescription>Start a new project immediately.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateProject} className="space-y-4 py-4">
+            <div className="space-y-2"><Label>Name</Label><Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} required /></div>
+            <div className="space-y-2"><Label>Description</Label><Textarea value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} /></div>
+            <DialogFooter><Button type="submit" className="bg-primary text-primary-foreground">Create Project</Button></DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -352,10 +358,10 @@ function QuickAction({ icon: Icon, label, color, bg, onClick }) {
 
 function TaskItem({ title, project, priority }) {
   // Map priority to theme colors if possible, or keep semantic alerts
-  const priorityStyle = { 
-      high: 'text-destructive bg-destructive/10 border-destructive/20', 
-      medium: 'text-orange-500 bg-orange-500/10 border-orange-500/20', 
-      low: 'text-blue-500 bg-blue-500/10 border-blue-500/20' 
+  const priorityStyle = {
+    high: 'text-destructive bg-destructive/10 border-destructive/20',
+    medium: 'text-orange-500 bg-orange-500/10 border-orange-500/20',
+    low: 'text-blue-500 bg-blue-500/10 border-blue-500/20'
   }[priority] || 'text-muted-foreground bg-muted border-transparent';
 
   return (
