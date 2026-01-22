@@ -288,6 +288,63 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* Recent Projects Card */}
+          <Card className={cardStyle}>
+            <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border/50">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <FolderOpen className="w-5 h-5 text-primary" />
+                Recent Projects
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/projects')} className="text-xs text-muted-foreground">View All</Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-border/50">
+                {data.recentProjects?.length > 0 ? (
+                  data.recentProjects.map(project => (
+                    <div key={project._id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors group cursor-pointer" onClick={() => navigate(`/project/${project._id}`)}>
+                      <div className="flex items-center gap-4 min-w-0 flex-1">
+                        {/* Icon/Avatar Placeholder */}
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 font-bold text-sm">
+                          {project.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-semibold text-sm text-foreground truncate">{project.name}</h4>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                            {/* Lead */}
+                            {project.lead && (
+                              <div className="flex items-center gap-1">
+                                <Avatar className="h-4 w-4">
+                                  <AvatarImage src={project.lead.avatar} />
+                                  <AvatarFallback>{project.lead.name?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <span>{project.lead.name}</span>
+                              </div>
+                            )}
+                            <span className="hidden md:inline">•</span>
+                            <span>Due {project.dueDate ? new Date(project.dueDate).toLocaleDateString() : 'N/A'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stats & Progress */}
+                      <div className="flex flex-col items-end gap-1.5 min-w-[120px]">
+                        <Badge variant="secondary" className="capitalize text-[10px] h-5 px-1.5 font-normal bg-muted text-muted-foreground border-border">
+                          {project.status || 'Active'}
+                        </Badge>
+                        <div className="w-full flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-primary rounded-full" style={{ width: `${project.progress || 0}%` }}></div>
+                          </div>
+                          <span className="text-[10px] font-medium text-muted-foreground w-6 text-right">{project.progress || 0}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : <div className="p-8 text-center text-sm text-muted-foreground">No recent projects found.</div>}
+              </div>
+            </CardContent>
+          </Card>
+
         </div>
 
         {/* RIGHT COLUMN */}
