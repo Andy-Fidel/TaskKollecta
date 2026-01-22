@@ -119,12 +119,25 @@ const getUpdates = async (req, res) => {
 // @route   PUT /api/projects/:id
 const updateProject = async (req, res) => {
   try {
-    const project = await Project.findByIdAndUpdate(
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    // Permission Check: Owner/Admin only
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      organization: project.organization
+    });
+
+    if (!membership || !['owner', 'admin'].includes(membership.role)) {
+      return res.status(403).json({ message: 'Not authorized to update project' });
+    }
+
+    const updatedProject = await Project.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true }
     );
-    res.json(project);
+    res.json(updatedProject);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -134,6 +147,18 @@ const updateProject = async (req, res) => {
 // @route   DELETE /api/projects/:id
 const deleteProject = async (req, res) => {
   try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    // Permission Check: Owner/Admin only
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      organization: project.organization
+    });
+
+    if (!membership || !['owner', 'admin'].includes(membership.role)) {
+      return res.status(403).json({ message: 'Not authorized to delete project' });
+    }
 
     await Task.deleteMany({ project: req.params.id });
 

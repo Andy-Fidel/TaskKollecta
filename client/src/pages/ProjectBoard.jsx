@@ -20,6 +20,7 @@ import { Separator } from '@/components/ui/separator';
 import { ProjectSettingsDialog } from '@/components/ProjectSettingsDialog';
 import { AdvancedFilters, applyFilters } from '@/components/Filters/AdvancedFilters';
 
+import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { useSocket } from '../hooks/useSocket';
 import { KanbanColumn } from '../components/KanbanColumn';
@@ -39,6 +40,7 @@ const COLUMNS = [
 ];
 
 export default function ProjectBoard() {
+  const { user } = useAuth();
   const { projectId } = useParams();
   const navigate = useNavigate();
   const socket = useSocket(projectId);
@@ -274,14 +276,17 @@ export default function ProjectBoard() {
           </Button>
 
           {/* Settings */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={() => setIsSettingsOpen(true)}
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
+          {/* Settings - Only Owner/Admin */}
+          {['owner', 'admin'].includes(projectMembers.find(m => m.user._id === user?._id)?.role) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setIsSettingsOpen(true)}
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+          )}
 
           <Separator orientation="vertical" className="h-6" />
 

@@ -129,6 +129,12 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
         ...(Array.isArray(activities) ? activities : []).map(a => ({ ...a, type: 'activity' }))
     ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
+    // Permission Check
+    const currentMember = teamMembers.find(m => m.user?._id === user?._id);
+    const userRole = currentMember?.role;
+    const isAuthor = task.reporter === user?._id;
+    const canDelete = ['owner', 'admin'].includes(userRole) || isAuthor;
+
     // --- 5. HANDLERS ---
     const handleSaveDescription = async () => {
         try {
@@ -297,9 +303,16 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                     <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={handleDeleteTask} className="text-red-600 focus:text-red-600 focus:bg-red-50">
-                                        <Trash2 className="mr-2 h-4 w-4" /> Delete Task
-                                    </DropdownMenuItem>
+                                    {canDelete && (
+                                        <DropdownMenuItem onClick={handleDeleteTask} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                                            <Trash2 className="mr-2 h-4 w-4" /> Delete Task
+                                        </DropdownMenuItem>
+                                    )}
+                                    {!canDelete && (
+                                        <DropdownMenuItem disabled className="text-muted-foreground">
+                                            <Trash2 className="mr-2 h-4 w-4" /> Delete Restricted
+                                        </DropdownMenuItem>
+                                    )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                             <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></Button>
