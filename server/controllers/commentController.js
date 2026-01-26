@@ -1,6 +1,7 @@
 const Comment = require('../models/Comment');
 const Task = require('../models/Task');
 const User = require('../models/User');
+const Membership = require('../models/Membership');
 const {
   sendNotification,
   sendCommentEmail,
@@ -13,6 +14,18 @@ const addComment = async (req, res) => {
   const { content, taskId } = req.body;
 
   try {
+    const task = await Task.findById(taskId);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    // SECURITY: Verify user is a member of the task's organization
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      organization: task.organization
+    });
+    if (!membership) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const comment = await Comment.create({
       content,
       task: taskId,
@@ -20,7 +33,6 @@ const addComment = async (req, res) => {
     });
 
     const fullComment = await Comment.findById(comment._id).populate('user', 'name avatar');
-    const task = await Task.findById(taskId);
 
     // --- NOTIFICATION 1: ASSIGNEE ---
     if (task && task.assignee && task.assignee.toString() !== req.user._id.toString()) {

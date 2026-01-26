@@ -52,6 +52,16 @@ const getProjectDetails = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    // SECURITY: Verify user is a member of the project's organization
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      organization: project.organization
+    });
+    if (!membership) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     res.json(project);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -64,18 +74,27 @@ const getProjectAnalytics = async (req, res) => {
   try {
     const projectId = new mongoose.Types.ObjectId(req.params.id);
 
+    // SECURITY: Get project and verify membership
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      organization: project.organization
+    });
+    if (!membership) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
 
     const statusStats = await Task.aggregate([
       { $match: { project: projectId } },
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
 
-
     const priorityStats = await Task.aggregate([
       { $match: { project: projectId } },
       { $group: { _id: '$priority', count: { $sum: 1 } } }
     ]);
-
 
     const totalTasks = await Task.countDocuments({ project: projectId });
     const completedTasks = await Task.countDocuments({ project: projectId, status: 'done' });

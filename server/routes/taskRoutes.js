@@ -18,13 +18,14 @@ const { createTask,
     setRecurrence,
     removeRecurrence } = require('../controllers/taskController');
 const { protect } = require('../middleware/authMiddleware');
+const { validateCreateTask, validateUpdateTask, validateIdParam } = require('../middleware/validators');
 
 
-router.post('/', protect, createTask);
+router.post('/', protect, validateCreateTask, createTask);
 router.get('/my-tasks', protect, getMyTasks);
 router.get('/project/:projectId', protect, getProjectTasks);
-router.put('/:id', protect, updateTask);
-router.delete('/:id', protect, deleteTask);
+router.put('/:id', protect, validateUpdateTask, updateTask);
+router.delete('/:id', protect, validateIdParam, deleteTask);
 router.post('/:id/attachments', protect, addAttachment);
 router.get('/single/:id', protect, getTask);
 router.put('/:id/archive', protect, toggleArchiveTask);

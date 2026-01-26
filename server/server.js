@@ -5,8 +5,10 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 const connectDB = require("./config/db");
 const passport = require('passport');
+const errorHandler = require('./middleware/errorHandler');
 
 
 // Routes
@@ -64,6 +66,9 @@ const writeLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// SECURITY: HTTP security headers
+app.use(helmet());
 
 app.use(express.json());
 app.use(cookieParser());
@@ -214,7 +219,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/invites', inviteRoutes);
 app.use('/api/reminders', reminderRoutes);
 
-
+// SECURITY: Global error handler (must be last)
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
