@@ -53,4 +53,16 @@ router.get(
   }
 );
 
+// Start Microsoft Login
+router.get('/microsoft', passport.authenticate('microsoft', { prompt: 'select_account' }));
+
+router.get(
+  '/microsoft/callback',
+  passport.authenticate('microsoft', { session: false, failureRedirect: '/login' }),
+  (req, res) => {
+    const token = generateToken(req.user._id);
+    res.redirect(`${process.env.CLIENT_URL}/login?token=${token}`);
+  }
+);
+
 module.exports = router;

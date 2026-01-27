@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Import Tabs
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; 
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 
@@ -40,7 +40,7 @@ export default function Team() {
 
     // Modals
     const [isInviteOpen, setIsInviteOpen] = useState(false);
-    const [isJoinOpen, setIsJoinOpen] = useState(false); // Search Modal
+    const [isJoinOpen, setIsJoinOpen] = useState(false); 
     const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
 
     // Forms

@@ -349,12 +349,12 @@ const completeOnboarding = async (req, res) => {
         createdBy: user._id
       });
 
-      // Add user as owner
+      // Add user as OWNER (RBAC: creator gets full control)
       const Membership = require('../models/Membership');
       await Membership.create({
         user: user._id,
         organization: organization._id,
-        role: 'admin'
+        role: 'owner'
       });
 
       // Create project if name provided

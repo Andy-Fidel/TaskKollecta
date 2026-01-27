@@ -24,6 +24,7 @@ const userSchema = new mongoose.Schema({
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   googleId: { type: String },
+  microsoftId: { type: String },
 
   // Notification Preferences
   notificationPreferences: {
