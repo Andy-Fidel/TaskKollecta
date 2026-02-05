@@ -145,22 +145,25 @@ export default function Dashboard() {
       {/* Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          // Updated to use Theme Semantic Colors
-          { label: 'Total Projects', value: data.stats.totalProjects, icon: FolderOpen, color: 'text-primary', bg: 'bg-primary/10' },
-          { label: 'Active Tasks', value: data.stats.activeTasks, icon: CheckCircle2, color: 'text-blue-500', bg: 'bg-blue-500/10' }, // Kept blue as distinct from primary
-          { label: 'Overdue Tasks', value: data.stats.overdue, icon: AlertCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
-          { label: 'Completed', value: data.stats.completedInPeriod, icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-500/10' },
+          { label: 'Total Projects', value: data.stats.totalProjects, icon: FolderOpen, color: 'text-slate-700', bg: 'bg-white/20', cardBg: '#B7BDF7' },
+          { label: 'Active Tasks', value: data.stats.activeTasks, icon: CheckCircle2, color: 'text-slate-700', bg: 'bg-white/20', cardBg: '#DDAED3' },
+          { label: 'Overdue Tasks', value: data.stats.overdue, icon: AlertCircle, color: 'text-slate-700', bg: 'bg-white/20', cardBg: '#F375C2' },
+          { label: 'Completed', value: data.stats.completedInPeriod, icon: TrendingUp, color: 'text-slate-700', bg: 'bg-white/20', cardBg: '#FE7F2D' },
         ].map((stat, i) => (
-          <Card key={i} className={`${cardStyle} hover:-translate-y-1`}>
+          <Card 
+            key={i} 
+            className={`border-transparent shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 rounded-xl text-slate-800`}
+            style={{ backgroundColor: stat.cardBg }}
+          >
             <CardContent className="p-6">
               <div className="flex justify-between items-start mb-4">
-                <div className={`p-3 rounded-xl ${stat.bg} ${stat.color}`}>
+                <div className={`p-3 rounded-xl ${stat.bg} ${stat.color} backdrop-blur-sm`}>
                   <stat.icon className="h-5 w-5" />
                 </div>
               </div>
               <div className="space-y-1">
-                <h3 className="text-2xl font-bold text-foreground">{stat.value}</h3>
-                <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                <h3 className="text-2xl font-bold text-slate-900">{stat.value}</h3>
+                <p className="text-sm font-medium text-slate-700">{stat.label}</p>
               </div>
             </CardContent>
           </Card>
