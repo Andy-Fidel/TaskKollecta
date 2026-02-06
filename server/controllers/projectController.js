@@ -3,6 +3,7 @@ const Task = require('../models/Task');
 const ProjectUpdate = require('../models/ProjectUpdate');
 const Membership = require('../models/Membership');
 const mongoose = require('mongoose');
+const { invalidateProjectCache } = require('../utils/cacheUtils');
 
 // @desc    Create a new project
 // @route   POST /api/projects
@@ -24,6 +25,9 @@ const createProject = async (req, res) => {
     // Populate the lead immediately for the frontend
     const populatedProject = await Project.findById(project._id).populate('lead', 'name avatar');
 
+    // Invalidate project cache for all users
+    await invalidateProjectCache(orgId);
+
     res.status(201).json(populatedProject);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -37,6 +41,16 @@ const getOrgProjects = async (req, res) => {
   const { orgId } = req.params;
 
   try {
+    // SECURITY: Verify user is a member of this organization
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      organization: orgId
+    });
+    
+    if (!membership) {
+      return res.status(403).json({ message: 'Not authorized to view projects of this organization' });
+    }
+
     const projects = await Project.find({ organization: orgId })
       .populate('lead', 'name email');
 
@@ -156,6 +170,10 @@ const updateProject = async (req, res) => {
       req.body,
       { new: true }
     );
+
+    // Invalidate project cache
+    await invalidateProjectCache(project.organization);
+
     res.json(updatedProject);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -183,6 +201,9 @@ const deleteProject = async (req, res) => {
 
 
     await Project.findByIdAndDelete(req.params.id);
+
+    // Invalidate project cache
+    await invalidateProjectCache(project.organization);
 
     res.json({ message: 'Project and tasks deleted' });
   } catch (error) {

@@ -71,9 +71,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             api.get(`/comments/${task._id}`).then(({ data }) => setComments(data)).catch(() => { });
             api.get(`/activities/task/${task._id}`).then(({ data }) => setActivities(data)).catch(() => { });
 
-            // Fetch team members from organization
-            if (orgId) {
-                api.get(`/organizations/${orgId}/members`).then(({ data }) => setTeamMembers(data)).catch(() => { });
+            // Fetch team members from organization - use orgId prop, task.organization, or localStorage fallback
+            const effectiveOrgId = orgId || task.organization || localStorage.getItem('activeOrgId');
+            if (effectiveOrgId) {
+                api.get(`/organizations/${effectiveOrgId}/members`).then(({ data }) => setTeamMembers(data)).catch(() => { });
             }
 
             setAssignee(task.assignee);
@@ -141,7 +142,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             await api.put(`/tasks/${task._id}`, { description: descInput });
             setIsEditingDesc(false);
             toast.success("Description updated");
-        } catch (e) { toast.error("Failed to update description"); }
+        } catch { toast.error("Failed to update description"); }
     };
 
     const initiateAssignment = (memberUser) => {
@@ -158,7 +159,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setPendingAssignee(null);
             setIsConfirmOpen(false);
             toast.success(`Assigned to ${pendingAssignee.name}`);
-        } catch (error) {
+        } catch {
             toast.error("Assignment failed");
             setPendingAssignee(null);
         }
@@ -170,7 +171,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             await api.put(`/tasks/${task._id}`, { status: newStatus });
             if (socket) socket.emit("task_moved", { _id: task._id, status: newStatus, projectId });
             toast.success(`Status updated`);
-        } catch (error) { toast.error("Failed update status"); }
+        } catch { toast.error("Failed update status"); }
     };
 
     const handlePriorityChange = async (newPriority) => {
@@ -178,7 +179,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
         try {
             await api.put(`/tasks/${task._id}`, { priority: newPriority });
             toast.success(`Priority updated`);
-        } catch (error) { toast.error("Failed update priority"); }
+        } catch { toast.error("Failed update priority"); }
     };
 
     const handleAddSubtask = async (e) => {
@@ -188,7 +189,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             const { data } = await api.post(`/tasks/${task._id}/subtasks`, { title: newSubtask });
             setSubtasks(data.subtasks);
             setNewSubtask('');
-        } catch (e) { toast.error("Failed to add subtask"); }
+        } catch { toast.error("Failed to add subtask"); }
     };
 
     const handleToggleSubtask = async (id) => {
@@ -196,7 +197,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
         setSubtasks(prev => prev.map(s => s._id === id ? { ...s, isCompleted: !s.isCompleted } : s));
         try {
             await api.put(`/tasks/${task._id}/subtasks/${id}`);
-        } catch (e) {
+        } catch {
             setSubtasks(originalSubtasks);
             toast.error("Sync error");
         }
@@ -207,7 +208,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
         setSubtasks(prev => prev.filter(s => s._id !== id));
         try {
             await api.delete(`/tasks/${task._id}/subtasks/${id}`);
-        } catch (e) {
+        } catch {
             setSubtasks(originalSubtasks);
             toast.error("Delete error");
         }
@@ -219,7 +220,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setDependencies(data.dependencies);
             setIsDependencySearchOpen(false);
             toast.success("Dependency linked");
-        } catch (e) { toast.error("Failed to link task"); }
+        } catch { toast.error("Failed to link task"); }
     };
 
     const handleRemoveDependency = async (depId) => {
@@ -227,7 +228,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             const { data } = await api.delete(`/tasks/${task._id}/dependencies/${depId}`);
             setDependencies(data.dependencies);
             toast.success("Dependency removed");
-        } catch (e) { toast.error("Failed to unlink task"); }
+        } catch { toast.error("Failed to unlink task"); }
     };
 
     const handleSendComment = async (e) => {
@@ -239,7 +240,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setNewComment('');
             if (socket) socket.emit('new_comment', { projectId, comment: data });
             toast.success("Comment added");
-        } catch (error) { toast.error("Message failed"); }
+        } catch { toast.error("Message failed"); }
     };
 
     const handleFileUpload = async (e) => {
@@ -253,7 +254,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             const { url, filename, type } = uploadRes.data;
             await api.post(`/tasks/${task._id}/attachments`, { url, filename, type });
             toast.success("File attached");
-        } catch (error) { toast.error("Upload failed"); }
+        } catch { toast.error("Upload failed"); }
         finally { setIsUploading(false); }
     };
 
@@ -263,7 +264,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             await api.delete(`/tasks/${task._id}`);
             toast.success("Task deleted");
             onClose();
-        } catch (error) { toast.error("Failed to delete"); }
+        } catch { toast.error("Failed to delete"); }
     };
 
     // --- 6. HELPER COMPONENT ---
@@ -538,7 +539,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                             <PopoverContent className="w-auto p-0" align="end">
                                                 <Calendar mode="single" selected={dueDate} onSelect={async (d) => {
                                                     setDueDate(d);
-                                                    try { await api.put(`/tasks/${task._id}`, { dueDate: d }); toast.success("Date updated"); } catch (e) { }
+                                                    try { await api.put(`/tasks/${task._id}`, { dueDate: d }); toast.success("Date updated"); } catch { /* silently ignore */ }
                                                 }} initialFocus />
                                             </PopoverContent>
                                         </Popover>

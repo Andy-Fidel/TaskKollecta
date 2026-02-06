@@ -19,15 +19,16 @@ const { createTask,
     removeRecurrence } = require('../controllers/taskController');
 const { protect } = require('../middleware/authMiddleware');
 const { validateCreateTask, validateUpdateTask, validateIdParam } = require('../middleware/validators');
+const { cacheResponse } = require('../middleware/cacheMiddleware');
 
 
 router.post('/', protect, validateCreateTask, createTask);
-router.get('/my-tasks', protect, getMyTasks);
-router.get('/project/:projectId', protect, getProjectTasks);
+router.get('/my-tasks', protect, cacheResponse(60), getMyTasks);
+router.get('/project/:projectId', protect, cacheResponse(60), getProjectTasks);
 router.put('/:id', protect, validateUpdateTask, updateTask);
 router.delete('/:id', protect, validateIdParam, deleteTask);
 router.post('/:id/attachments', protect, addAttachment);
-router.get('/single/:id', protect, getTask);
+router.get('/single/:id', protect, cacheResponse(30), getTask);
 router.put('/:id/archive', protect, toggleArchiveTask);
 
 // Subtasks

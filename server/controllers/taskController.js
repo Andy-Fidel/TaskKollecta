@@ -7,6 +7,7 @@ const {
 } = require('../utils/notificationService');
 const { logActivity } = require('../utils/activityLogger');
 const runAutomations = require('../utils/automationEngine');
+const { invalidateTaskCache } = require('../utils/cacheUtils');
 
 // @desc    Create new task
 // @route   POST /api/tasks
@@ -46,6 +47,9 @@ const createTask = async (req, res) => {
         projectId
       });
     }
+
+    // Invalidate task cache
+    await invalidateTaskCache(projectId);
 
     res.status(201).json(populatedTask);
   } catch (error) {
@@ -132,6 +136,9 @@ const deleteTask = async (req, res) => {
 
     await Task.deleteOne({ _id: req.params.id });
 
+    // Invalidate task cache
+    await invalidateTaskCache(task.project);
+
     res.json({ id: req.params.id, message: 'Task removed' });
   } catch (error) {
     console.error("Delete Error:", error);
@@ -144,13 +151,25 @@ const deleteTask = async (req, res) => {
 const addAttachment = async (req, res) => {
   try {
     const { url, filename, type } = req.body;
+    
+    // Validate required fields
+    if (!url || !filename) {
+      return res.status(400).json({ message: 'URL and filename are required' });
+    }
+
     const task = await Task.findByIdAndUpdate(
       req.params.id,
-      { $push: { attachments: { url, filename, type } } },
+      { $push: { attachments: { url, filename, type: type || 'file' } } },
       { new: true }
     );
+
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
     res.json(task);
   } catch (error) {
+    console.error('addAttachment error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -307,6 +326,9 @@ const updateTask = async (req, res) => {
         });
       }
     }
+
+    // Invalidate task cache
+    await invalidateTaskCache(updatedTask.project);
 
     res.status(200).json(updatedTask);
   } catch (error) {

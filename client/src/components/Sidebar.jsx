@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, CheckSquare, Users, Settings, LogOut,
     ChevronsUpDown, Plus, Check, Building2, FolderKanban,
@@ -52,7 +52,7 @@ export default function Sidebar() {
                 setActiveOrg(found);
                 if (!savedOrgId) localStorage.setItem('activeOrgId', found._id);
             }
-        } catch (e) { console.error("Failed to load orgs"); }
+        } catch { console.error("Failed to load orgs"); }
     };
 
     const handleSwitchOrg = (org) => {
@@ -81,7 +81,7 @@ export default function Sidebar() {
             handleSwitchOrg(newOrg);
 
             toast.success("Workspace created!");
-        } catch (error) {
+        } catch {
             toast.error("Failed to create workspace");
         } finally {
             setIsLoading(false);
