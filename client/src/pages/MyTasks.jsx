@@ -11,7 +11,9 @@ export default function MyTasks() {
   const [tasks, setTasks] = useState([]);
 
   useEffect(() => {
-    api.get('/tasks/my-tasks').then(({ data }) => setTasks(data));
+    const orgId = localStorage.getItem('activeOrgId');
+    const endpoint = orgId ? `/tasks/my-tasks?orgId=${orgId}` : '/tasks/my-tasks';
+    api.get(endpoint).then(({ data }) => setTasks(data));
   }, []);
 
   const toggleTask = async (id, currentStatus) => {

@@ -82,11 +82,21 @@ const getProjectTasks = async (req, res) => {
 };
 
 
-// @desc    Get all tasks assigned to current user across all projects
-// @route   GET /api/tasks/my-tasks
+// @desc    Get all tasks assigned to current user (optionally filtered by organization)
+// @route   GET /api/tasks/my-tasks?orgId=xxx
 const getMyTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({ assignee: req.user._id })
+    const { orgId } = req.query;
+    
+    // Build query - always filter by assignee
+    const query = { assignee: req.user._id };
+    
+    // If orgId is provided, filter by organization
+    if (orgId) {
+      query.organization = orgId;
+    }
+
+    const tasks = await Task.find(query)
       .populate('project', 'name')
       .sort({ dueDate: 1 });
 
