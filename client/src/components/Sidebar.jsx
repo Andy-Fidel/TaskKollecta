@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, CheckSquare, Users, Settings, LogOut,
     ChevronsUpDown, Plus, Check, Building2, FolderKanban,
-    ChevronLeft, ChevronRight, Loader2, Calendar
+    ChevronLeft, ChevronRight, Loader2, Calendar, GanttChartSquare
 } from 'lucide-react';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -93,6 +93,7 @@ export default function Sidebar() {
         { icon: FolderKanban, label: 'Projects', path: '/projects' },
         { icon: CheckSquare, label: 'My Tasks', path: '/tasks' },
         { icon: Calendar, label: 'Calendar', path: '/calendar' },
+        { icon: GanttChartSquare, label: 'Timeline', path: '/gantt' },
         { icon: Users, label: 'Team', path: '/team' },
         { icon: Settings, label: 'Settings', path: '/settings' },
     ];

@@ -8,6 +8,7 @@ import AppLayout from './components/AppLayout';
 import Team from './pages/Team';
 import MyTasks from './pages/MyTasks';
 import CalendarView from './pages/CalendarView';
+import GanttChart from './pages/GanttChart';
 import Settings from './pages/Settings';
 import FormBuilder from './pages/FormBuilder';
 import PublicForm from './pages/PublicForm';
@@ -89,6 +90,7 @@ function App() {
                 <Route path="/team" element={<Team />} />
                 <Route path="/tasks" element={<MyTasks />} />
                 <Route path="/calendar" element={<CalendarView />} />
+                <Route path="/gantt" element={<GanttChart />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/project/:projectId/forms/new" element={<FormBuilder />} />
                 <Route path="/admin" element={<AdminRoute><SuperAdminDashboard /></AdminRoute>} />

@@ -69,7 +69,7 @@ export default function Dashboard() {
 
         const orgRes = await api.get('/organizations');
         setUserOrgs(orgRes.data);
-      } catch (error) {
+      } catch {
         console.error("Failed to load dashboard");
       } finally {
         setLoading(false);
@@ -94,7 +94,7 @@ export default function Dashboard() {
         orgId: userOrgs[0]._id
       });
       navigate(`/project/${data._id}`);
-    } catch (error) { alert("Failed to create project"); }
+    } catch { alert("Failed to create project"); }
   };
 
   if (loading && !data) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
@@ -196,7 +196,7 @@ export default function Dashboard() {
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
-                        label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                       >
                         {statusData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} stroke="var(--background)" strokeWidth={2} />
@@ -407,7 +407,8 @@ export default function Dashboard() {
 }
 
 // Components
-function QuickAction({ icon: Icon, label, color, bg, onClick }) {
+function QuickAction(props) {
+  const { icon: Icon, label, color, bg, onClick } = props;
   return (
     <button onClick={onClick} className="flex flex-col items-center justify-center p-4 rounded-xl bg-card border border-border shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 group">
       <div className={`p-3 rounded-full mb-3 ${bg} ${color} group-hover:scale-110 transition-transform`}><Icon className="h-6 w-6" /></div>

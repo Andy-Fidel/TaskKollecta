@@ -22,7 +22,6 @@ export default function Login() {
 
   // Invite State
   const [inviteToken, setInviteToken] = useState('');
-  const [inviteInfo, setInviteInfo] = useState(null);
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -49,7 +48,6 @@ export default function Login() {
       // Validate invite
       api.get(`/invites/${invite}`)
         .then(({ data }) => {
-          setInviteInfo(data);
           if (data.email) setEmail(data.email);
         })
         .catch(() => {
@@ -61,15 +59,15 @@ export default function Login() {
   // --- SSO Handlers ---
   const handleGoogleLogin = () => {
     const googleUrl = inviteToken
-      ? `http://localhost:5000/api/users/google?invite=${inviteToken}`
-      : 'http://localhost:5000/api/users/google';
+      ? `https://taskkollecta-api.onrender.com/api/users/google?invite=${inviteToken}`
+      : 'https://taskkollecta-api.onrender.com/api/users/google';
     window.location.href = googleUrl;
   };
 
   const handleMicrosoftLogin = () => {
     const microsoftUrl = inviteToken
-      ? `http://localhost:5000/api/users/microsoft?invite=${inviteToken}`
-      : 'http://localhost:5000/api/users/microsoft';
+      ? `https://taskkollecta-api.onrender.com/api/users/microsoft?invite=${inviteToken}`
+      : 'https://taskkollecta-api.onrender.com/api/users/microsoft';
     window.location.href = microsoftUrl;
   };
 
