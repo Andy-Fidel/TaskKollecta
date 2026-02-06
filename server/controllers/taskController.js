@@ -157,9 +157,17 @@ const addAttachment = async (req, res) => {
       return res.status(400).json({ message: 'URL and filename are required' });
     }
 
+    // Explicitly construct the attachment object to avoid any string casting issues
+    const attachment = {
+      url: String(url),
+      filename: String(filename),
+      type: String(type || 'file'),
+      uploadedAt: new Date()
+    };
+
     const task = await Task.findByIdAndUpdate(
       req.params.id,
-      { $push: { attachments: { url, filename, type: type || 'file' } } },
+      { $push: { attachments: attachment } },
       { new: true }
     );
 

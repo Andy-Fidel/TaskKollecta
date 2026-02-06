@@ -3,11 +3,15 @@ const Redis = require('ioredis');
 // Default to localhost for development, use REDIS_URL in production
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
+// Check if TLS is required (Upstash uses rediss://)
+const isTLS = redisUrl.startsWith('rediss://');
+
 const redisClient = new Redis(redisUrl, {
   maxRetriesPerRequest: 3,
   retryDelayOnFailover: 100,
   enableReadyCheck: true,
   lazyConnect: true, // Don't connect immediately, allow graceful degradation
+  tls: isTLS ? { rejectUnauthorized: false } : undefined,
 });
 
 // Track connection state
