@@ -46,11 +46,10 @@ const inviteSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Generate unique token before saving
-inviteSchema.pre('save', function (next) {
+inviteSchema.pre('save', function () {
     if (!this.token) {
         this.token = crypto.randomBytes(32).toString('hex');
     }
-    next();
 });
 
 // Check if invite is valid
@@ -58,8 +57,7 @@ inviteSchema.methods.isValid = function () {
     return this.status === 'pending' && this.expiresAt > new Date();
 };
 
-// Index for fast token lookup
-inviteSchema.index({ token: 1 });
+// Indexes for fast lookups
 inviteSchema.index({ email: 1, organization: 1 });
 inviteSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
