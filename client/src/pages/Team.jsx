@@ -51,7 +51,6 @@ export default function Team() {
     // Check permissions
     const currentUserRole = members.find(m => m.user._id === user?._id)?.role;
     const canManage = ['owner', 'admin'].includes(currentUserRole);
-    const isOwner = currentUserRole === 'owner';
 
     // 1. Fetch Orgs
     useEffect(() => {
@@ -121,7 +120,7 @@ export default function Team() {
                 const { data } = await api.get(`/organizations/${selectedOrgId}/members`);
                 setMembers(data);
             }
-        } catch (error) {
+        } catch {
             toast.error("Action failed");
         }
     };
@@ -140,13 +139,14 @@ export default function Team() {
     const handleInvite = async (e) => {
         e.preventDefault();
         try {
-            await api.post(`/organizations/${selectedOrgId}/members`, { email: inviteEmail });
-            const { data } = await api.get(`/organizations/${selectedOrgId}/members`);
-            setMembers(data);
+            // Use the invite system to send email invitations (works for new and existing users)
+            await api.post('/invites', { email: inviteEmail, organizationId: selectedOrgId });
             setIsInviteOpen(false);
             setInviteEmail('');
-            toast.success('Member added!');
-        } catch (error) { toast.error("Failed to invite"); }
+            toast.success('Invitation sent! They will receive an email.');
+        } catch (error) { 
+            toast.error(error.response?.data?.message || "Failed to send invite"); 
+        }
     };
 
     const handleCreateOrg = async (e) => {
@@ -154,7 +154,7 @@ export default function Team() {
         try {
             const { data } = await api.post('/organizations', { name: newOrgName });
             setOrgs([data]); setSelectedOrgId(data._id); setIsOrgModalOpen(false);
-        } catch (e) { toast.error("Failed to create org"); }
+        } catch { toast.error("Failed to create org"); }
     };
 
     if (loading) return <div className="p-8">Loading...</div>;
