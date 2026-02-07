@@ -9,13 +9,13 @@ const {
     cancelInvite
 } = require('../controllers/inviteController');
 
-// Public - validate token
-router.get('/:token', validateInvite);
-
-// Protected routes
+// Protected routes (specific paths first)
 router.post('/', protect, createInvite);
-router.post('/:token/accept', protect, acceptInvite);
 router.get('/org/:orgId', protect, getOrgInvites);
+
+// Parameterized routes (must come after specific routes)
+router.get('/:token', validateInvite);
+router.post('/:token/accept', protect, acceptInvite);
 router.delete('/:id', protect, cancelInvite);
 
 module.exports = router;
