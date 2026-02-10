@@ -42,7 +42,7 @@ const taskSchema = new mongoose.Schema({
   attachments: [{
     url: String,
     filename: String,
-    type: String,
+    type: { type: String },
     uploadedAt: { type: Date, default: Date.now }
   }],
   subtasks: [{
