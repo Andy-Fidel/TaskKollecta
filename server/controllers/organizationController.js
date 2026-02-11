@@ -156,7 +156,7 @@ const searchOrganizations = async (req, res) => {
   try {
 
     const orgs = await Organization.find({
-      name: { $regex: query, $options: 'i' }
+      name: { $regex: query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' }
     }).select('name _id');
 
     res.json(orgs);

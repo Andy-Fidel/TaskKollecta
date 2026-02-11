@@ -14,10 +14,11 @@ const { registerUser,
   completeOnboarding
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
+const { validateRegister, validateLogin } = require('../middleware/validators');
 
 // When someone POSTs to /, run the registerUser function
-router.post('/', registerUser);
-router.post('/login', loginUser);
+router.post('/', validateRegister, registerUser);
+router.post('/login', validateLogin, loginUser);
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateUserProfile);
 router.put('/password', protect, updateUserPassword);
@@ -33,23 +34,18 @@ router.post('/forgotpassword', forgotPassword);
 router.put('/resetpassword/:resettoken', resetPassword);
 
 // Google OAuth Routes
-// Helper to generate token (Reuse logic or import from controller)
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-};
+const generateToken = require('../utils/generateToken');
 
 // Start Google Login
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
 
 router.get(
   '/google/callback',
   passport.authenticate('google', { session: false, failureRedirect: '/login' }),
   (req, res) => {
-
-    const token = generateToken(req.user._id);
-
-    res.redirect(`${process.env.CLIENT_URL}/login?token=${token}`);
+    // Set HTTP-only cookie with correct { userId } payload
+    generateToken(res, req.user._id);
+    res.redirect(`${process.env.CLIENT_URL}/login?oauth=success`);
   }
 );
 
@@ -60,8 +56,8 @@ router.get(
   '/microsoft/callback',
   passport.authenticate('microsoft', { session: false, failureRedirect: '/login' }),
   (req, res) => {
-    const token = generateToken(req.user._id);
-    res.redirect(`${process.env.CLIENT_URL}/login?token=${token}`);
+    generateToken(res, req.user._id);
+    res.redirect(`${process.env.CLIENT_URL}/login?oauth=success`);
   }
 );
 

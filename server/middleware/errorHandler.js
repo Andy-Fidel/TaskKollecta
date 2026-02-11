@@ -7,7 +7,7 @@ const errorHandler = (err, req, res, next) => {
     console.error('Error:', err.stack || err.message);
 
     // Determine status code
-    const statusCode = err.statusCode || res.statusCode === 200 ? 500 : res.statusCode;
+    const statusCode = err.statusCode || (res.statusCode === 200 ? 500 : res.statusCode);
 
     res.status(statusCode).json({
         message: process.env.NODE_ENV === 'production'

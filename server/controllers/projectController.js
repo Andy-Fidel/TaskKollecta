@@ -9,7 +9,6 @@ const { invalidateProjectCache } = require('../utils/cacheUtils');
 // @route   POST /api/projects
 const createProject = async (req, res) => {
   const { name, description, orgId, lead, dueDate, color } = req.body;
-  console.log("Incoming Data:", req.body);
 
   try {
     const project = await Project.create({
@@ -165,9 +164,18 @@ const updateProject = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to update project' });
     }
 
+    // Whitelist allowed update fields
+    const allowedFields = ['name', 'description', 'color', 'dueDate', 'lead', 'status'];
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
     const updatedProject = await Project.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true }
     );
 

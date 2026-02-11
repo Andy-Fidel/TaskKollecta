@@ -178,6 +178,15 @@ const acceptInvite = async (req, res) => {
  */
 const getOrgInvites = async (req, res) => {
     try {
+        // Verify user has permission to view invites
+        const membership = await Membership.findOne({
+            user: req.user._id,
+            organization: req.params.orgId
+        });
+        if (!membership || !['owner', 'admin'].includes(membership.role)) {
+            return res.status(403).json({ message: 'Not authorized to view invites' });
+        }
+
         const invites = await Invite.find({
             organization: req.params.orgId,
             status: 'pending'
@@ -200,6 +209,15 @@ const cancelInvite = async (req, res) => {
         const invite = await Invite.findById(req.params.id);
         if (!invite) {
             return res.status(404).json({ message: 'Invite not found' });
+        }
+
+        // Verify user has permission to cancel (must be admin/owner of the org)
+        const membership = await Membership.findOne({
+            user: req.user._id,
+            organization: invite.organization
+        });
+        if (!membership || !['owner', 'admin'].includes(membership.role)) {
+            return res.status(403).json({ message: 'Not authorized to cancel this invite' });
         }
 
         invite.status = 'cancelled';

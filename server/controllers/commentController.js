@@ -66,7 +66,7 @@ const addComment = async (req, res) => {
         // ✅ FIX: Changed regex to 'starts with' (^... not ^...$) 
         // This allows @John to match "John Doe"
         const mentionedUser = await User.findOne({
-          name: { $regex: new RegExp(`^${name}`, "i") }
+          name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, "i") }
         });
 
         if (mentionedUser && mentionedUser._id.toString() !== req.user._id.toString()) {

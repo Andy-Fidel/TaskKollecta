@@ -140,9 +140,10 @@ const getAllUsers = async (req, res) => {
         const query = {};
 
         if (search) {
+            const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             query.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } }
+                { name: { $regex: escaped, $options: 'i' } },
+                { email: { $regex: escaped, $options: 'i' } }
             ];
         }
 
@@ -258,9 +259,8 @@ const adminResetPassword = async (req, res) => {
         // Generate a temporary password
         const tempPassword = crypto.randomBytes(8).toString('hex');
 
-        // Hash and save
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(tempPassword, salt);
+        // Let the pre-save hook handle hashing
+        user.password = tempPassword;
         await user.save();
 
         // Send email with temporary password

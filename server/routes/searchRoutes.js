@@ -15,17 +15,15 @@ const globalSearch = async (req, res) => {
             return res.json({ tasks: [], projects: [], users: [] });
         }
 
-        const searchRegex = new RegExp(q, 'i');
+        // Escape regex special characters to prevent ReDoS
+        const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const searchRegex = new RegExp(escaped, 'i');
 
-        // Search Tasks (user has access to)
+        // Use $and to combine text search + access control (duplicate $or keys are silently overwritten)
         const tasks = await Task.find({
-            $or: [
-                { title: searchRegex },
-                { description: searchRegex }
-            ],
-            $or: [
-                { assignee: req.user._id },
-                { reporter: req.user._id }
+            $and: [
+                { $or: [{ title: searchRegex }, { description: searchRegex }] },
+                { $or: [{ assignee: req.user._id }, { reporter: req.user._id }] }
             ]
         })
             .populate('project', 'name')

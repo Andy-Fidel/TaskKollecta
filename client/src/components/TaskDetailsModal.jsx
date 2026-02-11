@@ -316,7 +316,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                     )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                            <Button variant="ghost" size="icon" onClick={onClose}><X className="w-5 h-5 text-muted-foreground" /></Button>
                         </div>
                     </div>
 

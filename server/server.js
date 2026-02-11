@@ -6,6 +6,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
+const jwt = require("jsonwebtoken");
 const connectDB = require("./config/db");
 const passport = require("passport");
 const errorHandler = require("./middleware/errorHandler");
@@ -114,6 +115,21 @@ const io = new Server(server, {
 // Global Map to track online users per organization
 let onlineUsersByOrg = new Map(); // orgId -> Set of userIds
 
+// Socket.io authentication middleware (M7)
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+  if (!token) {
+    return next(new Error('Authentication required'));
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.userId;
+    next();
+  } catch (err) {
+    return next(new Error('Invalid token'));
+  }
+});
+
 io.on("connection", (socket) => {
   console.log("User Connected:", socket.id);
 
@@ -206,13 +222,9 @@ io.on("connection", (socket) => {
   });
 });
 
-// Make io accessible in your controllers (if you haven't already)
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
 // --- SOCKET.IO SETUP END ---
 
+// Make io accessible in controllers
 app.use((req, res, next) => {
   req.io = io;
   next();

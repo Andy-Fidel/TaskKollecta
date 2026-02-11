@@ -1,5 +1,6 @@
 const Task = require('../models/Task');
 const User = require('../models/User');
+const Membership = require('../models/Membership');
 const {
   sendNotification,
   sendTaskAssignmentEmail,
@@ -283,9 +284,18 @@ const updateTask = async (req, res) => {
       }
     }
 
+    // Whitelist allowed update fields to prevent overwriting organization/reporter/project
+    const allowedFields = ['title', 'description', 'status', 'priority', 'dueDate', 'assignee', 'index'];
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
     const updatedTask = await Task.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true }
     )
       .populate('dependencies', 'title status')

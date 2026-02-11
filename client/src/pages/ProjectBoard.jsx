@@ -200,106 +200,115 @@ export default function ProjectBoard() {
     <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-[Poppins]">
 
       {/* 1. Board Header */}
-      <div className="h-16 border-b border-border flex items-center justify-between px-8 bg-card shrink-0">
-        <div className="flex items-center gap-6">
-          <h1 className="font-bold text-xl text-foreground tracking-tight">
-            {projectDetails?.name || 'Loading...'}
-          </h1>
-          <div className="h-6 w-[1px] bg-border"></div>
+      <div className="border-b border-border bg-card shrink-0">
+        {/* Top row: Project name + create button */}
+        <div className="flex items-center justify-between px-4 md:px-8 py-3 md:py-0 md:h-16">
+          <div className="flex items-center gap-3 md:gap-6 min-w-0">
+            <h1 className="font-bold text-lg md:text-xl text-foreground tracking-tight truncate">
+              {projectDetails?.name || 'Loading...'}
+            </h1>
+          </div>
 
+          <div className="flex items-center gap-2 md:gap-3 shrink-0">
+            {/* Avatars - hidden on mobile */}
+            <div className="hidden md:flex -space-x-2 mr-2">
+              {projectMembers.slice(0, 4).map((member) => (
+                <Avatar key={member.user._id} className="w-8 h-8 border-2 border-background cursor-help" title={member.user.name}>
+                  <AvatarImage src={member.user.avatar || `https://ui-avatars.com/api/?name=${member.user.name}&background=random`} />
+                  <AvatarFallback className="bg-muted text-[10px] uppercase">
+                    {member.user.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {projectMembers.length > 4 && (
+                <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] text-muted-foreground font-bold">
+                  +{projectMembers.length - 4}
+                </div>
+              )}
+            </div>
+
+            {/* Calendar - icon only on mobile */}
+            <button
+              onClick={() => setView('calendar')}
+              className={`p-1.5 md:px-3 rounded-md flex items-center gap-2 text-sm transition-all ${view === 'calendar' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <CalendarIcon className="w-4 h-4" />
+              <span className="hidden md:inline">Calendar</span>
+            </button>
+
+            {/* Forms Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              title="Create Intake Form"
+              onClick={() => navigate(`/project/${projectId}/forms/new`)}
+            >
+              <FileText className="w-5 h-5" />
+            </Button>
+
+            {/* Settings - Only Owner/Admin */}
+            {['owner', 'admin'].includes(projectMembers.find(m => m.user._id === user?._id)?.role) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => setIsSettingsOpen(true)}
+              >
+                <Settings className="w-5 h-5" />
+              </Button>
+            )}
+
+            <Separator orientation="vertical" className="h-6 hidden md:block" />
+
+            <Button onClick={() => setIsCreateModalOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-2 shadow-sm">
+              <Plus className="w-3 h-3 md:mr-2" />
+              <span className="hidden md:inline">New Task</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Bottom row: View switcher + toggles - scrollable on mobile */}
+        <div className="flex items-center gap-2 md:gap-3 px-4 md:px-8 pb-3 md:pb-0 md:py-2 overflow-x-auto scrollbar-hide">
           {/* Analytics / Updates Toggle */}
-          <div className="flex bg-muted/50 p-1 rounded-lg">
-            <button onClick={() => setView('board')} className="hidden">Board</button> {/* Hidden accessible fallback */}
-            <button onClick={() => setView('analytics')} className={`flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md transition ${view === 'analytics' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+          <div className="flex bg-muted/50 p-1 rounded-lg shrink-0">
+            <button onClick={() => setView('board')} className="hidden">Board</button>
+            <button onClick={() => setView('analytics')} className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1 text-xs font-medium rounded-md transition whitespace-nowrap ${view === 'analytics' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
               <Activity className="w-3.5 h-3.5" /> Analytics
             </button>
-            <button onClick={() => setView('updates')} className={`flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md transition ${view === 'updates' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            <button onClick={() => setView('updates')} className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1 text-xs font-medium rounded-md transition whitespace-nowrap ${view === 'updates' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
               <CheckCircle2 className="w-3.5 h-3.5" /> Updates
             </button>
           </div>
 
           {/* View Switcher (Board vs List) */}
-          <div className="flex bg-muted/50 p-1 rounded-lg border border-border">
+          <div className="flex bg-muted/50 p-1 rounded-lg border border-border shrink-0">
             <button
               onClick={() => setView('board')}
-              className={`p-1.5 px-3 rounded-md flex items-center gap-2 text-sm transition-all ${view === 'board' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`p-1.5 px-2.5 md:px-3 rounded-md flex items-center gap-1.5 md:gap-2 text-sm transition-all whitespace-nowrap ${view === 'board' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <LayoutGrid className="w-4 h-4" /> Board
+              <LayoutGrid className="w-4 h-4" /> <span className="hidden sm:inline">Board</span>
             </button>
             <button
               onClick={() => setView('list')}
-              className={`p-1.5 px-3 rounded-md flex items-center gap-2 text-sm transition-all ${view === 'list' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`p-1.5 px-2.5 md:px-3 rounded-md flex items-center gap-1.5 md:gap-2 text-sm transition-all whitespace-nowrap ${view === 'list' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <ListIcon className="w-4 h-4" /> List
+              <ListIcon className="w-4 h-4" /> <span className="hidden sm:inline">List</span>
             </button>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setIsAutoOpen(true)}>
-            <Zap className="w-4 h-4 mr-2 text-yellow-500" /> Automations
-          </Button>
-        </div>
 
-        <div className="flex items-center gap-3">
-          {/* Avatars */}
-          <div className="flex -space-x-2 mr-2">
-            {projectMembers.slice(0, 4).map((member) => (
-              <Avatar key={member.user._id} className="w-8 h-8 border-2 border-background cursor-help" title={member.user.name}>
-                <AvatarImage src={member.user.avatar || `https://ui-avatars.com/api/?name=${member.user.name}&background=random`} />
-                <AvatarFallback className="bg-muted text-[10px] uppercase">
-                  {member.user.name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-
-            {projectMembers.length > 4 && (
-              <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] text-muted-foreground font-bold">
-                +{projectMembers.length - 4}
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => setView('calendar')}
-            className={`p-1.5 px-3 rounded-md flex items-center gap-2 text-sm transition-all ${view === 'calendar' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <CalendarIcon className="w-4 h-4" /> Calendar
-          </button>
-
-          {/* NEW: Forms Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground"
-            title="Create Intake Form"
-            onClick={() => navigate(`/project/${projectId}/forms/new`)}
-          >
-            <FileText className="w-5 h-5" />
-          </Button>
-
-          {/* Settings */}
-          {/* Settings - Only Owner/Admin */}
-          {['owner', 'admin'].includes(projectMembers.find(m => m.user._id === user?._id)?.role) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => setIsSettingsOpen(true)}
-            >
-              <Settings className="w-5 h-5" />
-            </Button>
-          )}
-
-          <Separator orientation="vertical" className="h-6" />
-
-          <Button onClick={() => setIsCreateModalOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 h-7 px-2 shadow-sm">
-            <Plus className="w-3 h-3 mr-2" /> New Task
+          <Button variant="outline" size="sm" onClick={() => setIsAutoOpen(true)} className="shrink-0">
+            <Zap className="w-4 h-4 mr-1.5 md:mr-2 text-yellow-500" />
+            <span className="hidden sm:inline">Automations</span>
+            <span className="sm:hidden">Auto</span>
           </Button>
         </div>
       </div>
 
       {/* 2. Filter Bar (Only show on Board/List views) */}
       {(view === 'board' || view === 'list') && (
-        <div className="h-14 border-b border-border flex items-center px-8 bg-card/50 backdrop-blur-sm shrink-0 gap-4">
-          <div className="relative w-64">
+        <div className="h-auto md:h-14 border-b border-border flex flex-col md:flex-row items-stretch md:items-center px-4 md:px-8 py-3 md:py-0 bg-card/50 backdrop-blur-sm shrink-0 gap-3 md:gap-4">
+          <div className="relative w-full md:w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-9 h-9 bg-transparent border-transparent hover:bg-muted/50 focus:bg-background focus:border-border transition-all rounded-lg text-sm"
@@ -308,33 +317,35 @@ export default function ProjectBoard() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="h-6 w-[1px] bg-border"></div>
-          <AdvancedFilters
-            projectId={projectId}
-            filters={filters}
-            onFiltersChange={setFilters}
-            members={projectMembers}
-            availableTags={availableTags}
-            presets={filterPresets}
-            onPresetsChange={setFilterPresets}
-          />
-          <Button variant="ghost" size="sm" onClick={() => setIsArchiveOpen(true)} title="View Archive">
-            <Archive className="w-4 h-4 text-muted-foreground" /> Archived
-          </Button>
+          <div className="hidden md:block h-6 w-[1px] bg-border"></div>
+          <div className="flex items-center gap-3 overflow-x-auto">
+            <AdvancedFilters
+              projectId={projectId}
+              filters={filters}
+              onFiltersChange={setFilters}
+              members={projectMembers}
+              availableTags={availableTags}
+              presets={filterPresets}
+              onPresetsChange={setFilterPresets}
+            />
+            <Button variant="ghost" size="sm" onClick={() => setIsArchiveOpen(true)} title="View Archive">
+              <Archive className="w-4 h-4 text-muted-foreground" /> <span className="hidden sm:inline ml-1">Archived</span>
+            </Button>
+          </div>
         </div>
       )}
 
       {/* 3. Main Content Area - SWITCH LOGIC */}
       {view === 'board' ? (
         // VIEW: BOARD
-        <div className="flex-1 overflow-x-auto overflow-y-hidden bg-secondary/30 p-8 dark:bg-background">
+        <div className="flex-1 overflow-x-auto overflow-y-hidden bg-secondary/30 p-4 md:p-8 dark:bg-background">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex gap-6 h-full min-w-max">
+            <div className="flex gap-4 md:gap-6 h-full min-w-max">
               {COLUMNS.map(col => (
                 <KanbanColumn
                   key={col.id}
@@ -356,7 +367,7 @@ export default function ProjectBoard() {
         </div>
       ) : view === 'list' ? (
         // VIEW: LIST
-        <div className="flex-1 overflow-y-auto bg-background p-8">
+        <div className="flex-1 overflow-y-auto bg-background p-4 md:p-8">
           <ProjectList
             tasks={filteredTasks}
             onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
@@ -364,7 +375,7 @@ export default function ProjectBoard() {
         </div>
       ) : view === 'calendar' ? (
         // VIEW: CALENDAR
-        <div className="flex-1 overflow-y-auto bg-background p-8">
+        <div className="flex-1 overflow-y-auto bg-background p-4 md:p-8">
           <ProjectCalendar
             tasks={filteredTasks}
             onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
@@ -373,7 +384,7 @@ export default function ProjectBoard() {
       ) : (
 
         // VIEW: ANALYTICS / UPDATES
-        <div className="flex-1 overflow-y-auto bg-secondary/10 p-6">
+        <div className="flex-1 overflow-y-auto bg-secondary/10 p-4 md:p-6">
           <div className="max-w-5xl mx-auto mb-6">
             <Button
               variant="outline"
@@ -394,7 +405,7 @@ export default function ProjectBoard() {
       {/* Modals */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-card text-card-foreground p-6 rounded-2xl w-[420px] shadow-2xl border border-border">
+          <div className="bg-card text-card-foreground p-4 md:p-6 rounded-2xl w-[calc(100%-2rem)] sm:w-[420px] shadow-2xl border border-border mx-4 sm:mx-0">
             <h3 className="font-bold text-lg mb-1">Add New Task</h3>
             <p className="text-muted-foreground text-sm mb-4">Create a card for your team.</p>
             <form onSubmit={handleCreateTask} className="space-y-4">

@@ -127,9 +127,8 @@ const updateUserProfile = async (req, res) => {
       }
 
       if (req.body.password) {
-
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(req.body.password, salt);
+        // Let the pre-save hook handle hashing
+        user.password = req.body.password;
       }
 
       const updatedUser = await user.save();
@@ -158,9 +157,8 @@ const updateUserPassword = async (req, res) => {
 
 
     if (user && (await bcrypt.compare(currentPassword, user.password))) {
-
-      const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(newPassword, salt);
+      // Let the pre-save hook handle hashing
+      user.password = newPassword;
       await user.save();
       res.json({ message: 'Password updated successfully' });
     } else {
@@ -236,20 +234,18 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired token' });
     }
 
-
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(req.body.password, salt);
-
-
+    // Let the pre-save hook handle hashing
+    user.password = req.body.password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
 
     await user.save();
 
+    // Set HTTP-only cookie with correct payload
+    generateToken(res, user._id);
 
     res.status(200).json({
       success: true,
-      token: generateToken(user._id),
       message: 'Password updated successfully'
     });
   } catch (error) {
