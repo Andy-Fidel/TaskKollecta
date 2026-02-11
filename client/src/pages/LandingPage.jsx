@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import heroTeamImg from '../assets/landing-hero-team.png';
 import dashboardUiImg from '../assets/landing-dashboard-ui.png';
 import conferenceImg from '../assets/landing-conference.png';
+import samImg from '../assets/Sam.jpeg';
+import gtvetsLogo from '../assets/gtvets_logo.png';
 
 export default function LandingPage() {
   return (
@@ -58,7 +60,7 @@ export default function LandingPage() {
             
             <h1 className="text-5xl lg:text-7xl font-bold tracking-tight text-slate-900 leading-[1.1]">
               Manage projects <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+              <span style={{ color: '#4D2FB2' }}>
                  without the chaos.
               </span>
             </h1>
@@ -73,17 +75,12 @@ export default function LandingPage() {
                       Start building free <ArrowRight className="ml-2 h-5 w-5"/>
                   </Button>
               </Link>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-lg rounded-full border-slate-200 bg-white/50 backdrop-blur-sm text-slate-700 hover:bg-white hover:border-slate-300 transition-all">
-                  <Play className="mr-2 h-4 w-4 fill-slate-700" /> Watch Demo
-              </Button>
             </div>
 
             <div className="pt-8 flex flex-col items-center lg:items-start gap-4">
               <p className="text-sm text-slate-400 font-medium uppercase tracking-wider">Trusted by 10,000+ teams</p>
-              <div className="flex flex-wrap justify-center lg:justify-start gap-x-8 gap-y-4 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-                 {['Acme Corp', 'Linear', 'Stripe', 'Vercel', 'Airbnb'].map(logo => (
-                     <span key={logo} className="font-bold text-xl text-slate-800">{logo}</span>
-                 ))}
+              <div className="flex flex-wrap justify-center lg:justify-start gap-x-8 gap-y-4 items-center">
+                 <img src={gtvetsLogo} alt="GTVETS" className="h-10 object-contain" />
               </div>
             </div>
           </div>
@@ -220,15 +217,13 @@ export default function LandingPage() {
                        {/* Glass Cards */}
                        <div className="absolute -bottom-8 -left-8 bg-slate-800/90 backdrop-blur-md p-6 rounded-xl border border-white/10 shadow-xl max-w-xs hidden md:block">
                            <div className="flex items-center gap-4 mb-4">
-                               <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                                   JD
-                               </div>
+                               <img src={samImg} alt="Samuel Andy-Fidel" className="h-10 w-10 rounded-full object-cover" />
                                <div>
-                                   <p className="text-white font-medium">John Doe</p>
-                                   <p className="text-xs text-slate-400">Head of Product</p>
+                                   <p className="text-white font-medium">Samuel Andy-Fidel</p>
+                                   <p className="text-xs text-slate-400">System Architect</p>
                                </div>
                            </div>
-                           <p className="text-sm text-slate-300 italic">"This platform revolutionized how we ship features. It's simply the best."</p>
+                           <p className="text-sm text-slate-300 italic">"This platform revolutionized how we manage tasks and collaborate on projects. It's simply the best."</p>
                        </div>
                   </div>
               </div>
