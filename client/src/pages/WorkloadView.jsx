@@ -33,16 +33,28 @@ export default function WorkloadView() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Load projects
+  // Load projects — re-fetches when activeOrgId changes (workspace switch)
+  const [orgId, setOrgId] = useState(() => localStorage.getItem('activeOrgId'));
+
   useEffect(() => {
-    const orgId = localStorage.getItem('activeOrgId');
-    if (orgId) {
-      api.get(`/projects/org/${orgId}`).then(({ data }) => {
-        setProjects(data);
-        if (data.length > 0) setSelectedProject(data[0]._id);
-      });
-    }
+    const onStorage = () => setOrgId(localStorage.getItem('activeOrgId'));
+    window.addEventListener('storage', onStorage);
+    const interval = setInterval(() => {
+      const current = localStorage.getItem('activeOrgId');
+      setOrgId(prev => prev !== current ? current : prev);
+    }, 500);
+    return () => { window.removeEventListener('storage', onStorage); clearInterval(interval); };
   }, []);
+
+  useEffect(() => {
+    if (!orgId) return;
+    setSelectedProject('');
+    setData(null);
+    api.get(`/projects/${orgId}`).then(({ data }) => {
+      setProjects(data);
+      if (data.length > 0) setSelectedProject(data[0]._id);
+    }).catch(() => setProjects([]));
+  }, [orgId]);
 
   // Fetch workload data
   useEffect(() => {
