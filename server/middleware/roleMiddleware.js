@@ -10,7 +10,7 @@ const checkRole = (...roles) => {
         return res.status(401).json({ message: 'Not authorized' });
       }
 
-      const orgId = req.params.id || req.body.orgId || req.query.orgId;
+      const orgId = req.params.id || req.params.orgId || req.body.orgId || req.query.orgId || req.headers['x-active-org'];
 
       if (!orgId) {
         // If no org ID is found in standard places, we can't check org-specific roles
