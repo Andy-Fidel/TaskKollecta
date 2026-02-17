@@ -3,6 +3,7 @@ const User = require('../models/User');
 const sendEmail = require('./sendEmail');
 const {
   taskAssignmentTemplate,
+  externalTaskAssignmentTemplate,
   newCommentTemplate,
   dueDateReminderTemplate,
   taskStatusChangeTemplate,
@@ -180,9 +181,21 @@ const sendMentionEmail = async (mentionedUserId, { mentionerName, task, projectI
   });
 };
 
+/**
+ * Send email notification for task assignment to external (non-registered) user
+ */
+const sendExternalTaskAssignmentEmail = async (email, { assignerName, task, projectName, inviteUrl }) => {
+  queueEmail({
+    email,
+    subject: `You've been assigned a task: ${task.title}`,
+    message: externalTaskAssignmentTemplate({ assignerName, task, projectName, inviteUrl })
+  });
+};
+
 module.exports = {
   sendNotification,
   sendTaskAssignmentEmail,
+  sendExternalTaskAssignmentEmail,
   sendCommentEmail,
   sendDueDateReminderEmail,
   sendStatusChangeEmail,

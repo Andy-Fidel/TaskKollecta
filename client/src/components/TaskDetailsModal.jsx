@@ -45,6 +45,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     const [dependencies, setDependencies] = useState(task?.dependencies || []);
     const [tags, setTags] = useState(task?.tags || []);
     const [recurrence, setRecurrence] = useState(task?.recurrence || null);
+    const [attachments, setAttachments] = useState(task?.attachments || []);
 
     const [newComment, setNewComment] = useState('');
     const [newSubtask, setNewSubtask] = useState('');
@@ -86,6 +87,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setDependencies(task.dependencies || []);
             setTags(task.tags || []);
             setRecurrence(task.recurrence || null);
+            setAttachments(task.attachments || []);
         }
     }, [isOpen, task, orgId]);
 
@@ -244,18 +246,37 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     };
 
     const handleFileUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
         setIsUploading(true);
-        const formData = new FormData();
-        formData.append('file', file);
         try {
-            const uploadRes = await api.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-            const { url, filename, type } = uploadRes.data;
-            await api.post(`/tasks/${task._id}/attachments`, { url, filename, type });
-            toast.success("File attached");
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                const uploadRes = await api.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                const { url, filename, type } = uploadRes.data;
+                const { data: updatedTask } = await api.post(`/tasks/${task._id}/attachments`, { url, filename, type });
+                setAttachments(updatedTask.attachments || []);
+            }
+            toast.success(files.length > 1 ? `${files.length} files attached` : "File attached");
         } catch { toast.error("Upload failed"); }
-        finally { setIsUploading(false); }
+        finally {
+            setIsUploading(false);
+            // Reset file input so the same file(s) can be re-selected
+            e.target.value = '';
+        }
+    };
+
+    const handleDeleteAttachment = async (attachmentId) => {
+        const original = attachments;
+        setAttachments(prev => prev.filter(a => a._id !== attachmentId));
+        try {
+            await api.delete(`/tasks/${task._id}/attachments/${attachmentId}`);
+            toast.success("Attachment removed");
+        } catch {
+            setAttachments(original);
+            toast.error("Failed to remove attachment");
+        }
     };
 
     const handleDeleteTask = async () => {
@@ -421,26 +442,50 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                         <div className="flex items-center gap-2">
                                             <Paperclip className="w-4 h-4 text-muted-foreground" />
                                             <h3 className="text-sm font-semibold text-foreground">Attachments</h3>
+                                            {attachments.length > 0 && (
+                                                <span className="text-xs text-muted-foreground">({attachments.length})</span>
+                                            )}
                                         </div>
                                         <label className="cursor-pointer text-xs font-medium px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition flex items-center gap-2">
                                             {isUploading ? <span className="animate-pulse">Uploading...</span> : <><Plus className="w-3 h-3" /> Add</>}
-                                            <input type="file" className="hidden" onChange={handleFileUpload} />
+                                            <input type="file" className="hidden" onChange={handleFileUpload} multiple disabled={isUploading} />
                                         </label>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {task.attachments?.map((file, i) => (
-                                            <a key={i} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 transition group">
-                                                <div className="h-10 w-10 bg-muted rounded-lg flex items-center justify-center text-muted-foreground">
-                                                    {file.type?.includes('image') ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                                    {attachments.length === 0 ? (
+                                        <div className="text-center py-6 border-2 border-dashed border-border/60 rounded-xl bg-muted/5">
+                                            <div className="flex justify-center mb-2">
+                                                <div className="bg-background p-2 rounded-full border border-border shadow-sm">
+                                                    <Paperclip className="w-4 h-4 text-muted-foreground" />
                                                 </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-foreground truncate">{file.filename}</p>
-                                                    <p className="text-[10px] text-muted-foreground">Attached {new Date(file.uploadedAt).toLocaleDateString()}</p>
+                                            </div>
+                                            <p className="text-xs font-medium text-foreground">No attachments yet</p>
+                                            <p className="text-[10px] text-muted-foreground mt-1">Click Add to attach files</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {attachments.map((file) => (
+                                                <div key={file._id} className="relative group">
+                                                    <a href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 transition">
+                                                        <div className="h-10 w-10 bg-muted rounded-lg flex items-center justify-center text-muted-foreground shrink-0">
+                                                            {file.type?.includes('image') ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium text-foreground truncate">{file.filename}</p>
+                                                            <p className="text-[10px] text-muted-foreground">Attached {new Date(file.uploadedAt).toLocaleDateString()}</p>
+                                                        </div>
+                                                    </a>
+                                                    <button
+                                                        onClick={() => handleDeleteAttachment(file._id)}
+                                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md bg-background border border-border text-muted-foreground hover:text-red-500 hover:border-red-200 transition-all shadow-sm"
+                                                        title="Remove attachment"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
                                                 </div>
-                                            </a>
-                                        ))}
-                                    </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </ScrollArea>

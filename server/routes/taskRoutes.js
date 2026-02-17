@@ -7,6 +7,7 @@ const { createTask,
     getMyTasks,
     deleteTask,
     addAttachment,
+    deleteAttachment,
     addSubtask,
     toggleSubtask,
     deleteSubtask,
@@ -28,6 +29,7 @@ router.get('/project/:projectId', protect, cacheResponse(60), getProjectTasks);
 router.put('/:id', protect, validateUpdateTask, updateTask);
 router.delete('/:id', protect, validateIdParam, deleteTask);
 router.post('/:id/attachments', protect, addAttachment);
+router.delete('/:id/attachments/:attachmentId', protect, deleteAttachment);
 router.get('/single/:id', protect, cacheResponse(30), getTask);
 router.put('/:id/archive', protect, toggleArchiveTask);
 

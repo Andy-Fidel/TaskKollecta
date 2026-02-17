@@ -30,6 +30,7 @@ const taskSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  assigneeEmail: { type: String },  // For unregistered/non-member assignees
   reporter: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

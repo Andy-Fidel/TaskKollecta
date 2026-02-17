@@ -43,9 +43,11 @@ router.get(
   '/google/callback',
   passport.authenticate('google', { session: false, failureRedirect: '/login' }),
   (req, res) => {
-    // Set HTTP-only cookie with correct { userId } payload
+    // Set HTTP-only cookie
     generateToken(res, req.user._id);
-    res.redirect(`${process.env.CLIENT_URL}/login?oauth=success`);
+    // Also pass token via URL so client can store it in localStorage
+    const token = jwt.sign({ userId: req.user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    res.redirect(`${process.env.CLIENT_URL}/login?token=${token}`);
   }
 );
 
@@ -57,7 +59,8 @@ router.get(
   passport.authenticate('microsoft', { session: false, failureRedirect: '/login' }),
   (req, res) => {
     generateToken(res, req.user._id);
-    res.redirect(`${process.env.CLIENT_URL}/login?oauth=success`);
+    const token = jwt.sign({ userId: req.user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    res.redirect(`${process.env.CLIENT_URL}/login?token=${token}`);
   }
 );
 

@@ -210,8 +210,35 @@ const mentionTemplate = ({ mentionerName, task, projectId, comment }) => {
     return baseTemplate(content, `${mentionerName} mentioned you: "${comment.substring(0, 50)}..."`);
 };
 
+/**
+ * External Task Assignment Email (for non-registered users)
+ */
+const externalTaskAssignmentTemplate = ({ assignerName, task, projectName, inviteUrl }) => {
+    const content = `
+    <h1 class="title">You've Been Assigned a Task</h1>
+    <p class="subtitle">${assignerName} assigned you a task on ${APP_NAME}</p>
+    
+    <div class="content">
+      <div class="task-card">
+        <h3 class="task-title">${task.title}</h3>
+        <div class="task-meta">
+          <span>📁 ${projectName || 'General'}</span>
+          <span>📅 ${formatDate(task.dueDate)}</span>
+          ${getPriorityBadge(task.priority)}
+        </div>
+        ${task.description ? `<p style="margin-top: 12px; color: #6b7280; font-size: 14px;">${task.description.substring(0, 200)}${task.description.length > 200 ? '...' : ''}</p>` : ''}
+      </div>
+      
+      <p style="margin-top: 16px;">Sign up or log in to view and manage this task:</p>
+      <a href="${inviteUrl}" class="btn">Join & View Task</a>
+    </div>
+  `;
+    return baseTemplate(content, `${assignerName} assigned you a task: ${task.title}`);
+};
+
 module.exports = {
     taskAssignmentTemplate,
+    externalTaskAssignmentTemplate,
     newCommentTemplate,
     dueDateReminderTemplate,
     taskStatusChangeTemplate,

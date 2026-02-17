@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import {
   Search,
-  Users, Plus,
+  Users, Plus, Mail,
   LayoutGrid, List as ListIcon,
   Activity, CheckCircle2,
   Circle, ArrowLeft, Settings, FileText,
-  Columns, Calendar as CalendarIcon, Zap, Archive, Clock
+  Columns, Calendar as CalendarIcon, Zap, Archive, Clock, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +57,9 @@ export default function ProjectBoard() {
   const [newTaskDueDate, setNewTaskDueDate] = useState(null);
   const [newTaskDueTime, setNewTaskDueTime] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
+  const [newTaskAssignee, setNewTaskAssignee] = useState(null);  // { id, name, email } or null
+  const [assigneeSearch, setAssigneeSearch] = useState('');
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
   const [selectedTask, setSelectedTask] = useState(null);
@@ -179,19 +182,32 @@ export default function ProjectBoard() {
     }
 
     try {
-      const { data } = await api.post('/tasks', {
+      const payload = {
         title: newTaskTitle,
         projectId,
         orgId: projectDetails.organization,
         status: 'todo',
         priority: newTaskPriority,
         dueDate
-      });
+      };
+
+      // Add assignee info
+      if (newTaskAssignee) {
+        if (newTaskAssignee.id) {
+          payload.assignee = newTaskAssignee.id;
+        } else if (newTaskAssignee.email) {
+          payload.assigneeEmail = newTaskAssignee.email;
+        }
+      }
+
+      const { data } = await api.post('/tasks', payload);
       setTasks([data, ...tasks]);
       setNewTaskTitle('');
       setNewTaskDueDate(null);
       setNewTaskDueTime('');
       setNewTaskPriority('medium');
+      setNewTaskAssignee(null);
+      setAssigneeSearch('');
       setIsCreateModalOpen(false);
     } catch (err) { alert('Error creating task'); }
   };
@@ -466,6 +482,90 @@ export default function ProjectBoard() {
                     <SelectItem value="urgent">Urgent</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Assignee */}
+              <div>
+                <Label>Assignee</Label>
+                {newTaskAssignee ? (
+                  <div className="flex items-center gap-2 px-3 h-9 border border-border rounded-md bg-muted/30">
+                    {newTaskAssignee.id ? (
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={newTaskAssignee.avatar} />
+                        <AvatarFallback className="text-[10px]">{newTaskAssignee.name?.[0]}</AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="text-sm truncate flex-1">{newTaskAssignee.name || newTaskAssignee.email}</span>
+                    <button type="button" onClick={() => setNewTaskAssignee(null)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      placeholder="Search members or type email..."
+                      className="h-9"
+                      value={assigneeSearch}
+                      onChange={(e) => {
+                        setAssigneeSearch(e.target.value);
+                        setShowAssigneeDropdown(true);
+                      }}
+                      onFocus={() => setShowAssigneeDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowAssigneeDropdown(false), 200)}
+                    />
+                    {showAssigneeDropdown && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {projectMembers
+                          .filter(m => {
+                            const q = assigneeSearch.toLowerCase();
+                            return !q || m.user?.name?.toLowerCase().includes(q) || m.user?.email?.toLowerCase().includes(q);
+                          })
+                          .map(m => (
+                            <button
+                              key={m.user?._id}
+                              type="button"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setNewTaskAssignee({ id: m.user?._id, name: m.user?.name, email: m.user?.email, avatar: m.user?.avatar });
+                                setAssigneeSearch('');
+                                setShowAssigneeDropdown(false);
+                              }}
+                            >
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={m.user?.avatar} />
+                                <AvatarFallback className="text-[10px]">{m.user?.name?.[0]}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <p className="truncate font-medium">{m.user?.name}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{m.user?.email}</p>
+                              </div>
+                            </button>
+                          ))}
+                        {assigneeSearch && assigneeSearch.includes('@') && !projectMembers.some(m => m.user?.email?.toLowerCase() === assigneeSearch.toLowerCase()) && (
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left border-t border-border"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setNewTaskAssignee({ id: null, email: assigneeSearch, name: null });
+                              setAssigneeSearch('');
+                              setShowAssigneeDropdown(false);
+                            }}
+                          >
+                            <Mail className="h-4 w-4 text-indigo-500" />
+                            <span>Invite & assign <strong>{assigneeSearch}</strong></span>
+                          </button>
+                        )}
+                        {projectMembers.length === 0 && !assigneeSearch && (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">No members found</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 justify-end pt-2">

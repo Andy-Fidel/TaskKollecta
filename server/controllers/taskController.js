@@ -1,9 +1,11 @@
 const Task = require('../models/Task');
 const User = require('../models/User');
 const Membership = require('../models/Membership');
+const Invite = require('../models/Invite');
 const {
   sendNotification,
   sendTaskAssignmentEmail,
+  sendExternalTaskAssignmentEmail,
   sendStatusChangeEmail
 } = require('../utils/notificationService');
 const { logActivity } = require('../utils/activityLogger');
@@ -13,9 +15,64 @@ const { invalidateTaskCache } = require('../utils/cacheUtils');
 // @desc    Create new task
 // @route   POST /api/tasks
 const createTask = async (req, res) => {
-  const { title, description, status, priority, dueDate, projectId, orgId, assignee } = req.body;
+  const { title, description, status, priority, dueDate, projectId, orgId, assignee, assigneeEmail } = req.body;
 
   try {
+    let resolvedAssignee = assignee || null;
+    let storedAssigneeEmail = null;
+    let externalInviteUrl = null;
+
+    // If assigneeEmail is provided (typed email), resolve it
+    if (assigneeEmail && !assignee) {
+      const existingUser = await User.findOne({ email: assigneeEmail.toLowerCase() });
+
+      if (existingUser) {
+        // User exists - check if already a member of this org
+        const isMember = await Membership.findOne({
+          user: existingUser._id,
+          organization: orgId
+        });
+
+        resolvedAssignee = existingUser._id;
+
+        if (!isMember) {
+          // User exists but not a member - auto-invite them
+          const existingInvite = await Invite.findOne({
+            email: assigneeEmail.toLowerCase(),
+            organization: orgId,
+            status: 'pending'
+          });
+          if (!existingInvite) {
+            await Invite.create({
+              email: assigneeEmail.toLowerCase(),
+              organization: orgId,
+              invitedBy: req.user._id,
+              role: 'member'
+            });
+          }
+        }
+      } else {
+        // User doesn't exist - store email, create invite, send external email
+        storedAssigneeEmail = assigneeEmail.toLowerCase();
+
+        // Check for existing pending invite
+        let invite = await Invite.findOne({
+          email: storedAssigneeEmail,
+          organization: orgId,
+          status: 'pending'
+        });
+        if (!invite) {
+          invite = await Invite.create({
+            email: storedAssigneeEmail,
+            organization: orgId,
+            invitedBy: req.user._id,
+            role: 'member'
+          });
+        }
+        externalInviteUrl = `${process.env.CLIENT_URL}/login?invite=${invite.token}`;
+      }
+    }
+
     const task = await Task.create({
       title,
       description,
@@ -24,7 +81,8 @@ const createTask = async (req, res) => {
       dueDate,
       project: projectId,
       organization: orgId,
-      assignee,
+      assignee: resolvedAssignee,
+      assigneeEmail: storedAssigneeEmail,
       reporter: req.user._id
     });
 
@@ -40,12 +98,20 @@ const createTask = async (req, res) => {
     });
 
     // Send email notification for assignment
-    if (assignee && assignee !== req.user._id.toString()) {
-      await sendTaskAssignmentEmail(assignee, {
+    if (resolvedAssignee && resolvedAssignee.toString() !== req.user._id.toString()) {
+      await sendTaskAssignmentEmail(resolvedAssignee, {
         assignerName: req.user.name,
         task: populatedTask,
         projectName: populatedTask.project?.name,
         projectId
+      });
+    } else if (storedAssigneeEmail && externalInviteUrl) {
+      // Send external email to non-registered user
+      await sendExternalTaskAssignmentEmail(storedAssigneeEmail, {
+        assignerName: req.user.name,
+        task: populatedTask,
+        projectName: populatedTask.project?.name,
+        inviteUrl: externalInviteUrl
       });
     }
 
@@ -482,9 +548,30 @@ const removeRecurrence = async (req, res) => {
   }
 };
 
+// @desc    Delete attachment from task
+// @route   DELETE /api/tasks/:id/attachments/:attachmentId
+const deleteAttachment = async (req, res) => {
+  try {
+    const task = await Task.findByIdAndUpdate(
+      req.params.id,
+      { $pull: { attachments: { _id: req.params.attachmentId } } },
+      { new: true }
+    );
+
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    res.json(task);
+  } catch (error) {
+    console.error('deleteAttachment error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createTask, getProjectTasks, getTask,
-  getMyTasks, deleteTask, addAttachment,
+  getMyTasks, deleteTask, addAttachment, deleteAttachment,
   addSubtask, toggleSubtask,
   addDependency, removeDependency, updateTask, deleteSubtask, toggleArchiveTask,
   addTag, removeTag, setRecurrence, removeRecurrence
