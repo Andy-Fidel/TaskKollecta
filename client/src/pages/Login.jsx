@@ -36,7 +36,8 @@ export default function Login() {
     // Handle OAuth redirect
     if (token) {
       localStorage.setItem('token', token);
-      window.location.href = '/dashboard';
+      const isNewUser = params.get('new') === '1';
+      window.location.href = isNewUser ? '/onboarding' : '/dashboard';
       return;
     }
 

@@ -4,7 +4,8 @@ import { toast } from 'sonner';
 import {
     User as UserIcon, Check, MoreHorizontal, Trash2, Paperclip, FileText,
     Image as ImageIcon, Link2, Link2Off, AlertCircle, X, Plus,
-    AlignLeft, Layout, Clock, CheckCircle2, ListChecks, History, Tag, Repeat
+    AlignLeft, Layout, Clock, CheckCircle2, ListChecks, History, Tag, Repeat,
+    Calendar as CalendarIcon
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -50,6 +51,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     const [newComment, setNewComment] = useState('');
     const [newSubtask, setNewSubtask] = useState('');
     const [assignee, setAssignee] = useState(task?.assignee);
+    const [startDate, setStartDate] = useState(task?.startDate ? new Date(task.startDate) : null);
     const [dueDate, setDueDate] = useState(task?.dueDate ? new Date(task.dueDate) : null);
     const [isEditingDesc, setIsEditingDesc] = useState(false);
     const [descInput, setDescInput] = useState('');
@@ -79,6 +81,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             }
 
             setAssignee(task.assignee);
+            setStartDate(task.startDate ? new Date(task.startDate) : null);
             setDueDate(task.dueDate ? new Date(task.dueDate) : null);
             setCurrentStatus(task.status || 'todo');
             setCurrentPriority(task.priority || 'medium');
@@ -570,6 +573,39 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                     </div>
                                 </div>
 
+                                {/* Start Date */}
+                                <div className="grid grid-cols-3 items-center gap-4">
+                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><CalendarIcon className="w-3.5 h-3.5" /> Start Date</span>
+                                    <div className="col-span-2">
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" size="sm" className={`w-full justify-start h-8 font-normal ${!startDate && "text-muted-foreground"}`}>
+                                                    {startDate ? format(startDate, "MMM d, yyyy") : <span>No start date</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="end">
+                                                <Calendar mode="single" selected={startDate} onSelect={async (d) => {
+                                                    setStartDate(d);
+                                                    if (d && dueDate && d > dueDate) {
+                                                        setDueDate(null);
+                                                        try { await api.put(`/tasks/${task._id}`, { startDate: d, dueDate: null }); toast.success("Start date updated"); } catch { /* silently ignore */ }
+                                                    } else {
+                                                        try { await api.put(`/tasks/${task._id}`, { startDate: d || null }); toast.success("Start date updated"); } catch { /* silently ignore */ }
+                                                    }
+                                                }} initialFocus />
+                                                {startDate && (
+                                                    <div className="px-3 pb-3">
+                                                        <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={async () => {
+                                                            setStartDate(null);
+                                                            try { await api.put(`/tasks/${task._id}`, { startDate: null }); toast.success("Start date cleared"); } catch { /* silently ignore */ }
+                                                        }}>Clear start date</Button>
+                                                    </div>
+                                                )}
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                </div>
+
                                 {/* Due Date */}
                                 <div className="grid grid-cols-3 items-center gap-4">
                                     <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Clock className="w-3.5 h-3.5" /> Due Date</span>
@@ -581,7 +617,9 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                                 </Button>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-auto p-0" align="end">
-                                                <Calendar mode="single" selected={dueDate} onSelect={async (d) => {
+                                                <Calendar mode="single" selected={dueDate}
+                                                    disabled={(date) => startDate && date < startDate}
+                                                    onSelect={async (d) => {
                                                     setDueDate(d);
                                                     try { await api.put(`/tasks/${task._id}`, { dueDate: d }); toast.success("Date updated"); } catch { /* silently ignore */ }
                                                 }} initialFocus />

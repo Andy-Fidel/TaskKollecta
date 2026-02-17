@@ -14,6 +14,7 @@ const taskSchema = new mongoose.Schema({
     default: 'medium'
   },
   dueDate: { type: Date },
+  startDate: { type: Date },
 
   // RELATIONS
   organization: {

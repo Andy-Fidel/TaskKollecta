@@ -7,7 +7,7 @@ import {
   LayoutGrid, List as ListIcon,
   Activity, CheckCircle2,
   Circle, ArrowLeft, Settings, FileText,
-  Columns, Calendar as CalendarIcon, Zap, Archive, Clock, X
+  Columns, Calendar as CalendarIcon, Zap, Archive, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,8 +54,8 @@ export default function ProjectBoard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isAutoOpen, setIsAutoOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskStartDate, setNewTaskStartDate] = useState(null);
   const [newTaskDueDate, setNewTaskDueDate] = useState(null);
-  const [newTaskDueTime, setNewTaskDueTime] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
   const [newTaskAssignee, setNewTaskAssignee] = useState(null);  // { id, name, email } or null
   const [assigneeSearch, setAssigneeSearch] = useState('');
@@ -173,14 +173,6 @@ export default function ProjectBoard() {
     e.preventDefault();
     if (!newTaskTitle) return;
 
-    // Combine date and time if both provided
-    let dueDate = newTaskDueDate;
-    if (dueDate && newTaskDueTime) {
-      const [hours, minutes] = newTaskDueTime.split(':').map(Number);
-      dueDate = new Date(dueDate);
-      dueDate.setHours(hours, minutes, 0, 0);
-    }
-
     try {
       const payload = {
         title: newTaskTitle,
@@ -188,7 +180,8 @@ export default function ProjectBoard() {
         orgId: projectDetails.organization,
         status: 'todo',
         priority: newTaskPriority,
-        dueDate
+        startDate: newTaskStartDate || undefined,
+        dueDate: newTaskDueDate || undefined
       };
 
       // Add assignee info
@@ -203,8 +196,8 @@ export default function ProjectBoard() {
       const { data } = await api.post('/tasks', payload);
       setTasks([data, ...tasks]);
       setNewTaskTitle('');
+      setNewTaskStartDate(null);
       setNewTaskDueDate(null);
-      setNewTaskDueTime('');
       setNewTaskPriority('medium');
       setNewTaskAssignee(null);
       setAssigneeSearch('');
@@ -437,36 +430,80 @@ export default function ProjectBoard() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {/* Due Date */}
+                {/* Start Date */}
                 <div>
-                  <Label>Due Date</Label>
+                  <Label>Start Date</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal h-9">
+                      <Button variant="outline" className={`w-full justify-start text-left font-normal h-9 ${!newTaskStartDate ? 'text-muted-foreground' : ''}`}>
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {newTaskDueDate ? newTaskDueDate.toLocaleDateString() : 'Pick date'}
+                        {newTaskStartDate ? newTaskStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Start'}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={newTaskDueDate} onSelect={setNewTaskDueDate} initialFocus />
+                      <Calendar
+                        mode="single"
+                        selected={newTaskStartDate}
+                        onSelect={(date) => {
+                          setNewTaskStartDate(date);
+                          // If end date is before start date, adjust it
+                          if (date && newTaskDueDate && date > newTaskDueDate) {
+                            setNewTaskDueDate(null);
+                          }
+                        }}
+                        initialFocus
+                      />
+                      {newTaskStartDate && (
+                        <div className="px-3 pb-3">
+                          <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setNewTaskStartDate(null)}>Clear start date</Button>
+                        </div>
+                      )}
                     </PopoverContent>
                   </Popover>
                 </div>
 
-                {/* Due Time */}
+                {/* End Date */}
                 <div>
-                  <Label>Due Time</Label>
-                  <div className="relative">
-                    <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="time"
-                      className="pl-9 h-9"
-                      value={newTaskDueTime}
-                      onChange={(e) => setNewTaskDueTime(e.target.value)}
-                    />
-                  </div>
+                  <Label>End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={`w-full justify-start text-left font-normal h-9 ${!newTaskDueDate ? 'text-muted-foreground' : ''}`}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newTaskDueDate ? newTaskDueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'End'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={newTaskDueDate}
+                        onSelect={setNewTaskDueDate}
+                        disabled={(date) => newTaskStartDate && date < newTaskStartDate}
+                        initialFocus
+                      />
+                      {newTaskDueDate && (
+                        <div className="px-3 pb-3">
+                          <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setNewTaskDueDate(null)}>Clear end date</Button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
+
+              {/* Date range summary */}
+              {(newTaskStartDate || newTaskDueDate) && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  <span>
+                    {newTaskStartDate && newTaskDueDate
+                      ? `${newTaskStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${newTaskDueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                      : newTaskStartDate
+                        ? `Starts ${newTaskStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                        : `Due ${newTaskDueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                    }
+                  </span>
+                </div>
+              )}
 
               {/* Priority */}
               <div>

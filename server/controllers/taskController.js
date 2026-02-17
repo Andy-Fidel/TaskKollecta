@@ -15,7 +15,7 @@ const { invalidateTaskCache } = require('../utils/cacheUtils');
 // @desc    Create new task
 // @route   POST /api/tasks
 const createTask = async (req, res) => {
-  const { title, description, status, priority, dueDate, projectId, orgId, assignee, assigneeEmail } = req.body;
+  const { title, description, status, priority, startDate, dueDate, projectId, orgId, assignee, assigneeEmail } = req.body;
 
   try {
     let resolvedAssignee = assignee || null;
@@ -78,6 +78,7 @@ const createTask = async (req, res) => {
       description,
       status: status || 'todo',
       priority: priority || 'medium',
+      startDate,
       dueDate,
       project: projectId,
       organization: orgId,
@@ -351,7 +352,7 @@ const updateTask = async (req, res) => {
     }
 
     // Whitelist allowed update fields to prevent overwriting organization/reporter/project
-    const allowedFields = ['title', 'description', 'status', 'priority', 'dueDate', 'assignee', 'index'];
+    const allowedFields = ['title', 'description', 'status', 'priority', 'startDate', 'dueDate', 'assignee', 'index'];
     const updateData = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {

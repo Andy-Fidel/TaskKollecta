@@ -47,7 +47,8 @@ router.get(
     generateToken(res, req.user._id);
     // Also pass token via URL so client can store it in localStorage
     const token = jwt.sign({ userId: req.user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    res.redirect(`${process.env.CLIENT_URL}/login?token=${token}`);
+    const needsOnboarding = !req.user.onboardingCompleted;
+    res.redirect(`${process.env.CLIENT_URL}/login?token=${token}${needsOnboarding ? '&new=1' : ''}`);
   }
 );
 
@@ -60,7 +61,8 @@ router.get(
   (req, res) => {
     generateToken(res, req.user._id);
     const token = jwt.sign({ userId: req.user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    res.redirect(`${process.env.CLIENT_URL}/login?token=${token}`);
+    const needsOnboarding = !req.user.onboardingCompleted;
+    res.redirect(`${process.env.CLIENT_URL}/login?token=${token}${needsOnboarding ? '&new=1' : ''}`);
   }
 );
 

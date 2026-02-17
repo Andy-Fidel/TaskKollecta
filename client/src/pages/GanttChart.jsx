@@ -92,14 +92,19 @@ export default function GanttChart() {
         if (!statusFilters.includes(task.status)) return false;
         if (!priorityFilters.includes(task.priority)) return false;
 
-        // Filter by date range (task should have a due date within range)
-        if (!task.dueDate) return false;
-        const dueDate = new Date(task.dueDate);
-        return dueDate >= timelineStart && dueDate <= timelineEnd;
+        // Filter by date range - task must have at least one date
+        const taskStart = task.startDate ? new Date(task.startDate) : null;
+        const taskEnd = task.dueDate ? new Date(task.dueDate) : null;
+        if (!taskStart && !taskEnd) return false;
+
+        // Include if any part of the task overlaps with the timeline
+        const effectiveStart = taskStart || taskEnd;
+        const effectiveEnd = taskEnd || taskStart;
+        return effectiveEnd >= timelineStart && effectiveStart <= timelineEnd;
       })
       .map(task => {
-        const taskStart = task.createdAt ? new Date(task.createdAt) : subDays(new Date(task.dueDate), 3);
-        const taskEnd = new Date(task.dueDate);
+        const taskStart = task.startDate ? new Date(task.startDate) : (task.dueDate ? subDays(new Date(task.dueDate), 3) : new Date());
+        const taskEnd = task.dueDate ? new Date(task.dueDate) : addDays(taskStart, 1);
 
         // Calculate position and width as percentages
         const startOffset = Math.max(0, differenceInDays(taskStart, timelineStart));
@@ -187,6 +192,7 @@ export default function GanttChart() {
         <p className="font-semibold text-sm text-foreground mb-1">{task.name}</p>
         <div className="space-y-1 text-xs text-muted-foreground">
           <p>Project: <span className="text-foreground">{task.projectName}</span></p>
+          {task.startDate && <p>Start: <span className="text-foreground">{format(new Date(task.startDate), 'MMM d, yyyy')}</span></p>}
           <p>Due: <span className="text-foreground">{task.dueDate ? format(new Date(task.dueDate), 'MMM d, yyyy') : 'No date'}</span></p>
           <div className="flex gap-2 mt-2">
             <Badge variant="outline" className="capitalize text-[10px]">{task.status}</Badge>
