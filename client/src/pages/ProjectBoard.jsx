@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import {
@@ -7,11 +7,12 @@ import {
   LayoutGrid, List as ListIcon,
   Activity, CheckCircle2,
   Circle, ArrowLeft, Settings, FileText,
-  Columns, Calendar as CalendarIcon, Zap, Archive, X
+  Columns, Calendar as CalendarIcon, Zap, Archive, X, Clock, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -54,16 +55,59 @@ export default function ProjectBoard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isAutoOpen, setIsAutoOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskStartDate, setNewTaskStartDate] = useState(null);
   const [newTaskDueDate, setNewTaskDueDate] = useState(null);
+  const [newTaskDueTime, setNewTaskDueTime] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
   const [newTaskAssignee, setNewTaskAssignee] = useState(null);  // { id, name, email } or null
   const [assigneeSearch, setAssigneeSearch] = useState('');
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
+  // Bulk selection
+  const [selectedTasks, setSelectedTasks] = useState(new Set());
+
+  const toggleTaskSelection = (taskId) => {
+    setSelectedTasks(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
+
+  const handleBulkUpdate = async (updates) => {
+    try {
+      const { data } = await api.put('/tasks/bulk', {
+        taskIds: Array.from(selectedTasks),
+        updates
+      });
+      setTasks(prev => {
+        const updatedMap = new Map(data.map(t => [t._id, t]));
+        return prev.map(t => updatedMap.get(t._id) || t);
+      });
+      setSelectedTasks(new Set());
+    } catch { alert('Bulk update failed'); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Delete ${selectedTasks.size} task(s)?`)) return;
+    const deletedIds = Array.from(selectedTasks);
+    try {
+      await api.delete('/tasks/bulk', { data: { taskIds: deletedIds } });
+      setTasks(prev => prev.filter(t => !selectedTasks.has(t._id)));
+      // Notify teammates
+      if (socket) deletedIds.forEach(id => socket.emit('task_deleted', { _id: id, projectId }));
+      setSelectedTasks(new Set());
+    } catch { alert('Bulk delete failed'); }
+  };
+
   const [selectedTask, setSelectedTask] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [taskPage, setTaskPage] = useState(0);
+  const [hasMoreTasks, setHasMoreTasks] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const [view, setView] = useState('board');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -87,16 +131,60 @@ export default function ProjectBoard() {
   // Effects
   useEffect(() => {
     api.get(`/projects/single/${projectId}`).then(({ data }) => setProjectDetails(data));
-    api.get(`/tasks/project/${projectId}`).then(({ data }) => setTasks(data));
+    api.get(`/tasks/project/${projectId}?page=0&limit=50`).then(({ data }) => {
+      setTasks(data.tasks);
+      setHasMoreTasks(data.pagination.hasMore);
+      setTaskPage(0);
+    });
   }, [projectId]);
+
+  const loadMoreTasks = useCallback(async () => {
+    if (isLoadingMore || !hasMoreTasks) return;
+    setIsLoadingMore(true);
+    try {
+      const nextPage = taskPage + 1;
+      const { data } = await api.get(`/tasks/project/${projectId}?page=${nextPage}&limit=50`);
+      setTasks(prev => {
+        const existingIds = new Set(prev.map(t => t._id));
+        const newTasks = data.tasks.filter(t => !existingIds.has(t._id));
+        return [...prev, ...newTasks];
+      });
+      setTaskPage(nextPage);
+      setHasMoreTasks(data.pagination.hasMore);
+    } catch (err) {
+      console.error('Failed to load more tasks', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [projectId, taskPage, hasMoreTasks, isLoadingMore]);
 
   useEffect(() => {
     if (!socket) return;
+
+    // Live status/field update from teammate
     socket.on('receive_task_update', (updatedTask) => {
-      setTasks((prev) => prev.map((t) => t._id === updatedTask._id ? { ...t, status: updatedTask.status } : t));
+      setTasks((prev) => prev.map((t) => t._id === updatedTask._id ? { ...t, ...updatedTask } : t));
     });
-    return () => socket.off('receive_task_update');
-  }, [socket, tasks]);
+
+    // Live new task from teammate
+    socket.on('receive_new_task', (newTask) => {
+      setTasks((prev) => {
+        if (prev.some(t => t._id === newTask._id)) return prev;
+        return [newTask, ...prev];
+      });
+    });
+
+    // Live task deletion from teammate
+    socket.on('receive_task_deleted', (data) => {
+      setTasks((prev) => prev.filter(t => t._id !== data._id));
+    });
+
+    return () => {
+      socket.off('receive_task_update');
+      socket.off('receive_new_task');
+      socket.off('receive_task_deleted');
+    };
+  }, [socket]);
 
   useEffect(() => {
     if (projectDetails?.organization) {
@@ -149,6 +237,7 @@ export default function ProjectBoard() {
 
   const handleDragEnd = async (event) => {
     const { active, over } = event;
+    setActiveId(null);
     if (!over) return;
 
     const activeTask = tasks.find(t => t._id === active.id);
@@ -161,27 +250,44 @@ export default function ProjectBoard() {
     }
 
     if (activeTask && activeTask.status !== newStatus) {
+      const previousStatus = activeTask.status;
+
+      // Optimistic update
       setTasks((prev) => prev.map(t => t._id === activeTask._id ? { ...t, status: newStatus } : t));
       if (socket) socket.emit("task_moved", { _id: activeTask._id, status: newStatus, projectId });
-      try { await api.put(`/tasks/${activeTask._id}`, { status: newStatus }); }
-      catch (error) { console.error("Failed to move task"); }
+
+      try {
+        await api.put(`/tasks/${activeTask._id}`, { status: newStatus });
+      } catch (error) {
+        // Revert on failure
+        setTasks((prev) => prev.map(t => t._id === activeTask._id ? { ...t, status: previousStatus } : t));
+        alert(`Failed to move task: ${error.response?.data?.message || 'Network error'}`);
+      }
     }
-    setActiveId(null);
   };
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle) return;
 
+    // Combine date and time if both provided
+    let dueDate = newTaskDueDate;
+    if (dueDate && newTaskDueTime) {
+      const [hours, minutes] = newTaskDueTime.split(':').map(Number);
+      dueDate = new Date(dueDate);
+      dueDate.setHours(hours, minutes, 0, 0);
+    }
+
     try {
       const payload = {
         title: newTaskTitle,
+        description: newTaskDescription || undefined,
         projectId,
         orgId: projectDetails.organization,
         status: 'todo',
         priority: newTaskPriority,
         startDate: newTaskStartDate || undefined,
-        dueDate: newTaskDueDate || undefined
+        dueDate: dueDate || undefined
       };
 
       // Add assignee info
@@ -195,9 +301,12 @@ export default function ProjectBoard() {
 
       const { data } = await api.post('/tasks', payload);
       setTasks([data, ...tasks]);
+      if (socket) socket.emit('task_created', { task: data, projectId });
       setNewTaskTitle('');
+      setNewTaskDescription('');
       setNewTaskStartDate(null);
       setNewTaskDueDate(null);
+      setNewTaskDueTime('');
       setNewTaskPriority('medium');
       setNewTaskAssignee(null);
       setAssigneeSearch('');
@@ -361,6 +470,11 @@ export default function ProjectBoard() {
                   column={col}
                   tasks={filteredTasks.filter(t => t.status === col.id)}
                   onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
+                  selectedTasks={selectedTasks}
+                  onToggleSelect={toggleTaskSelection}
+                  hasMore={hasMoreTasks}
+                  onLoadMore={loadMoreTasks}
+                  isLoadingMore={isLoadingMore}
                 />
               ))}
             </div>
@@ -426,6 +540,17 @@ export default function ProjectBoard() {
                   placeholder="What needs to be done?"
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="task-desc">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Textarea
+                  id="task-desc"
+                  placeholder="Add details, context, or instructions..."
+                  className="min-h-[60px] max-h-[120px] resize-none text-sm"
+                  value={newTaskDescription}
+                  onChange={(e) => setNewTaskDescription(e.target.value)}
                 />
               </div>
 
@@ -501,9 +626,24 @@ export default function ProjectBoard() {
                         ? `Starts ${newTaskStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
                         : `Due ${newTaskDueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
                     }
+                    {newTaskDueTime && ` at ${newTaskDueTime}`}
                   </span>
                 </div>
               )}
+
+              {/* Due Time */}
+              <div>
+                <Label>Due Time</Label>
+                <div className="relative">
+                  <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="time"
+                    className="pl-9 h-9"
+                    value={newTaskDueTime}
+                    onChange={(e) => setNewTaskDueTime(e.target.value)}
+                  />
+                </div>
+              </div>
 
               {/* Priority */}
               <div>
@@ -642,9 +782,62 @@ export default function ProjectBoard() {
         projectId={projectId}
         onRestore={() => {
           // Refresh the main board to show the restored task
-          api.get(`/tasks/project/${projectId}`).then(res => setTasks(res.data));
+          api.get(`/tasks/project/${projectId}?page=0&limit=50`).then(res => {
+            setTasks(res.data.tasks);
+            setHasMoreTasks(res.data.pagination.hasMore);
+            setTaskPage(0);
+          });
         }}
       />
+
+      {/* Floating Bulk Action Bar */}
+      {selectedTasks.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center gap-2 bg-card border border-border rounded-xl shadow-2xl px-4 py-2.5">
+            <span className="text-sm font-semibold text-foreground whitespace-nowrap">
+              {selectedTasks.size} selected
+            </span>
+            <Separator orientation="vertical" className="h-6" />
+
+            {/* Status */}
+            <Select onValueChange={(val) => handleBulkUpdate({ status: val })}>
+              <SelectTrigger className="h-8 w-auto min-w-[100px] text-xs">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todo">To Do</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="review">Review</SelectItem>
+                <SelectItem value="done">Done</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Priority */}
+            <Select onValueChange={(val) => handleBulkUpdate({ priority: val })}>
+              <SelectTrigger className="h-8 w-auto min-w-[100px] text-xs">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="urgent">Urgent</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Delete */}
+            <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={handleBulkDelete}>
+              <Trash2 className="w-3.5 h-3.5 mr-1" />
+              Delete
+            </Button>
+
+            {/* Clear */}
+            <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" onClick={() => setSelectedTasks(new Set())}>
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,12 +1,12 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, MoreHorizontal, User as UserIcon, Repeat } from 'lucide-react';
+import { Calendar, MoreHorizontal, User as UserIcon, Repeat, Check } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-export function SortableTask({ task, onClick }) {
+export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
   const {
     attributes,
     listeners,
@@ -38,11 +38,25 @@ export function SortableTask({ task, onClick }) {
       onClick={onClick}
       className={`
         group relative p-4 rounded-xl bg-card 
-        border border-border shadow-sm hover:shadow-md 
+        border shadow-sm hover:shadow-md 
         transition-all duration-200 cursor-grab active:cursor-grabbing
         ${isDragging ? 'rotate-2 scale-105 shadow-xl z-50' : ''}
+        ${isSelected ? 'border-primary ring-1 ring-primary/30' : 'border-border'}
       `}
     >
+      {/* Selection checkbox */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task._id); }}
+        className={`absolute top-3 left-3 w-5 h-5 rounded border flex items-center justify-center transition-all z-10
+          ${isSelected
+            ? 'bg-primary border-primary text-primary-foreground'
+            : 'border-muted-foreground/30 bg-card opacity-0 group-hover:opacity-100 hover:border-primary'
+          }
+        `}
+      >
+        {isSelected && <Check className="h-3 w-3" />}
+      </button>
+
       {/* Hover Action */}
       <button className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity">
         <MoreHorizontal className="h-4 w-4" />

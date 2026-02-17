@@ -138,6 +138,33 @@ const getProjectTasks = async (req, res) => {
       archived: showArchived ? true : { $ne: true }
     };
 
+    // Optional pagination
+    const page = parseInt(req.query.page) || 0;
+    const limit = parseInt(req.query.limit) || 50;
+
+    if (req.query.page !== undefined) {
+      // Paginated response
+      const total = await Task.countDocuments(query);
+      const tasks = await Task.find(query)
+        .populate('assignee', 'name avatar')
+        .populate('dependencies', 'title status')
+        .sort({ index: 1 })
+        .skip(page * limit)
+        .limit(limit);
+
+      return res.json({
+        tasks,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+          hasMore: (page + 1) * limit < total
+        }
+      });
+    }
+
+    // Non-paginated (backward compatible)
     const tasks = await Task.find(query)
       .populate('assignee', 'name avatar')
       .populate('dependencies', 'title status')
@@ -570,10 +597,65 @@ const deleteAttachment = async (req, res) => {
   }
 };
 
+// @desc    Bulk update tasks
+// @route   PUT /api/tasks/bulk
+const bulkUpdateTasks = async (req, res) => {
+  try {
+    const { taskIds, updates } = req.body;
+    if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+      return res.status(400).json({ message: 'taskIds array is required' });
+    }
+
+    const allowedFields = ['status', 'priority', 'assignee', 'startDate', 'dueDate'];
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined) {
+        updateData[field] = updates[field];
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No valid update fields provided' });
+    }
+
+    await Task.updateMany(
+      { _id: { $in: taskIds } },
+      { $set: updateData }
+    );
+
+    const updatedTasks = await Task.find({ _id: { $in: taskIds } })
+      .populate('assignee', 'name avatar')
+      .populate('dependencies', 'title status');
+
+    res.status(200).json(updatedTasks);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Bulk delete tasks
+// @route   DELETE /api/tasks/bulk
+const bulkDeleteTasks = async (req, res) => {
+  try {
+    const { taskIds } = req.body;
+    if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+      return res.status(400).json({ message: 'taskIds array is required' });
+    }
+
+    await Task.deleteMany({ _id: { $in: taskIds } });
+    res.status(200).json({ message: `${taskIds.length} tasks deleted` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createTask, getProjectTasks, getTask,
   getMyTasks, deleteTask, addAttachment, deleteAttachment,
   addSubtask, toggleSubtask,
   addDependency, removeDependency, updateTask, deleteSubtask, toggleArchiveTask,
-  addTag, removeTag, setRecurrence, removeRecurrence
+  addTag, removeTag, setRecurrence, removeRecurrence,
+  bulkUpdateTasks, bulkDeleteTasks
 };

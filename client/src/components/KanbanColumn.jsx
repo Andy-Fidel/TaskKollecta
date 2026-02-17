@@ -25,7 +25,7 @@ const COLUMN_COLORS = {
   }
 };
 
-export function KanbanColumn({ column, tasks, onTaskClick }) {
+export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onToggleSelect, hasMore, onLoadMore, isLoadingMore }) {
   const { setNodeRef } = useDroppable({
     id: column.id,
   });
@@ -57,10 +57,27 @@ export function KanbanColumn({ column, tasks, onTaskClick }) {
         >
           <div className="flex-1 space-y-3 min-h-[100px]">
             {tasks.map((task) => (
-              <SortableTask key={task._id} task={task} onClick={() => onTaskClick(task)} />
+              <SortableTask
+                key={task._id}
+                task={task}
+                onClick={() => onTaskClick(task)}
+                isSelected={selectedTasks?.has(task._id)}
+                onToggleSelect={onToggleSelect}
+              />
             ))}
           </div>
         </SortableContext>
+
+        {/* Load More */}
+        {hasMore && (
+          <button
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+            className="w-full mt-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/70 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isLoadingMore ? 'Loading...' : 'Load more tasks'}
+          </button>
+        )}
       </div>
     </div>
   );

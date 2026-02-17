@@ -29,6 +29,7 @@ const filterPresetRoutes = require("./routes/filterPresetRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const inviteRoutes = require("./routes/inviteRoutes");
 const reminderRoutes = require("./routes/reminderRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 // Load environment variables
 
@@ -198,6 +199,11 @@ io.on("connection", (socket) => {
     socket.to(`project_${data.projectId}`).emit("receive_new_task", data.task);
   });
 
+  socket.on("task_deleted", (data) => {
+    // Notify others in the project
+    socket.to(`project_${data.projectId}`).emit("receive_task_deleted", { _id: data._id });
+  });
+
   // --- 5. DISCONNECT (Clean up rooms and presence) ---
   socket.on("disconnect", () => {
     console.log("User Disconnected", socket.id);
@@ -247,6 +253,7 @@ app.use("/api/filter-presets", filterPresetRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/invites", inviteRoutes);
 app.use("/api/reminders", reminderRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 // SECURITY: Global error handler (must be last)
 app.use(errorHandler);

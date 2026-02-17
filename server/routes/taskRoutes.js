@@ -17,13 +17,17 @@ const { createTask,
     addTag,
     removeTag,
     setRecurrence,
-    removeRecurrence } = require('../controllers/taskController');
+    removeRecurrence,
+    bulkUpdateTasks,
+    bulkDeleteTasks } = require('../controllers/taskController');
 const { protect } = require('../middleware/authMiddleware');
 const { validateCreateTask, validateUpdateTask, validateIdParam } = require('../middleware/validators');
 const { cacheResponse } = require('../middleware/cacheMiddleware');
 
 
 router.post('/', protect, validateCreateTask, createTask);
+router.put('/bulk', protect, bulkUpdateTasks);
+router.delete('/bulk', protect, bulkDeleteTasks);
 router.get('/my-tasks', protect, cacheResponse(60), getMyTasks);
 router.get('/project/:projectId', protect, cacheResponse(60), getProjectTasks);
 router.put('/:id', protect, validateUpdateTask, updateTask);
