@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -34,7 +34,7 @@ function useCountUp(target, duration = 1200) {
   const [count, setCount] = useState(0);
   const rafRef = useRef(null);
   useEffect(() => {
-    if (target == null || target === 0) { setCount(0); return; }
+    if (target == null || target === 0) return;
     const startTime = performance.now();
     const animate = (now) => {
       const elapsed = now - startTime;
@@ -43,7 +43,11 @@ function useCountUp(target, duration = 1200) {
       setCount(Math.round(eased * target));
       if (progress < 1) rafRef.current = requestAnimationFrame(animate);
     };
-    rafRef.current = requestAnimationFrame(animate);
+    // First frame resets to 0, then animates up — all inside rAF callbacks
+    rafRef.current = requestAnimationFrame((now) => {
+      setCount(0);
+      animate(now);
+    });
     return () => rafRef.current && cancelAnimationFrame(rafRef.current);
   }, [target, duration]);
   return count;
@@ -88,7 +92,7 @@ export default function SuperAdminDashboard() {
         fetchStats();
     }, []);
 
-    const fetchUsers = async (page = 1) => {
+    const fetchUsers = useCallback(async (page = 1) => {
         setUsersLoading(true);
         try {
             const params = new URLSearchParams({ page, limit: 10 });
@@ -102,9 +106,9 @@ export default function SuperAdminDashboard() {
         } finally {
             setUsersLoading(false);
         }
-    };
+    }, [searchQuery, statusFilter]);
 
-    useEffect(() => { fetchUsers(); }, [statusFilter]);
+    useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
     const handleSearch = (e) => { e.preventDefault(); fetchUsers(1); };
 
