@@ -6,18 +6,18 @@ const automationSchema = new mongoose.Schema({
   // The Trigger
   triggerType: { 
     type: String, 
-    enum: ['status_change', 'priority_change'], 
+    enum: ['status_change', 'priority_change', 'task_overdue'], 
     required: true 
   },
-  triggerValue: { type: String, required: true }, // e.g., 'done' or 'urgent'
+  triggerValue: { type: String, required: true }, // e.g., 'done', 'urgent', or 'any' for overdue
 
   // The Action
   actionType: { 
     type: String, 
-    enum: ['archive_task', 'assign_user', 'set_due_date'], 
+    enum: ['archive_task', 'assign_user', 'set_due_date', 'change_status', 'change_priority', 'send_notification'], 
     required: true 
   },
-  actionValue: { type: String }, 
+  actionValue: { type: String }, // status/priority value, user id, 'project_lead', 'assignee', etc.
 
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });

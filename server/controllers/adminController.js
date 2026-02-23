@@ -56,6 +56,50 @@ const getDashboardStats = async (req, res) => {
             { $sort: { _id: 1 } }
         ]);
 
+        // Top organizations (by task count)
+        const topOrgs = await Organization.aggregate([
+            {
+                $lookup: {
+                    from: 'projects',
+                    localField: '_id',
+                    foreignField: 'organization',
+                    as: 'projects'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'tasks',
+                    let: { projIds: '$projects._id' },
+                    pipeline: [
+                        { $match: { $expr: { $in: ['$project', '$$projIds'] } } }
+                    ],
+                    as: 'tasks'
+                }
+            },
+            {
+                $project: {
+                    name: 1,
+                    memberCount: { $size: { $ifNull: ['$members', []] } },
+                    projectCount: { $size: '$projects' },
+                    taskCount: { $size: '$tasks' }
+                }
+            },
+            { $sort: { taskCount: -1 } },
+            { $limit: 5 }
+        ]);
+
+        // Task activity (last 30 days - daily tasks created)
+        const taskActivity = await Task.aggregate([
+            { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
         res.json({
             totals: {
                 users: totalUsers,
@@ -69,7 +113,9 @@ const getDashboardStats = async (req, res) => {
                 tasks: newTasksWeek
             },
             userStatus: statusBreakdown,
-            growth: growthData
+            growth: growthData,
+            topOrgs,
+            taskActivity
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

@@ -18,8 +18,8 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.3 : 1,
+    transition: isDragging ? 'none' : transition,
+    zIndex: isDragging ? 100 : 'auto',
   };
 
   const priorityColors = {
@@ -38,9 +38,12 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
       onClick={onClick}
       className={`
         group relative p-4 rounded-xl bg-card 
-        border shadow-sm hover:shadow-md 
+        border shadow-sm 
         transition-all duration-200 cursor-grab active:cursor-grabbing
-        ${isDragging ? 'rotate-2 scale-105 shadow-xl z-50' : ''}
+        ${isDragging 
+          ? 'rotate-[2deg] scale-105 shadow-2xl shadow-primary/10 ring-2 ring-primary/20 z-50 opacity-90' 
+          : 'hover:shadow-md hover:-translate-y-0.5'
+        }
         ${isSelected ? 'border-primary ring-1 ring-primary/30' : 'border-border'}
       `}
     >

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Menu, Search, User, Settings, LogOut, Shield } from 'lucide-react';
 
@@ -18,6 +17,7 @@ import { ModeToggle } from './ModeToggle';
 import { NotificationBell } from './NotificationBell';
 import { CommandMenu } from './CommandMenu';
 import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '../hooks/useKeyboardShortcuts';
+import { PageTransition } from './PageTransition';
 
 // Context
 import { useAuth } from '../context/AuthContext';
@@ -127,7 +127,9 @@ export default function AppLayout() {
 
         {/* PAGE CONTENT */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth w-full">
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </main>
 
         {/* GLOBAL COMMAND MENU */}

@@ -159,23 +159,40 @@ export default function Sidebar() {
                 </div>
 
                 {/* NAVIGATION LINKS */}
-                <nav className="flex-1 p-3 space-y-2 overflow-y-auto">
+                <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
                     <TooltipProvider delayDuration={0}>
                         {navItems.map((item) => (
                             <div key={item.path}>
                                 {isCollapsed ? (
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <NavLink to={item.path} className={({ isActive }) => `flex items-center justify-center w-full h-10 rounded-lg transition-all ${isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+                                            <NavLink to={item.path} className={({ isActive }) => `
+                                                relative flex items-center justify-center w-full h-10 rounded-xl transition-all duration-200
+                                                ${isActive 
+                                                    ? 'bg-primary/10 text-primary shadow-[0_0_12px_-3px_hsl(var(--primary)/0.3)]' 
+                                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground hover:scale-105'
+                                                }
+                                            `}>
                                                 <item.icon className="w-5 h-5" />
                                             </NavLink>
                                         </TooltipTrigger>
                                         <TooltipContent side="right" className="font-medium">{item.label}</TooltipContent>
                                     </Tooltip>
                                 ) : (
-                                    <NavLink to={item.path} className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
-                                        <item.icon className="w-5 h-5 shrink-0" />
-                                        <span className="truncate">{item.label}</span>
+                                    <NavLink to={item.path} className={({ isActive }) => `
+                                        relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
+                                        ${isActive 
+                                            ? 'bg-primary/10 text-primary shadow-[0_0_16px_-4px_hsl(var(--primary)/0.25)] border border-primary/10' 
+                                            : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-transparent'
+                                        }
+                                    `}>
+                                        {({ isActive }) => (
+                                            <>
+                                                {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-r-full" />}
+                                                <item.icon className="w-5 h-5 shrink-0" />
+                                                <span className="truncate">{item.label}</span>
+                                            </>
+                                        )}
                                     </NavLink>
                                 )}
                             </div>
