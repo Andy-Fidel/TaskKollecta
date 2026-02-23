@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector, Legend
+  BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector, Legend,
+  AreaChart, Area
 } from 'recharts';
 import {
   CheckCircle2, TrendingUp, Users, FolderOpen,
-  Plus, AlertCircle, Loader2, History, Calendar as CalendarIcon
+  Plus, AlertCircle, Loader2, History, Calendar as CalendarIcon,
+  Flame, Zap, Target, Activity
 } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,7 +27,7 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { ReminderWidget } from '@/components/ReminderWidget';
 
-// Using CSS variables for Recharts (Theme Compatible)
+// --- Theme-compatible chart colors ---
 const COLORS = [
   'hsl(var(--chart-1))',
   'hsl(var(--chart-2))',
@@ -33,6 +35,56 @@ const COLORS = [
   'hsl(var(--chart-4))',
   'hsl(var(--chart-5))'
 ];
+
+// --- Animated count-up hook ---
+function useCountUp(target, duration = 1200) {
+  const [count, setCount] = useState(0);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    if (target == null || target === 0) { setCount(0); return; }
+    let start = 0;
+    const startTime = performance.now();
+
+    const animate = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(eased * target));
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(animate);
+      }
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => rafRef.current && cancelAnimationFrame(rafRef.current);
+  }, [target, duration]);
+
+  return count;
+}
+
+// --- Time-aware greeting ---
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return { text: 'Good morning', emoji: '☀️' };
+  if (hour < 17) return { text: 'Good afternoon', emoji: '🌤️' };
+  if (hour < 21) return { text: 'Good evening', emoji: '🌅' };
+  return { text: 'Good night', emoji: '🌙' };
+}
+
+// --- Generate sparkline-like data from productivity array ---
+function buildSparkline(productivityData = [], days = 7) {
+  const result = [];
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    const found = productivityData.find(p => p.name === dateStr);
+    result.push({ d: dateStr, v: found ? found.value : 0 });
+  }
+  return result;
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -79,9 +131,9 @@ export default function Dashboard() {
   }, [dateRange]);
 
   const statusData = data ? [
-    { name: 'Active', value: data.stats.activeTasks || 0, color: 'hsl(var(--chart-2))' }, // Blue/Primary
-    { name: 'Completed', value: data.stats.completedInPeriod || 0, color: 'hsl(var(--chart-4))' }, // Green-ish
-    { name: 'Overdue', value: data.stats.overdue || 0, color: 'hsl(var(--destructive))' }, // Red
+    { name: 'Active', value: data.stats.activeTasks || 0, color: 'hsl(var(--chart-2))' },
+    { name: 'Completed', value: data.stats.completedInPeriod || 0, color: 'hsl(var(--chart-4))' },
+    { name: 'Overdue', value: data.stats.overdue || 0, color: 'hsl(var(--destructive))' },
   ].filter(i => i.value > 0) : [];
 
   const handleCreateProject = async (e) => {
@@ -97,25 +149,137 @@ export default function Dashboard() {
     } catch { alert("Failed to create project"); }
   };
 
-  if (loading && !data) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+  const greeting = getGreeting();
+
+  // Animated counters
+  const totalProjects = useCountUp(data?.stats?.totalProjects);
+  const activeTasks = useCountUp(data?.stats?.activeTasks);
+  const overdueTasks = useCountUp(data?.stats?.overdue);
+  const completedTasks = useCountUp(data?.stats?.completedInPeriod);
+  const completionRate = useCountUp(data?.stats?.completionRate);
+
+  // Sparkline data (from productivity chart data)
+  const sparklineData = data ? buildSparkline(data.charts?.productivity, 7) : [];
+
+  // --- Compute streak ---
+  const streak = (() => {
+    if (!data?.charts?.productivity) return 0;
+    const prodMap = new Map(data.charts.productivity.map(p => [p.name, p.value]));
+    let count = 0;
+    const today = new Date();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      if (prodMap.get(dateStr) > 0) {
+        count++;
+      } else if (i > 0) { // allow today to have 0
+        break;
+      }
+    }
+    return count;
+  })();
+
+  // --- SKELETON LOADING STATE ---
+  if (loading && !data) return (
+    <div className="max-w-7xl mx-auto space-y-8 pb-10 font-[Poppins] p-6 md:p-8">
+      {/* Greeting skeleton */}
+      <div className="space-y-3">
+        <div className="h-9 w-80 bg-muted rounded-lg animate-pulse" />
+        <div className="h-4 w-48 bg-muted/60 rounded animate-pulse" />
+      </div>
+      {/* Stat cards skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <div className="flex justify-between">
+              <div className="h-10 w-10 bg-muted rounded-xl animate-pulse" />
+              <div className="h-4 w-16 bg-muted/40 rounded animate-pulse" />
+            </div>
+            <div className="h-7 w-20 bg-muted rounded animate-pulse" />
+            <div className="h-3 w-28 bg-muted/40 rounded animate-pulse" />
+          </div>
+        ))}
+      </div>
+      {/* Chart skeletons */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card p-6">
+                <div className="h-4 w-32 bg-muted rounded animate-pulse mb-6" />
+                <div className="h-[250px] bg-muted/30 rounded-lg animate-pulse" />
+              </div>
+            ))}
+          </div>
+          <div className="rounded-xl border border-border bg-card p-6">
+            <div className="h-5 w-40 bg-muted rounded animate-pulse mb-6" />
+            <div className="space-y-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="flex gap-3">
+                  <div className="h-6 w-6 bg-muted rounded-full animate-pulse" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-full bg-muted/40 rounded animate-pulse" />
+                    <div className="h-8 w-full bg-muted/20 rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="space-y-8">
+          <div className="grid grid-cols-2 gap-4">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-24 rounded-xl border border-border bg-card animate-pulse" />
+            ))}
+          </div>
+          <div className="h-[320px] rounded-xl border border-border bg-card animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+
   if (!data) return <div className="p-8 text-center text-muted-foreground">Unable to load dashboard data.</div>;
 
-  const cardStyle = "border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-xl";
+  const glassCls = "relative overflow-hidden rounded-2xl border border-white/10 dark:border-white/5 bg-gradient-to-br backdrop-blur-sm shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300";
+
+  const statCards = [
+    { label: 'Total Projects', value: totalProjects, raw: data.stats.totalProjects, icon: FolderOpen, gradient: 'from-violet-500/20 to-indigo-500/10 dark:from-violet-500/15 dark:to-indigo-900/20', iconColor: 'text-violet-500', ring: 'ring-violet-500/20' },
+    { label: 'Active Tasks', value: activeTasks, raw: data.stats.activeTasks, icon: Activity, gradient: 'from-sky-500/20 to-cyan-500/10 dark:from-sky-500/15 dark:to-cyan-900/20', iconColor: 'text-sky-500', ring: 'ring-sky-500/20' },
+    { label: 'Overdue', value: overdueTasks, raw: data.stats.overdue, icon: AlertCircle, gradient: 'from-rose-500/20 to-pink-500/10 dark:from-rose-500/15 dark:to-pink-900/20', iconColor: 'text-rose-500', ring: 'ring-rose-500/20' },
+    { label: 'Completed', value: completedTasks, raw: data.stats.completedInPeriod, icon: CheckCircle2, gradient: 'from-emerald-500/20 to-green-500/10 dark:from-emerald-500/15 dark:to-green-900/20', iconColor: 'text-emerald-500', ring: 'ring-emerald-500/20' },
+  ];
+
+  const cardStyle = "border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl";
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-10 font-[Poppins]">
+    <div className="max-w-7xl mx-auto space-y-8 pb-10 font-[Poppins] p-6 md:p-8"
+         style={{ animation: 'fadeInUp 0.5s ease-out' }}>
 
-      {/* Header & Date Picker */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">Overview for <span className="font-semibold text-foreground">{user?.name}</span></p>
+      {/* ====== GREETING HEADER ====== */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div style={{ animation: 'fadeInUp 0.4s ease-out' }}>
+          <p className="text-sm text-muted-foreground font-medium mb-1">{greeting.emoji} {greeting.text}</p>
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-foreground via-foreground/80 to-primary bg-clip-text text-transparent">
+            {user?.name?.split(' ')[0] || 'there'}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">Here's what's happening with your projects</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Streak pill */}
+          {streak > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-400"
+                 style={{ animation: 'fadeInUp 0.6s ease-out' }}>
+              <Flame className="w-4 h-4" />
+              <span className="text-xs font-bold">{streak} day streak</span>
+            </div>
+          )}
+
+          {/* Date Picker */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="w-[240px] justify-start text-left font-normal bg-card hover:bg-accent hover:text-accent-foreground border-input">
+              <Button variant="outline" className="w-[240px] justify-start text-left font-normal bg-card hover:bg-accent hover:text-accent-foreground border-input rounded-xl">
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {dateRange.from ? (
                   dateRange.to ? (
@@ -142,35 +306,64 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: 'Total Projects', value: data.stats.totalProjects, icon: FolderOpen, color: 'text-slate-700', bg: 'bg-white/20', cardBg: '#B7BDF7' },
-          { label: 'Active Tasks', value: data.stats.activeTasks, icon: CheckCircle2, color: 'text-slate-700', bg: 'bg-white/20', cardBg: '#DDAED3' },
-          { label: 'Overdue Tasks', value: data.stats.overdue, icon: AlertCircle, color: 'text-slate-700', bg: 'bg-white/20', cardBg: '#F375C2' },
-          { label: 'Completed', value: data.stats.completedInPeriod, icon: TrendingUp, color: 'text-slate-700', bg: 'bg-white/20', cardBg: '#FE7F2D' },
-        ].map((stat, i) => (
-          <Card 
-            key={i} 
-            className={`border-transparent shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 rounded-xl text-slate-800`}
-            style={{ backgroundColor: stat.cardBg }}
+      {/* ====== STAT CARDS (Glassmorphism + Animated Counters + Sparklines) ====== */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        {statCards.map((stat, i) => (
+          <div
+            key={stat.label}
+            className={`${glassCls} ${stat.gradient} group cursor-default`}
+            style={{ animation: `fadeInUp ${0.3 + i * 0.1}s ease-out` }}
           >
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div className={`p-3 rounded-xl ${stat.bg} ${stat.color} backdrop-blur-sm`}>
-                  <stat.icon className="h-5 w-5" />
+            {/* Decorative background orb */}
+            <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full ${stat.iconColor} opacity-[0.07] blur-2xl group-hover:opacity-[0.12] transition-opacity`} />
+
+            <div className="relative p-5">
+              <div className="flex justify-between items-start mb-3">
+                <div className={`p-2.5 rounded-xl bg-background/40 dark:bg-background/20 ring-1 ${stat.ring} backdrop-blur-sm`}>
+                  <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
                 </div>
+                {/* Mini sparkline for "Completed" card */}
+                {stat.label === 'Completed' && sparklineData.length > 0 && (
+                  <div className="w-20 h-8 opacity-60">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={sparklineData}>
+                        <defs>
+                          <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" fill="url(#sparkGrad)" strokeWidth={1.5} dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </div>
-              <div className="space-y-1">
-                <h3 className="text-2xl font-bold text-slate-900">{stat.value}</h3>
-                <p className="text-sm font-medium text-slate-700">{stat.label}</p>
-              </div>
-            </CardContent>
-          </Card>
+              <h3 className="text-3xl font-extrabold text-foreground tabular-nums">{stat.value}</h3>
+              <p className="text-xs font-medium text-muted-foreground mt-1">{stat.label}</p>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Main Grid */}
+      {/* ====== COMPLETION RATE BAR ====== */}
+      <div className={`${cardStyle} p-5`}>
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">Overall Completion</span>
+          </div>
+          <span className="text-sm font-bold text-primary tabular-nums">{completionRate}%</span>
+        </div>
+        <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all duration-1000 ease-out"
+            style={{ width: `${data.stats.completionRate || 0}%` }}
+          />
+        </div>
+      </div>
+
+      {/* ====== MAIN GRID ====== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
         {/* LEFT COLUMN: Charts & Activity */}
@@ -203,8 +396,8 @@ export default function Dashboard() {
                         ))}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', color: 'var(--foreground)' }}
-                        itemStyle={{ color: 'var(--foreground)' }}
+                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))', fontSize: '13px' }}
+                        itemStyle={{ color: 'hsl(var(--foreground))' }}
                       />
                       <Legend verticalAlign="bottom" height={36} iconType="circle" />
                     </PieChart>
@@ -248,6 +441,45 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Productivity Chart (weekly sparkline expanded) */}
+          {data.charts?.productivity?.length > 0 && (
+            <Card className={cardStyle}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-primary" />
+                  Productivity Trend
+                </CardTitle>
+                <Badge variant="secondary" className="text-[10px]">{dateRange.from ? format(dateRange.from, "MMM d") : ''} – {dateRange.to ? format(dateRange.to, "MMM d") : ''}</Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data.charts.productivity}>
+                      <defs>
+                        <linearGradient id="prodGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={(d) => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: '12px' }}
+                        labelFormatter={(d) => new Date(d).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      />
+                      <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#prodGrad)" strokeWidth={2} dot={false} name="Tasks Completed" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent Activity */}
           <Card className={cardStyle}>
@@ -306,14 +538,12 @@ export default function Dashboard() {
                   data.recentProjects.map(project => (
                     <div key={project._id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors group cursor-pointer" onClick={() => navigate(`/project/${project._id}`)}>
                       <div className="flex items-center gap-4 min-w-0 flex-1">
-                        {/* Icon/Avatar Placeholder */}
                         <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 font-bold text-sm">
                           {project.name.charAt(0)}
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="font-semibold text-sm text-foreground truncate">{project.name}</h4>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                            {/* Lead */}
                             {project.lead && (
                               <div className="flex items-center gap-1">
                                 <Avatar className="h-4 w-4">
@@ -329,14 +559,13 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {/* Stats & Progress */}
                       <div className="flex flex-col items-end gap-1.5 min-w-[120px]">
                         <Badge variant="secondary" className="capitalize text-[10px] h-5 px-1.5 font-normal bg-muted text-muted-foreground border-border">
                           {project.status || 'Active'}
                         </Badge>
                         <div className="w-full flex items-center gap-2">
                           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full" style={{ width: `${project.progress || 0}%` }}></div>
+                            <div className="h-full bg-primary rounded-full transition-all duration-700" style={{ width: `${project.progress || 0}%` }}></div>
                           </div>
                           <span className="text-[10px] font-medium text-muted-foreground w-6 text-right">{project.progress || 0}%</span>
                         </div>
@@ -374,7 +603,7 @@ export default function Dashboard() {
                 data.todaysTasks.map(task => (
                   <TaskItem key={task._id} title={task.title} project={task.project?.name} priority={task.priority} />
                 ))
-              ) : <div className="text-center text-muted-foreground text-sm py-8 bg-muted/20 rounded-lg border border-dashed border-border">All clear for today!</div>}
+              ) : <div className="text-center text-muted-foreground text-sm py-8 bg-muted/20 rounded-lg border border-dashed border-border">All clear for today! 🎉</div>}
             </CardContent>
           </Card>
 
@@ -402,6 +631,14 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Inline CSS animations */}
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
     </div>
   );
 }
@@ -410,7 +647,7 @@ export default function Dashboard() {
 function QuickAction(props) {
   const { icon: Icon, label, color, bg, onClick } = props;
   return (
-    <button onClick={onClick} className="flex flex-col items-center justify-center p-4 rounded-xl bg-card border border-border shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 group">
+    <button onClick={onClick} className="flex flex-col items-center justify-center p-4 rounded-2xl bg-card border border-border shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 group">
       <div className={`p-3 rounded-full mb-3 ${bg} ${color} group-hover:scale-110 transition-transform`}><Icon className="h-6 w-6" /></div>
       <span className="text-xs font-bold text-muted-foreground group-hover:text-foreground">{label}</span>
     </button>
@@ -418,11 +655,11 @@ function QuickAction(props) {
 }
 
 function TaskItem({ title, project, priority }) {
-  // Map priority to theme colors if possible, or keep semantic alerts
   const priorityStyle = {
     high: 'text-destructive bg-destructive/10 border-destructive/20',
     medium: 'text-orange-500 bg-orange-500/10 border-orange-500/20',
-    low: 'text-blue-500 bg-blue-500/10 border-blue-500/20'
+    low: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
+    urgent: 'text-rose-600 bg-rose-500/10 border-rose-500/20'
   }[priority] || 'text-muted-foreground bg-muted border-transparent';
 
   return (
@@ -446,7 +683,7 @@ const renderActiveShape = (props) => {
       <text x={cx} y={cy} dy={-10} textAnchor="middle" fill={fill} className="text-sm font-bold">
         {payload.name}
       </text>
-      <text x={cx} y={cy} dy={15} textAnchor="middle" fill="#999" className="text-xs">
+      <text x={cx} y={cy} dy={15} textAnchor="middle" fill="hsl(var(--muted-foreground))" className="text-xs">
         {`${value} Tasks`}
       </text>
       <Sector

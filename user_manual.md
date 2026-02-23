@@ -45,24 +45,28 @@ The **Dashboard** is your command center, providing a bird's-eye view of your or
 ### Key Dashboard Features
 
 #### 📊 Analytics & Charts
+
 - **Project Progress**: See completion status across all projects
 - **Team Performance**: View metrics on tasks completed, in progress, and overdue
 - **Activity Timeline**: Track recent actions taken by your team
 - **Task Distribution**: Visualize workload distribution among team members
 
 #### 📅 Quick Actions
+
 - Create new projects directly from the dashboard
 - View upcoming deadlines
 - Access your most recent projects
 - Monitor critical task statuses
 
 #### 🎯 Performance Metrics
+
 - Total tasks completed this period
 - Active projects and team members
 - Overdue task count and alerts
 - Trend analysis over time (last 30 days by default)
 
 #### 🕐 Date Range Filtering
+
 - Use the date range selector to filter analytics for specific periods
 - Default view shows the last 30 days
 - Customize to analyze weekly, monthly, or custom ranges
@@ -74,6 +78,7 @@ The **Dashboard** is your command center, providing a bird's-eye view of your or
 ### Understanding Organizations & Projects
 
 **Organizations** are top-level containers that can have multiple **Projects**. Each organization has its own:
+
 - Members and permissions
 - Projects and tasks
 - Settings and preferences
@@ -93,26 +98,31 @@ The **Dashboard** is your command center, providing a bird's-eye view of your or
 Once in a project, you can switch between multiple views:
 
 #### **Board View** (Default)
+
 - Kanban-style board with status columns
 - Drag-and-drop tasks between columns
 - Quick view of task progress
 
 #### **List View**
+
 - Table format showing all tasks
 - Easy sorting and filtering
 - Best for reviewing multiple tasks at once
 
 #### **Calendar View**
+
 - Visual representation of task due dates
 - See your team's schedule at a glance
 - Click on events to view task details
 
 #### **Analytics View**
+
 - Project-specific performance metrics
 - Task completion trends
 - Team productivity insights
 
 #### **Updates View**
+
 - Timeline of project milestones and announcements
 - Team activity feed
 
@@ -123,38 +133,40 @@ Once in a project, you can switch between multiple views:
 ### Creating a Task
 
 #### From Project Board
+
 1. Click **"+ Add Task"** or click in any status column
 2. Enter the task title
 3. (Optional) Set priority, due date, and assignee immediately
 4. Click **"Create Task"** or press Enter
 
 #### From Dashboard
+
 1. Click **"+ New Project"** → Navigate to the project → Add tasks
 
 ### Task Properties & Details
 
 Every task has the following customizable properties:
 
-| Property | Description |
-|----------|-------------|
-| **Title** | Task name (required) |
-| **Description** | Detailed task information, supports formatting |
-| **Status** | todo, in-progress, review, done |
-| **Priority** | urgent, high, medium, low |
-| **Assignee** | Team member responsible for the task |
-| **Due Date** | Target completion date |
-| **Tags** | Custom labels for organization |
-| **Recurrence** | Set task to repeat on a schedule |
-| **Dependencies** | Link tasks that are blocking other work |
-| **Attachments** | Upload files, images, documents |
-| **Subtasks** | Break tasks into smaller checklist items |
+| Property         | Description                                    |
+| ---------------- | ---------------------------------------------- |
+| **Title**        | Task name (required)                           |
+| **Description**  | Detailed task information, supports formatting |
+| **Status**       | todo, in-progress, review, done                |
+| **Priority**     | urgent, high, medium, low                      |
+| **Assignee**     | Team member responsible for the task           |
+| **Due Date**     | Target completion date                         |
+| **Tags**         | Custom labels for organization                 |
+| **Recurrence**   | Set task to repeat on a schedule               |
+| **Dependencies** | Link tasks that are blocking other work        |
+| **Attachments**  | Upload files, images, documents                |
+| **Subtasks**     | Break tasks into smaller checklist items       |
 
 ### Opening Task Details
 
 Click any task card or title to open the **Task Details Modal**:
 
 - **Left Panel**: Full task description, subtasks, and attachments
-- **Right Panel**: 
+- **Right Panel**:
   - Task properties and metadata
   - Assignment and status management
   - Dependency links
@@ -163,38 +175,45 @@ Click any task card or title to open the **Task Details Modal**:
 ### Editing Task Information
 
 #### Description
+
 1. Click on the description area (or the **edit icon**)
 2. Click "Edit" to modify
 3. Use the text editor to format content
 4. Click **"Save"** or press Ctrl+S
 
 #### Status
+
 1. Use the status dropdown in task details
 2. Or drag-and-drop the task card to a different column on the board
 3. Changes sync instantly across all views
 
 #### Priority
+
 1. Open task details
 2. Click the **Priority** dropdown
 3. Select urgent, high, medium, or low
 
 #### Assignee
+
 1. Click the **Assignee** field
 2. Search and select a team member
 3. Confirm the assignment in the dialog
 4. Assignee receives an email notification
 
 #### Due Date
+
 1. Click the **Due Date** field
 2. Use the calendar picker to select a date
 3. Dates that have passed are highlighted in red (if task not completed)
 
 #### Tags
+
 1. Click **Tags** section
 2. Add existing tags or create new ones
 3. Tags help organize and filter tasks
 
 #### Recurrence
+
 1. Click **Repeat** dropdown
 2. Select recurrence pattern (daily, weekly, monthly, custom)
 3. Completed recurring tasks automatically create the next instance
@@ -204,11 +223,13 @@ Click any task card or title to open the **Task Details Modal**:
 Subtasks are smaller, checklist-style tasks within a main task.
 
 #### Adding Subtasks
+
 1. Scroll to **Subtasks** section in task details
 2. Type in the input field and press Enter
 3. Progress bar shows completion percentage
 
 #### Managing Subtasks
+
 - Click checkbox to mark complete
 - Click trash icon to delete
 - Subtasks appear in the activity timeline
@@ -218,12 +239,14 @@ Subtasks are smaller, checklist-style tasks within a main task.
 Link tasks that depend on each other to prevent work on blocked tasks.
 
 #### Adding Dependencies
+
 1. Scroll to **Blocking** section
 2. Click **"+ Add"** button
 3. Search for the task that this task is blocking
 4. Task is linked and shows status
 
 #### Understanding Dependencies
+
 - A task "blocks" another task if the other task can't start until this one is done
 - Red warning icon shows unfinished dependencies
 - Completed dependencies show a green checkmark
@@ -233,12 +256,14 @@ Link tasks that depend on each other to prevent work on blocked tasks.
 Upload files, images, and documents to tasks.
 
 #### Adding Attachments
+
 1. Click **"+ Add"** in the Attachments section
 2. Select file(s) from your device
 3. Supported types: images, PDFs, documents, spreadsheets
 4. File appears in the attachments grid
 
 #### Accessing Attachments
+
 - Click any attachment to download or preview
 - Attachment date is displayed below filename
 
@@ -249,6 +274,18 @@ Upload files, images, and documents to tasks.
 3. Select **"Delete Task"**
 4. Confirm deletion (cannot be undone)
 
+### Bulk Actions
+
+Manage multiple tasks efficiently with batch operations directly from the board view:
+
+1. Hover over a task card and click the checkbox in the top-left corner to select it.
+2. Select as many tasks as needed across different columns.
+3. A floating action bar will appear at the bottom of the screen.
+4. Fast-track your workflow by choosing an action:
+   - **Update Status**: Move all selected tasks to a new status at once.
+   - **Update Priority**: Change the priority level for all selected tasks simultaneously.
+   - **Delete**: Permanently remove all selected tasks in one click.
+
 ---
 
 ## Kanban Board
@@ -258,6 +295,7 @@ The Kanban Board is the primary workspace for managing tasks in real-time.
 ### Board Layout
 
 The default board has 4 columns representing task lifecycle:
+
 - **To Do**: New tasks, not yet started
 - **In Progress**: Currently being worked on
 - **Review**: Awaiting approval or QA
@@ -266,12 +304,14 @@ The default board has 4 columns representing task lifecycle:
 ### Moving Tasks
 
 #### Drag & Drop
+
 1. Click and hold a task card
 2. Drag to desired status column
 3. Release to drop (automatically saves)
 4. Activity log updates and team is notified
 
 #### Using Status Dropdown
+
 1. Open task details
 2. Click status dropdown
 3. Select new status
@@ -280,11 +320,13 @@ The default board has 4 columns representing task lifecycle:
 ### Filtering & Searching
 
 #### Search Bar
+
 - Type task title, description, or keywords
 - Results update in real-time
 - Case-insensitive search
 
 #### Advanced Filters
+
 Click the **Filter** icon to open advanced filtering:
 
 - **Status**: Filter by one or more statuses
@@ -294,6 +336,7 @@ Click the **Filter** icon to open advanced filtering:
 - **Date Range**: Filter tasks with due dates in a specific period
 
 #### Filter Presets
+
 - **Save Current Filter**: Click "Save Preset" to save your filter combination
 - **Apply Preset**: Quickly access saved filters from the filter menu
 - **Manage Presets**: Edit or delete saved filters
@@ -301,6 +344,7 @@ Click the **Filter** icon to open advanced filtering:
 ### Sorting Options
 
 Sort tasks by:
+
 - Task title (A→Z)
 - Due date (nearest first)
 - Priority (highest first)
@@ -361,6 +405,7 @@ The **My Tasks** page shows all tasks assigned to you across all projects and or
 ### Filtering Your Tasks
 
 Your tasks are automatically filtered to show:
+
 - All statuses by default
 - Tasks from all your organizations
 - Sorted by due date (nearest first)
@@ -372,11 +417,13 @@ Your tasks are automatically filtered to show:
 ### Managing Team Members
 
 #### Viewing Members
+
 1. Go to **Team** section
 2. Select organization from dropdown
 3. View all members and their roles
 
 #### Member Roles
+
 - **Admin**: Full permissions, manage members, settings
 - **Member**: Can create and manage tasks, limited admin features
 - **Guest**: View-only access (limited visibility)
@@ -384,6 +431,7 @@ Your tasks are automatically filtered to show:
 ### Inviting Team Members
 
 #### Send Invite via Email
+
 1. Go to **Team** section
 2. Click **"+ Invite"**
 3. Enter email address(es) - one per line
@@ -392,6 +440,7 @@ Your tasks are automatically filtered to show:
 6. Invited users receive email with join link
 
 #### Join Using Invite Link
+
 - Click the link in the email
 - Sign up or login if needed
 - Automatically added to organization
@@ -399,6 +448,7 @@ Your tasks are automatically filtered to show:
 ### Requesting to Join
 
 #### Public Organization Join Request
+
 1. Go to **Team** → **Join Organization**
 2. Search for organization name
 3. Click **"Request to Join"**
@@ -408,6 +458,7 @@ Your tasks are automatically filtered to show:
 ### Managing Permissions
 
 Organization admins can:
+
 - Change member roles
 - Remove members from organization
 - Manage member access to specific projects
@@ -416,18 +467,21 @@ Organization admins can:
 ### Comments & Mentions
 
 #### Adding Comments
+
 1. Open task details
 2. Scroll to bottom (Activity section)
 3. Type comment in input box
 4. Press Enter or click send button
 
 #### Mentioning Team Members
+
 1. Type `@` in comment box
 2. Select team member from dropdown
 3. They receive email notification
 4. Mention appears highlighted in comment
 
 #### Threaded Discussions
+
 - All comments visible in task activity timeline
 - See who said what and when
 - Comments sorted chronologically
@@ -441,6 +495,7 @@ Organization admins can:
 Automations allow you to trigger actions based on task events, reducing manual work.
 
 #### Creating Automations
+
 1. Open project
 2. Click **Automations** (⚡ icon)
 3. Define automation rule:
@@ -449,11 +504,13 @@ Automations allow you to trigger actions based on task events, reducing manual w
    - **Conditions** (optional): Only apply automation if certain conditions met
 
 #### Common Automation Examples
+
 - "When task moved to 'done', notify project manager"
 - "When task is overdue, change priority to 'urgent'"
 - "When status changes to 'in-progress', notify assignee"
 
 #### Managing Automations
+
 - View all project automations in Automations panel
 - Pause/disable automation without deleting
 - Edit automation trigger and action
@@ -464,6 +521,7 @@ Automations allow you to trigger actions based on task events, reducing manual w
 Create custom intake forms to standardize how tasks/requests are created.
 
 #### Building a Form
+
 1. Go to project settings
 2. Click **"Create Form"** or go to Forms section
 3. Add fields using the form builder:
@@ -474,44 +532,52 @@ Create custom intake forms to standardize how tasks/requests are created.
    - **Checkbox**: Boolean yes/no
 
 #### Field Properties
+
 - **Label**: Field name and placeholder text
 - **Required**: Mark field as mandatory
 - **Default Value**: Pre-fill with default answer
 - **Validation**: Set text patterns or requirements
 
 #### Publishing Forms
+
 1. Click **"Publish"**
 2. Get public form URL
 3. Share with external stakeholders
 4. Responses automatically create new tasks
 
 #### Form Responses
+
 - Each form submission creates a new task
 - Submitted data populates task fields
 - Responses appear in project activity log
 
-### 📊 Project Analytics
+### 📊 Project Analytics & Reports
 
-Get insights into project performance and team productivity.
+Get insights into project performance and team productivity to keep your projects on track.
 
-#### Analytics Dashboard
-- **Completion Rate**: % of tasks completed vs. total
-- **Velocity**: Tasks completed per time period
-- **Burndown Chart**: Shows project progress over time
-- **Team Workload**: Tasks per team member
-- **Priority Distribution**: Mix of task priorities
-- **Overdue Tasks**: Tasks past due date
+#### 📈 Sprint Reports
 
-#### Exporting Reports
-- Download analytics as CSV or PDF
-- Schedule automatic weekly/monthly reports
-- Share reports with stakeholders
+Track your sprint progress and team velocity with advanced date-filtered charts:
+
+- **Burndown Chart**: Visualize your actual remaining tasks against an ideal completion line over a custom date range.
+- **Velocity Chart**: Track how many tasks your team completes week over week to predict future capacity.
+- **Summary Metrics**: Instantly view total tasks, sprint completion rate, and average weekly velocity.
+
+#### 👥 Workload View
+
+Balance your team's workload and prevent burnout:
+
+- **Task Distribution**: View a stacked bar chart showing exactly how many To-Do, In-Progress, Review, and Done tasks each team member has.
+- **Capacity Indicators**: See at a glance if a team member's workload is **Light** (≤5), **Moderate** (6-10), or **Heavy** (>10).
+- **Unassigned Tasks**: Quickly identify and distribute tasks that still need an owner.
+- **Mini Status Bars**: Visual breakdown of each member's current task statuses.
 
 ### 🔔 Notifications
 
 Stay informed with intelligent notifications.
 
 #### Notification Types
+
 - Task assigned to you
 - Comment on task you're involved with
 - Mention in comment (@you)
@@ -521,6 +587,7 @@ Stay informed with intelligent notifications.
 - Automation triggered
 
 #### Notification Preferences
+
 1. Go to **Settings** → **Notifications**
 2. Toggle notification types on/off
 3. Choose notification channel (email, in-app)
@@ -531,12 +598,14 @@ Stay informed with intelligent notifications.
 Automatic reminders for upcoming deadlines.
 
 #### How It Works
+
 - Tasks with due dates send reminders automatically
 - 1 day before due date
 - On the due date morning
 - If task is overdue (escalating notifications)
 
 #### Managing Reminders
+
 1. Go to Settings
 2. Customize reminder timing preferences
 3. Enable/disable reminders for certain task types
@@ -547,6 +616,7 @@ Automatic reminders for upcoming deadlines.
 Automatically create follow-up tasks on a schedule.
 
 #### Setting Recurrence
+
 1. Open task details
 2. Click **"Repeat"** dropdown
 3. Select frequency:
@@ -558,6 +628,7 @@ Automatically create follow-up tasks on a schedule.
 5. Save
 
 #### How Recurrence Works
+
 - When recurring task is completed, next instance automatically created
 - New task has same properties as original
 - Linked to previous task for history tracking
@@ -568,6 +639,7 @@ Automatically create follow-up tasks on a schedule.
 Prevent teams from starting work on blocked tasks.
 
 #### Creating Dependencies
+
 1. Open task details
 2. Scroll to **Blocking** section
 3. Click **"+ Add Dependency"**
@@ -575,11 +647,13 @@ Prevent teams from starting work on blocked tasks.
 5. Link confirms on save
 
 #### Dependency Visualization
+
 - Orange warning icon if dependency not done
 - Green checkmark if dependency completed
 - Task won't move forward until dependency resolved
 
 #### Benefits
+
 - Clear work sequence and prerequisites
 - Prevents scope creep and rework
 - Visibility into project blockers
@@ -589,6 +663,7 @@ Prevent teams from starting work on blocked tasks.
 Organize tasks with custom tags for better filtering and categorization.
 
 #### Creating Tags
+
 1. Open task details
 2. Go to **Tags** section
 3. Start typing to create new tag
@@ -596,12 +671,14 @@ Organize tasks with custom tags for better filtering and categorization.
 5. Save
 
 #### Using Tags
+
 - Filter board by tags
 - Group tasks by tag
 - Use for categories: Bug, Feature, Documentation, etc.
 - Use for workflow: Urgent, Blocked, Ready for Review, etc.
 
 #### Tag Management
+
 - Edit tag name or color
 - Delete unused tags
 - Bulk apply tags to multiple tasks
@@ -613,12 +690,14 @@ Organize tasks with custom tags for better filtering and categorization.
 ### Profile Settings
 
 #### Updating Profile
+
 1. Go to **Settings** → **Profile**
 2. Edit name and email
 3. Upload profile avatar (Cloudinary)
 4. Click **"Save"**
 
 #### Changing Password
+
 1. Go to **Settings** → **Security**
 2. Enter current password
 3. Enter new password (8+ characters, mix of case and numbers)
@@ -648,6 +727,7 @@ Organize tasks with custom tags for better filtering and categorization.
 ### Organization Settings
 
 #### Managing Organization
+
 1. Go to **Team** section
 2. Select organization
 3. Click **"Settings"** ⚙️
@@ -658,6 +738,7 @@ Organize tasks with custom tags for better filtering and categorization.
    - Default settings for new projects
 
 #### Accessing Organization Settings (Admin Only)
+
 - Only organization admins can modify settings
 - Changes affect all projects in organization
 - Member changes require admin confirmation
@@ -697,9 +778,10 @@ A: Open task details, click **More** (⋯), select **"Move to Project"**, and ch
 ### Team & Permissions
 
 **Q: What's the difference between member roles?**
-A: 
+A:
+
 - **Admin**: Full permissions, manage members and settings
-- **Member**: Can create/edit tasks, limited admin features  
+- **Member**: Can create/edit tasks, limited admin features
 - **Guest**: View-only access
 
 **Q: Can I have different permissions for different projects?**
@@ -745,36 +827,40 @@ A: Yes, go to **Settings** → **Profile** → edit email. Verify the new email 
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl/Cmd + S` | Save current changes |
-| `Ctrl/Cmd + K` | Open command menu |
-| `Escape` | Close open modal or menu |
-| `Tab` | Navigate between form fields |
-| `Enter` | Submit form or create item |
-| `@` | Start mentioning team member |
+| Shortcut       | Action                       |
+| -------------- | ---------------------------- |
+| `Ctrl/Cmd + S` | Save current changes         |
+| `Ctrl/Cmd + K` | Open command menu            |
+| `Escape`       | Close open modal or menu     |
+| `Tab`          | Navigate between form fields |
+| `Enter`        | Submit form or create item   |
+| `@`            | Start mentioning team member |
 
 ---
 
 ## Tips & Best Practices
 
 ### 🎯 Organization
+
 - Use tags to categorize tasks (Bug, Feature, Docs)
 - Create filter presets for common views (My Urgent Tasks, This Week's Work)
 - Set due dates for all tasks to enable timeline and calendar views
 
 ### 👥 Collaboration
+
 - Mention team members to alert them of important information
 - Use task dependencies to establish clear work sequences
 - Regular check-ins on overdue tasks keep projects on track
 
 ### 📊 Project Success
+
 - Keep task descriptions detailed but concise
 - Update task status regularly so team knows progress
 - Use automations to standardize repetitive processes
 - Review analytics weekly to identify bottlenecks
 
 ### ⚡ Efficiency
+
 - Use recurring tasks for regular work (dailies, weeklies)
 - Batch similar tasks and use bulk operations
 - Leverage forms for external submissions (bugs, feature requests)
