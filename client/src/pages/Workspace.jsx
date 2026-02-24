@@ -36,7 +36,7 @@ export default function Workspace() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [members, setMembers] = useState([]); // Store org members for Lead selection
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -124,13 +124,13 @@ export default function Workspace() {
       setNewName(''); setNewDesc(''); setNewLead(''); setNewDate(null); setNewColor(COLORS[0]);
       setIsModalOpen(false);
       fetchData(); // Re-fetch to get correct progress/team stats calculated by backend
-    } catch (error) {
+    } catch {
       alert('Failed to create project');
     }
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-10 font-[Poppins] py-10">
+    <div className="space-y-10 font-[Poppins] py-10">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

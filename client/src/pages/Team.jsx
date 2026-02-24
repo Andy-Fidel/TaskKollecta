@@ -162,7 +162,7 @@ export default function Team() {
     // EMPTY STATE (Modified to include "Join" option)
     if (orgs.length === 0) {
         return (
-            <div className="max-w-2xl mx-auto mt-20 text-center space-y-8 font-[Poppins]">
+            <div className="mt-20 text-center space-y-10 font-[Poppins]">
                 <div className="bg-slate-100 h-20 w-20 rounded-full flex items-center justify-center mx-auto">
                     <Building2 className="h-10 w-10 text-slate-400" />
                 </div>
@@ -220,7 +220,7 @@ export default function Team() {
 
     // NORMAL STATE
     return (
-        <div className="max-w-5xl mx-auto space-y-10">
+        <div className="space-y-10">
 
             <div className="flex justify-between items-center">
                 <div>

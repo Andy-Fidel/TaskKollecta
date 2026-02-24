@@ -46,7 +46,7 @@ export default function Settings() {
       try {
         const { data } = await api.get('/users/notifications');
         setNotifPrefs(data);
-      } catch (error) {
+      } catch {
         console.error('Failed to load notification preferences');
       }
     };
@@ -68,7 +68,7 @@ export default function Settings() {
       });
       setAvatar(data.url);
       toast.success("Image uploaded (Click Save to apply)");
-    } catch (error) {
+    } catch {
       toast.error("Upload failed");
     } finally {
       setIsUploading(false);
@@ -106,7 +106,7 @@ export default function Settings() {
       toast.success("Password changed successfully.");
       setCurrentPassword('');
       setNewPassword('');
-    } catch (error) {
+    } catch {
       toast.error("Failed to change password");
     } finally {
       setLoading(false);
@@ -121,7 +121,7 @@ export default function Settings() {
     try {
       await api.put('/users/notifications', { [key]: value });
       toast.success("Preference saved");
-    } catch (error) {
+    } catch {
       // Revert on error
       setNotifPrefs(prev => ({ ...prev, [key]: !value }));
       toast.error("Failed to save preference");
@@ -159,7 +159,7 @@ export default function Settings() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-12 font-[Poppins]">
+    <div className="space-y-10 pb-12 font-[Poppins]">
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Settings</h1>
@@ -189,17 +189,17 @@ export default function Settings() {
                   { value: 'light', icon: Sun, label: 'Light' },
                   { value: 'dark', icon: Moon, label: 'Dark' },
                   { value: 'system', icon: Monitor, label: 'System' },
-                ].map(({ value, icon: Icon, label }) => (
+                ].map((item) => (
                   <button
-                    key={value}
-                    onClick={() => setTheme(value)}
-                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 ${theme === value
+                    key={item.value}
+                    onClick={() => setTheme(item.value)}
+                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 ${theme === item.value
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'
                       }`}
                   >
-                    <Icon className="h-6 w-6 mb-2" />
-                    <span className="text-sm font-medium">{label}</span>
+                    <item.icon className="h-6 w-6 mb-2" />
+                    <span className="text-sm font-medium">{item.label}</span>
                   </button>
                 ))}
               </div>

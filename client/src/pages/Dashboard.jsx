@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector, Legend,
@@ -42,21 +42,20 @@ function useCountUp(target, duration = 1200) {
   const rafRef = useRef(null);
 
   useEffect(() => {
-    if (target == null || target === 0) { setCount(0); return; }
-    let start = 0;
+    if (target == null || target === 0) return;
     const startTime = performance.now();
 
     const animate = (now) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Ease-out cubic
       const eased = 1 - Math.pow(1 - progress, 3);
       setCount(Math.round(eased * target));
-      if (progress < 1) {
-        rafRef.current = requestAnimationFrame(animate);
-      }
+      if (progress < 1) rafRef.current = requestAnimationFrame(animate);
     };
-    rafRef.current = requestAnimationFrame(animate);
+    rafRef.current = requestAnimationFrame((now) => {
+      setCount(0);
+      animate(now);
+    });
     return () => rafRef.current && cancelAnimationFrame(rafRef.current);
   }, [target, duration]);
 
@@ -182,7 +181,7 @@ export default function Dashboard() {
 
   // --- SKELETON LOADING STATE ---
   if (loading && !data) return (
-    <div className="max-w-7xl mx-auto space-y-10 pb-12 font-[Poppins] p-6 md:p-8">
+    <div className="space-y-10 pb-12 font-[Poppins]" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
       {/* Greeting skeleton */}
       <div className="space-y-3">
         <div className="h-9 w-80 bg-muted rounded-lg animate-pulse" />
@@ -253,7 +252,7 @@ export default function Dashboard() {
   const cardStyle = "border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl";
 
   return (
-    <div className="max-w-7xl mx-auto space-y-10 pb-12 font-[Poppins] p-6 md:p-8"
+    <div className="space-y-10 pb-12 font-[Poppins]"
          style={{ animation: 'fadeInUp 0.5s ease-out' }}>
 
       {/* ====== GREETING HEADER ====== */}
