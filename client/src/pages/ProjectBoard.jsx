@@ -321,7 +321,7 @@ export default function ProjectBoard() {
       <div className="border-b border-border bg-card shrink-0">
         {/* Top row: Project name + create button */}
         <div className="flex items-center justify-between px-4 md:px-8 py-3 md:py-0 md:h-16">
-          <div className="flex items-center gap-3 md:gap-6 min-w-0">
+          <div className="flex items-center gap-3 md:gap-8 min-w-0">
             <h1 className="font-bold text-lg md:text-xl text-foreground tracking-tight truncate">
               {projectDetails?.name || 'Loading...'}
             </h1>
@@ -463,7 +463,7 @@ export default function ProjectBoard() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex gap-4 md:gap-6 h-full min-w-max">
+            <div className="flex gap-4 md:gap-8 h-full min-w-max">
               {COLUMNS.map(col => (
                 <KanbanColumn
                   key={col.id}
@@ -508,7 +508,7 @@ export default function ProjectBoard() {
 
         // VIEW: ANALYTICS / UPDATES
         <div className="flex-1 overflow-y-auto bg-secondary/10 p-4 md:p-6">
-          <div className="max-w-5xl mx-auto mb-6">
+          <div className="max-w-5xl mx-auto mb-8">
             <Button
               variant="outline"
               onClick={() => setView('board')}

@@ -84,7 +84,7 @@ export default function CalendarView() {
         const goToCurrent = () => toolbar.onNavigate('TODAY');
 
         return (
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                         <CalendarIcon className="h-6 w-6 text-primary" />
@@ -147,7 +147,7 @@ export default function CalendarView() {
     }
 
     return (
-        <div className="space-y-6 font-[Poppins]">
+        <div className="space-y-8 font-[Poppins]">
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[

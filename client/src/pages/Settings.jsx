@@ -159,7 +159,7 @@ export default function Settings() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-10 font-[Poppins]">
+    <div className="max-w-4xl mx-auto space-y-8 pb-12 font-[Poppins]">
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Settings</h1>
@@ -212,10 +212,10 @@ export default function Settings() {
               <CardDescription>Update your photo and personal details.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleUpdateProfile} className="space-y-6">
+              <form onSubmit={handleUpdateProfile} className="space-y-8">
 
                 {/* Avatar Upload */}
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-8">
                   <div className="relative group cursor-pointer">
                     <Avatar className="h-24 w-24 border-2 border-border">
                       <AvatarImage src={avatar} />

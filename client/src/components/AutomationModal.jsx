@@ -140,7 +140,7 @@ export function AutomationModal({ isOpen, onClose, projectId }) {
           <DialogDescription>Automate your workflow with "If This, Then That" rules.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-8 py-4">
             
             {/* BUILDER */}
             <div className="bg-muted/30 p-5 rounded-xl border border-border space-y-4">

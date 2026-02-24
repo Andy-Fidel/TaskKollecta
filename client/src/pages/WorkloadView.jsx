@@ -102,7 +102,7 @@ export default function WorkloadView() {
       </div>
 
       {/* Content */}
-      <div className="p-6 md:p-8 space-y-6">
+      <div className="p-6 md:p-8 space-y-8">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />

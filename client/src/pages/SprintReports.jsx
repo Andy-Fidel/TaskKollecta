@@ -116,7 +116,7 @@ export default function SprintReports() {
       </div>
 
       {/* Content */}
-      <div className="p-6 md:p-8 space-y-6">
+      <div className="p-6 md:p-8 space-y-8">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -160,7 +160,7 @@ export default function SprintReports() {
             </div>
 
             {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Burndown Chart */}
               <div className="bg-card border border-border rounded-xl p-5">
                 <h3 className="font-bold text-foreground mb-4">Burndown Chart</h3>

@@ -105,7 +105,7 @@ export default function Login() {
         <div className="absolute bottom-0 right-[20%] w-[500px] h-[500px] bg-purple-200 rounded-full blur-[100px] opacity-20" />
       </div>
 
-      <div className="w-full max-w-[450px] space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="w-full max-w-[450px] space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Logo and Branding */}
         <div className="flex flex-col items-center space-y-2 text-center">
           <div className="h-12 w-12 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-lg shadow-slate-900/20 mb-2">
@@ -122,7 +122,7 @@ export default function Login() {
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xl shadow-slate-200/50">
-          <div className="space-y-6">
+          <div className="space-y-8">
             <div className="flex flex-col space-y-2 text-center mb-4">
               <h2 className="text-xl font-semibold text-slate-900">
                 {isLogin ? 'Sign In' : 'Create Account'}

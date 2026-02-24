@@ -52,7 +52,7 @@ export default function LandingPage() {
         <div className="absolute bottom-0 left-0 translate-y-1/4 -translate-x-1/4 w-[800px] h-[800px] bg-purple-200/40 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
 
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center relative z-10">
-          <div className="space-y-8 text-center lg:text-left">
+          <div className="space-y-10 text-center lg:text-left">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm text-sm font-medium text-slate-600 hover:border-indigo-200 transition-colors cursor-pointer">
               <span className="flex h-2 w-2 rounded-full bg-indigo-500"></span>
               New: AI-Powered Automations v2.0
@@ -179,7 +179,7 @@ export default function LandingPage() {
 
           <div className="max-w-7xl mx-auto px-6 relative z-10">
               <div className="flex flex-col lg:flex-row items-center gap-16">
-                  <div className="flex-1 space-y-8">
+                  <div className="flex-1 space-y-10">
                       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider">
                         <Lock className="w-4 h-4" /> Enterprise Grade
                       </div>
@@ -191,7 +191,7 @@ export default function LandingPage() {
                           Manage multiple organizations, enforce granular permissions, and get insights that matter.
                       </p>
                       
-                      <div className="grid grid-cols-2 gap-6 pt-4">
+                      <div className="grid grid-cols-2 gap-8 pt-4">
                           <div className="bg-white/5 p-4 rounded-xl border border-white/10">
                               <h4 className="text-2xl font-bold text-white mb-1">99.99%</h4>
                               <p className="text-sm text-slate-400">Uptime SLA</p>
@@ -233,7 +233,7 @@ export default function LandingPage() {
       {/* --- CTA SECTION --- */}
       <section className="py-24 px-6 bg-white">
           <div className="max-w-4xl mx-auto bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-12 md:p-20 text-center relative overflow-hidden shadow-2xl shadow-slate-200">
-              <div className="relative z-10 space-y-8">
+              <div className="relative z-10 space-y-10">
                   <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight">Ready to transform your workflow?</h2>
                   <p className="text-xl text-slate-300 max-w-2xl mx-auto">
                       Join the new standard in project management. 
@@ -264,7 +264,7 @@ export default function LandingPage() {
                   </p>
               </div>
               <div>
-                  <h4 className="font-bold text-slate-900 mb-6">Product</h4>
+                  <h4 className="font-bold text-slate-900 mb-8">Product</h4>
                   <ul className="space-y-3 text-sm text-slate-500">
                       <li><a href="#" className="hover:text-indigo-600 transition-colors">Features</a></li>
                       <li><a href="#" className="hover:text-indigo-600 transition-colors">Automations</a></li>
@@ -273,7 +273,7 @@ export default function LandingPage() {
                   </ul>
               </div>
               <div>
-                  <h4 className="font-bold text-slate-900 mb-6">Resources</h4>
+                  <h4 className="font-bold text-slate-900 mb-8">Resources</h4>
                   <ul className="space-y-3 text-sm text-slate-500">
                       <li><a href="#" className="hover:text-indigo-600 transition-colors">Documentation</a></li>
                       <li><a href="#" className="hover:text-indigo-600 transition-colors">API Reference</a></li>
@@ -282,7 +282,7 @@ export default function LandingPage() {
                   </ul>
               </div>
               <div>
-                  <h4 className="font-bold text-slate-900 mb-6">Legal</h4>
+                  <h4 className="font-bold text-slate-900 mb-8">Legal</h4>
                   <ul className="space-y-3 text-sm text-slate-500">
                       <li><a href="#" className="hover:text-indigo-600 transition-colors">Privacy</a></li>
                       <li><a href="#" className="hover:text-indigo-600 transition-colors">Terms</a></li>
@@ -292,7 +292,7 @@ export default function LandingPage() {
           </div>
           <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center text-sm text-slate-400">
               <p>© 2026 TaskKollecta Inc. All rights reserved.</p>
-              <div className="flex gap-6 mt-4 md:mt-0">
+              <div className="flex gap-8 mt-4 md:mt-0">
                   <a href="#" className="hover:text-slate-600">Twitter</a>
                   <a href="#" className="hover:text-slate-600">GitHub</a>
                   <a href="#" className="hover:text-slate-600">Discord</a>
@@ -308,7 +308,7 @@ function FeatureCard({ icon: Icon, title, desc }) {
     return (
         <div className="group bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div>
-            <div className="h-14 w-14 bg-white border border-slate-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-sm relative z-10 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
+            <div className="h-14 w-14 bg-white border border-slate-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-8 shadow-sm relative z-10 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
                 <Icon className="h-7 w-7" />
             </div>
             <h3 className="text-xl font-bold text-slate-900 mb-3 relative z-10">{title}</h3>

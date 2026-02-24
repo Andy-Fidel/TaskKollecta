@@ -62,7 +62,7 @@ export default function PublicForm() {
                 <CardDescription>{form.description}</CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-8">
                     {form.fields.map((field) => (
                         <div key={field.id} className="space-y-2">
                             <Label>

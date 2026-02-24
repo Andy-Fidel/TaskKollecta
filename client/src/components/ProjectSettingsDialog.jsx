@@ -83,7 +83,7 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate }) {
           <DialogDescription>Manage settings for {project?.name}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-8 py-4">
 
           {/* Name */}
           <div className="space-y-2">

@@ -54,7 +54,7 @@ export default function FormBuilder() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-4xl mx-auto py-8 px-4 space-y-10">
       <div className="flex justify-between items-center">
         <div>
            <h1 className="text-2xl font-bold">Form Builder</h1>
@@ -66,7 +66,7 @@ export default function FormBuilder() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         
         {/* Left: Canvas */}
-        <div className="md:col-span-2 space-y-6">
+        <div className="md:col-span-2 space-y-8">
            <Card className="border-t-4 border-t-blue-600 shadow-sm">
               <CardHeader>
                  <Input 

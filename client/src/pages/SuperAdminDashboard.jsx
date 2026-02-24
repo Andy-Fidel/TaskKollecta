@@ -180,12 +180,12 @@ export default function SuperAdminDashboard() {
 
     // --- SKELETON LOADING ---
     if (loading) return (
-        <div className="space-y-8 pb-10" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
+        <div className="space-y-10 pb-12" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
             <div className="space-y-2">
                 <div className="h-8 w-72 bg-muted rounded-lg animate-pulse" />
                 <div className="h-4 w-48 bg-muted/60 rounded animate-pulse" />
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
                 {[...Array(4)].map((_, i) => (
                     <div key={i} className="rounded-2xl border border-border bg-card p-6 space-y-4">
                         <div className="flex justify-between">
@@ -197,7 +197,7 @@ export default function SuperAdminDashboard() {
                     </div>
                 ))}
             </div>
-            <div className="grid lg:grid-cols-2 gap-6">
+            <div className="grid lg:grid-cols-2 gap-8">
                 {[...Array(2)].map((_, i) => (
                     <div key={i} className="rounded-2xl border border-border bg-card p-6">
                         <div className="h-5 w-40 bg-muted rounded animate-pulse mb-6" />
@@ -224,7 +224,7 @@ export default function SuperAdminDashboard() {
     ];
 
     return (
-        <div className="space-y-8 pb-10" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
+        <div className="space-y-10 pb-12" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
 
             {/* ====== HEADER ====== */}
             <div className="flex items-center gap-3">
@@ -238,7 +238,7 @@ export default function SuperAdminDashboard() {
             </div>
 
             {/* ====== STAT CARDS (Glassmorphism + Animated Counters) ====== */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
                 {statCards.map((stat, i) => (
                     <div
                         key={stat.label}
@@ -267,7 +267,7 @@ export default function SuperAdminDashboard() {
             </div>
 
             {/* ====== CHARTS ROW ====== */}
-            <div className="grid lg:grid-cols-2 gap-6">
+            <div className="grid lg:grid-cols-2 gap-8">
                 {/* User Growth Chart */}
                 <Card className={cardStyle}>
                     <CardHeader className="pb-2">
@@ -334,7 +334,7 @@ export default function SuperAdminDashboard() {
             </div>
 
             {/* ====== SYSTEM HEALTH + TOP ORGS + USER STATUS ====== */}
-            <div className="grid lg:grid-cols-3 gap-6">
+            <div className="grid lg:grid-cols-3 gap-8">
                 {/* System Health */}
                 <Card className={cardStyle}>
                     <CardHeader className="pb-2">

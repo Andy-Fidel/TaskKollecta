@@ -137,7 +137,7 @@ export default function OnboardingWizard() {
 
                         {/* INVITEE Welcome - Single Step */}
                         {isInvitee && step === 0 && (
-                            <div className="space-y-6 animate-in fade-in duration-500">
+                            <div className="space-y-8 animate-in fade-in duration-500">
                                 <div className="text-center mb-8">
                                     <div className="inline-flex items-center justify-center w-20 h-20 bg-green-500/10 rounded-2xl mb-4">
                                         <PartyPopper className="w-10 h-10 text-green-500" />
@@ -168,7 +168,7 @@ export default function OnboardingWizard() {
 
                         {/* CREATOR Step 0: Welcome & Role */}
                         {!isInvitee && step === 0 && (
-                            <div className="space-y-6 animate-in fade-in duration-500">
+                            <div className="space-y-8 animate-in fade-in duration-500">
                                 <div className="text-center mb-8">
                                     <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl mb-4">
                                         <Sparkles className="w-8 h-8 text-primary" />
@@ -207,7 +207,7 @@ export default function OnboardingWizard() {
 
                         {/* CREATOR Step 1: Organization */}
                         {!isInvitee && step === 1 && (
-                            <div className="space-y-6 animate-in fade-in duration-500">
+                            <div className="space-y-8 animate-in fade-in duration-500">
                                 <div className="text-center mb-8">
                                     <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/10 rounded-2xl mb-4">
                                         <Building2 className="w-8 h-8 text-blue-500" />
@@ -248,7 +248,7 @@ export default function OnboardingWizard() {
 
                         {/* CREATOR Step 2: Project */}
                         {!isInvitee && step === 2 && (
-                            <div className="space-y-6 animate-in fade-in duration-500">
+                            <div className="space-y-8 animate-in fade-in duration-500">
                                 <div className="text-center mb-8">
                                     <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-500/10 rounded-2xl mb-4">
                                         <FolderKanban className="w-8 h-8 text-orange-500" />
@@ -275,7 +275,7 @@ export default function OnboardingWizard() {
 
                         {/* CREATOR Step 3: Invite */}
                         {!isInvitee && step === 3 && (
-                            <div className="space-y-6 animate-in fade-in duration-500">
+                            <div className="space-y-8 animate-in fade-in duration-500">
                                 <div className="text-center mb-8">
                                     <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-2xl mb-4">
                                         <Users className="w-8 h-8 text-green-500" />

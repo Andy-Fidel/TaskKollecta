@@ -30,7 +30,7 @@ export function ProjectUpdates({ projectId }) {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 p-4">
+    <div className="max-w-3xl mx-auto space-y-8 p-4">
       {/* Composer */}
       <Card className="border border-white/60 shadow-sm rounded-2xl p-4">
          <h3 className="text-sm font-bold text-slate-700 mb-3">Post a Status Update</h3>

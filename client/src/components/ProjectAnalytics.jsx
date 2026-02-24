@@ -27,7 +27,7 @@ export function ProjectAnalytics({ projectId }) {
   return (
     <div className="p-6 bg-slate-50 h-full overflow-y-auto">
       {/* Top Cards */}
-      <div className="grid grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-3 gap-8 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-gray-500 text-sm font-bold uppercase">Total Tasks</h3>
           <p className="text-4xl font-bold text-slate-800 mt-2">{data.totalTasks}</p>

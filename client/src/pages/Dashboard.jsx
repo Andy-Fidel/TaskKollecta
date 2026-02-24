@@ -182,14 +182,14 @@ export default function Dashboard() {
 
   // --- SKELETON LOADING STATE ---
   if (loading && !data) return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-10 font-[Poppins] p-6 md:p-8">
+    <div className="max-w-7xl mx-auto space-y-10 pb-12 font-[Poppins] p-6 md:p-8">
       {/* Greeting skeleton */}
       <div className="space-y-3">
         <div className="h-9 w-80 bg-muted rounded-lg animate-pulse" />
         <div className="h-4 w-48 bg-muted/60 rounded animate-pulse" />
       </div>
       {/* Stat cards skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="rounded-xl border border-border bg-card p-6 space-y-4">
             <div className="flex justify-between">
@@ -203,17 +203,17 @@ export default function Dashboard() {
       </div>
       {/* Chart skeletons */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="lg:col-span-2 space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {[...Array(2)].map((_, i) => (
               <div key={i} className="rounded-xl border border-border bg-card p-6">
-                <div className="h-4 w-32 bg-muted rounded animate-pulse mb-6" />
+                <div className="h-4 w-32 bg-muted rounded animate-pulse mb-8" />
                 <div className="h-[250px] bg-muted/30 rounded-lg animate-pulse" />
               </div>
             ))}
           </div>
           <div className="rounded-xl border border-border bg-card p-6">
-            <div className="h-5 w-40 bg-muted rounded animate-pulse mb-6" />
+            <div className="h-5 w-40 bg-muted rounded animate-pulse mb-8" />
             <div className="space-y-4">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="flex gap-3">
@@ -227,7 +227,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        <div className="space-y-8">
+        <div className="space-y-10">
           <div className="grid grid-cols-2 gap-4">
             {[...Array(2)].map((_, i) => (
               <div key={i} className="h-24 rounded-xl border border-border bg-card animate-pulse" />
@@ -253,7 +253,7 @@ export default function Dashboard() {
   const cardStyle = "border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl";
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-10 font-[Poppins] p-6 md:p-8"
+    <div className="max-w-7xl mx-auto space-y-10 pb-12 font-[Poppins] p-6 md:p-8"
          style={{ animation: 'fadeInUp 0.5s ease-out' }}>
 
       {/* ====== GREETING HEADER ====== */}
@@ -307,7 +307,7 @@ export default function Dashboard() {
       </div>
 
       {/* ====== STAT CARDS (Glassmorphism + Animated Counters + Sparklines) ====== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, i) => (
           <div
             key={stat.label}
@@ -367,10 +367,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
         {/* LEFT COLUMN: Charts & Activity */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 space-y-10">
 
           {/* Charts Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
             {/* CHART 1: Task Status (Interactive Pie) */}
             <Card className={cardStyle}>
@@ -492,7 +492,7 @@ export default function Dashboard() {
             <CardContent className="p-0">
               <ScrollArea className="h-[300px] p-6 pt-4">
                 {data.recentActivities?.length > 0 ? (
-                  <div className="space-y-6 relative border-l border-border ml-2 my-2">
+                  <div className="space-y-8 relative border-l border-border ml-2 my-2">
                     {data.recentActivities.map((activity) => (
                       <div key={activity._id} className="relative pl-6 group">
                         <div className="absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full bg-border ring-4 ring-card group-hover:bg-primary transition-colors"></div>
@@ -580,7 +580,7 @@ export default function Dashboard() {
         </div>
 
         {/* RIGHT COLUMN */}
-        <div className="space-y-8">
+        <div className="space-y-10">
           {/* Quick Actions */}
           <div className="grid grid-cols-2 gap-4">
             <QuickAction icon={Plus} label="New Project" color="text-primary" bg="bg-primary/10" onClick={() => setIsProjectModalOpen(true)} />

@@ -348,7 +348,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
 
                         {/* LEFT: CONTENT */}
                         <ScrollArea className="flex-1 bg-background p-4 md:p-8 order-1">
-                            <div className="max-w-3xl mx-auto space-y-6 md:space-y-8 pb-20">
+                            <div className="max-w-3xl mx-auto space-y-8 md:space-y-10 pb-20">
                                 <DialogTitle className="text-xl md:text-3xl font-bold text-foreground leading-tight">{task.title}</DialogTitle>
 
                                 {/* Description */}
@@ -395,7 +395,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                     </div>
 
                                     {Array.isArray(subtasks) && subtasks.length > 0 && (
-                                        <Progress value={(subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100} className="h-1.5 mb-6" />
+                                        <Progress value={(subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100} className="h-1.5 mb-8" />
                                     )}
 
                                     {!Array.isArray(subtasks) || subtasks.length === 0 ? (
@@ -497,7 +497,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                         <div className="w-full lg:w-[350px] bg-muted/10 border-t lg:border-t-0 lg:border-l border-border flex flex-col shrink-0 order-2 lg:order-none max-h-[40vh] lg:max-h-none overflow-y-auto lg:overflow-visible">
 
                             {/* Properties */}
-                            <div className="p-4 md:p-6 space-y-4 md:space-y-6 overflow-y-auto lg:max-h-[50%] border-b border-border">
+                            <div className="p-4 md:p-6 space-y-4 md:space-y-8 overflow-y-auto lg:max-h-[50%] border-b border-border">
                                 {/* Status */}
                                 <div className="grid grid-cols-3 items-center gap-4">
                                     <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Layout className="w-3.5 h-3.5" /> Status</span>
@@ -704,7 +704,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                 </div>
 
                                 <ScrollArea className="flex-1 p-4">
-                                    <div className="space-y-6">
+                                    <div className="space-y-8">
                                         {timeline.length === 0 && (
                                             <div className="text-center text-xs text-muted-foreground py-8 opacity-50">
                                                 No activity yet.
