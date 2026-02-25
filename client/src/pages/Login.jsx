@@ -18,7 +18,41 @@ export default function Login() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+
+  // Password Strength Logic
+  const evaluatePasswordStrength = (pass) => {
+    let score = 0;
+    if (!pass) return 0;
+    if (pass.length > 7) score += 1;
+    if (/[a-z]/.test(pass) && /[A-Z]/.test(pass)) score += 1;
+    if (/\d/.test(pass)) score += 1;
+    if (/[^a-zA-Z\d]/.test(pass)) score += 1;
+    return score;
+  };
+  const strengthScore = evaluatePasswordStrength(password);
+  
+  const getStrengthColor = (score) => {
+    switch (score) {
+      case 1: return 'bg-red-500';
+      case 2: return 'bg-amber-500';
+      case 3: return 'bg-emerald-400';
+      case 4: return 'bg-emerald-600';
+      default: return 'bg-slate-200';
+    }
+  };
+  
+  const getStrengthLabel = (score) => {
+    if (!password) return '';
+    switch (score) {
+      case 1: return 'Weak';
+      case 2: return 'Fair';
+      case 3: return 'Good';
+      case 4: return 'Strong';
+      default: return '';
+    }
+  };
 
   // Invite State
   const [inviteToken, setInviteToken] = useState('');
@@ -82,6 +116,12 @@ export default function Login() {
         await login(email, password);
         navigate('/dashboard');
       } else {
+        if (password !== confirmPassword) {
+            setError('Passwords do not match');
+            setIsLoading(false);
+            return;
+        }
+
         // Register Logic - include invite token if present
         const payload = { name, email, password };
         if (inviteToken) payload.inviteToken = inviteToken;
@@ -198,7 +238,24 @@ export default function Login() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {!isLogin && password && (
+                  <div className="pt-1 space-y-1">
+                    <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                      <div className={`h-full transition-all duration-300 ${getStrengthColor(strengthScore)}`} style={{ width: `${(strengthScore / 4) * 100}%` }} />
+                    </div>
+                    <p className="text-[10px] text-right font-medium text-slate-500">{getStrengthLabel(strengthScore)}</p>
+                  </div>
+                )}
               </div>
+
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword" className="text-slate-700">Confirm Password</Label>
+                  <div className="relative">
+                    <Input id="confirmPassword" type={showPassword ? "text" : "password"} placeholder="••••••••" className="h-11 bg-slate-50 border-slate-200 pr-10 text-slate-900 focus:ring-slate-900" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                  </div>
+                </div>
+              )}
 
               {isLogin && (
                 <div className="flex items-center space-x-2">
