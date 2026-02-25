@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { searchOrganizations, requestToJoin, getJoinRequests, resolveJoinRequest, createOrganization, getUserOrganizations, getOrgMembers, addMember, updateMemberRole } = require('../controllers/organizationController');
+const { searchOrganizations, requestToJoin, getJoinRequests, resolveJoinRequest, createOrganization, getUserOrganizations, getOrganizationById, updateOrganization, getOrgMembers, addMember, updateMemberRole } = require('../controllers/organizationController');
 const { protect } = require('../middleware/authMiddleware');
 const { checkRole } = require('../middleware/roleMiddleware');
 
@@ -13,6 +13,8 @@ router.post('/:id/requests/:requestId/resolve', protect, checkRole('owner', 'adm
 // Organization Management
 router.post('/', protect, createOrganization);
 router.get('/', protect, getUserOrganizations);
+router.get('/:id', protect, getOrganizationById);
+router.put('/:id', protect, checkRole('owner', 'admin'), updateOrganization);
 
 // Member Management
 router.get('/:id/members', protect, getOrgMembers); // Members can view other members

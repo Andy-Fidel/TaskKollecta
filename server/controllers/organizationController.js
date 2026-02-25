@@ -34,19 +34,62 @@ const createOrganization = async (req, res) => {
 // @access  Private
 const getUserOrganizations = async (req, res) => {
   try {
-
     const memberships = await Membership.find({ user: req.user._id })
-      .populate('organization', 'name description');
-
+      .populate('organization', 'name description logo website defaultProjectSettings');
 
     const organizations = memberships.map(m => ({
       _id: m.organization._id,
       name: m.organization.name,
+      description: m.organization.description,
+      logo: m.organization.logo,
+      website: m.organization.website,
+      defaultProjectSettings: m.organization.defaultProjectSettings,
       role: m.role,
       joinedAt: m.joinedAt
     }));
 
     res.status(200).json(organizations);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get single organization by ID
+// @route   GET /api/organizations/:id
+// @access  Private (Members)
+const getOrganizationById = async (req, res) => {
+  try {
+    const isMember = await Membership.findOne({ user: req.user._id, organization: req.params.id });
+    if (!isMember) return res.status(403).json({ message: 'Not a member of this organization' });
+
+    const org = await Organization.findById(req.params.id);
+    if (!org) return res.status(404).json({ message: 'Organization not found' });
+    res.json(org);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update organization settings
+// @route   PUT /api/organizations/:id
+// @access  Private (Owner/Admin only)
+const updateOrganization = async (req, res) => {
+  try {
+    const { name, description, logo, website, defaultProjectSettings } = req.body;
+
+    const org = await Organization.findById(req.params.id);
+    if (!org) return res.status(404).json({ message: 'Organization not found' });
+
+    if (name !== undefined) org.name = name.trim();
+    if (description !== undefined) org.description = description;
+    if (logo !== undefined) org.logo = logo;
+    if (website !== undefined) org.website = website;
+    if (defaultProjectSettings) {
+      org.defaultProjectSettings = { ...org.defaultProjectSettings.toObject(), ...defaultProjectSettings };
+    }
+
+    const updated = await org.save();
+    res.json(updated);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -233,6 +276,8 @@ const resolveJoinRequest = async (req, res) => {
 module.exports = {
   createOrganization,
   getUserOrganizations,
+  getOrganizationById,
+  updateOrganization,
   getOrgMembers,
   addMember,
   searchOrganizations,
