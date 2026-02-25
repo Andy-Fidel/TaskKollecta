@@ -24,7 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { toast } from 'sonner';
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }) {
     const { logout, user } = useAuth();
     const navigate = useNavigate();
 
@@ -166,7 +166,7 @@ export default function Sidebar() {
                                 {isCollapsed ? (
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <NavLink to={item.path} className={({ isActive }) => `
+                                            <NavLink to={item.path} onClick={onClose} className={({ isActive }) => `
                                                 relative flex items-center justify-center w-full h-10 rounded-xl transition-all duration-200
                                                 ${isActive 
                                                     ? 'bg-primary/10 text-primary shadow-[0_0_12px_-3px_hsl(var(--primary)/0.3)]' 
@@ -179,7 +179,7 @@ export default function Sidebar() {
                                         <TooltipContent side="right" className="font-medium">{item.label}</TooltipContent>
                                     </Tooltip>
                                 ) : (
-                                    <NavLink to={item.path} className={({ isActive }) => `
+                                    <NavLink to={item.path} onClick={onClose} className={({ isActive }) => `
                                         relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
                                         ${isActive 
                                             ? 'bg-primary/10 text-primary shadow-[0_0_16px_-4px_hsl(var(--primary)/0.25)] border border-primary/10' 

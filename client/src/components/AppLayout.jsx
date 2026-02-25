@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Menu, Search, User, Settings, LogOut, Shield } from 'lucide-react';
 
@@ -26,6 +27,7 @@ import { useAuth } from '../context/AuthContext';
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { showHelp, setShowHelp } = useKeyboardShortcuts();
 
   return (
@@ -49,14 +51,14 @@ export default function AppLayout() {
           <div className="flex items-center gap-4 flex-1">
 
             {/* MOBILE MENU TRIGGER (Sheet) */}
-            <Sheet>
+            <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="md:hidden text-muted-foreground">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-72 bg-card">
-                <Sidebar />
+                <Sidebar onClose={() => setIsSidebarOpen(false)} />
               </SheetContent>
             </Sheet>
 
