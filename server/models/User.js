@@ -35,6 +35,22 @@ const userSchema = new mongoose.Schema({
     emailMentions: { type: Boolean, default: true }
   },
 
+  // Reminder Preferences
+  reminderPreferences: {
+    // Timing - how far in advance to send reminders
+    defaultReminderTime: { type: String, default: '1_day', enum: ['15_min', '30_min', '1_hour', '3_hours', '1_day', '2_days', '1_week'] },
+    // Per-type reminder toggles
+    remindDueDates: { type: Boolean, default: true },
+    remindOverdue: { type: Boolean, default: true },
+    remindAssignments: { type: Boolean, default: true },
+    remindMeetings: { type: Boolean, default: false },
+    remindStatusUpdates: { type: Boolean, default: false },
+    // Quiet Hours
+    quietHoursEnabled: { type: Boolean, default: false },
+    quietHoursStart: { type: String, default: '22:00' },  // HH:mm
+    quietHoursEnd: { type: String, default: '08:00' },     // HH:mm
+  },
+
   // Role and Account Status
   role: {
     type: String,

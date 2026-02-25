@@ -11,6 +11,8 @@ const { registerUser,
   resetPassword,
   updateNotificationPreferences,
   getNotificationPreferences,
+  getReminderPreferences,
+  updateReminderPreferences,
   completeOnboarding
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
@@ -26,6 +28,10 @@ router.put('/password', protect, updateUserPassword);
 // Notification Preferences
 router.get('/notifications', protect, getNotificationPreferences);
 router.put('/notifications', protect, updateNotificationPreferences);
+
+// Reminder Preferences
+router.get('/reminders', protect, getReminderPreferences);
+router.put('/reminders', protect, updateReminderPreferences);
 
 // Onboarding
 router.post('/onboarding', protect, completeOnboarding);

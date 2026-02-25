@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  User, Lock, Bell, Camera, Loader2, Save, Moon, Sun, Monitor
+  User, Lock, Bell, Camera, Loader2, Save, Moon, Sun, Monitor, Clock, BellOff, BellRing, AlarmClock
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import api from '../api/axios';
@@ -37,6 +41,21 @@ export default function Settings() {
   });
   const [notifLoading, setNotifLoading] = useState(false);
 
+  // Reminder Preferences State
+  const [reminderPrefs, setReminderPrefs] = useState({
+    defaultReminderTime: '1_day',
+    remindDueDates: true,
+    remindOverdue: true,
+    remindAssignments: true,
+    remindMeetings: false,
+    remindStatusUpdates: false,
+    quietHoursEnabled: false,
+    quietHoursStart: '22:00',
+    quietHoursEnd: '08:00'
+  });
+  const [reminderLoading, setReminderLoading] = useState(false);
+  const [reminderSaving, setReminderSaving] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -51,6 +70,22 @@ export default function Settings() {
       }
     };
     fetchPrefs();
+  }, []);
+
+  // Load reminder preferences on mount
+  useEffect(() => {
+    const fetchReminderPrefs = async () => {
+      setReminderLoading(true);
+      try {
+        const { data } = await api.get('/users/reminders');
+        setReminderPrefs(data);
+      } catch {
+        console.error('Failed to load reminder preferences');
+      } finally {
+        setReminderLoading(false);
+      }
+    };
+    fetchReminderPrefs();
   }, []);
 
   // 1. Handle Image Upload (Cloudinary)
@@ -130,32 +165,55 @@ export default function Settings() {
     }
   };
 
-  const notificationOptions = [
-    {
-      key: 'emailAssignments',
-      title: 'Task Assignments',
-      description: 'Receive emails when assigned to a task'
-    },
-    {
-      key: 'emailComments',
-      title: 'Comments',
-      description: 'Receive emails when someone comments on your task'
-    },
-    {
-      key: 'emailMentions',
-      title: 'Mentions',
-      description: 'Receive emails when someone @mentions you'
-    },
-    {
-      key: 'emailDueDates',
-      title: 'Due Date Reminders',
-      description: 'Receive reminder emails before tasks are due'
-    },
-    {
-      key: 'emailStatusChanges',
-      title: 'Status Updates',
-      description: 'Receive emails when your task status changes'
+  // 5. Handle Reminder Preference Toggle (instant save for booleans)
+  const handleReminderToggle = async (key, value) => {
+    setReminderPrefs(prev => ({ ...prev, [key]: value }));
+    try {
+      await api.put('/users/reminders', { [key]: value });
+      toast.success("Reminder preference saved");
+    } catch {
+      setReminderPrefs(prev => ({ ...prev, [key]: !value }));
+      toast.error("Failed to save preference");
     }
+  };
+
+  // 6. Save all reminder prefs (for timing/quiet hour changes)
+  const handleSaveReminders = async () => {
+    setReminderSaving(true);
+    try {
+      await api.put('/users/reminders', reminderPrefs);
+      toast.success("Reminder settings saved!");
+    } catch {
+      toast.error("Failed to save reminder settings");
+    } finally {
+      setReminderSaving(false);
+    }
+  };
+
+  const notificationOptions = [
+    { key: 'emailAssignments', title: 'Task Assignments', description: 'Receive emails when assigned to a task' },
+    { key: 'emailComments', title: 'Comments', description: 'Receive emails when someone comments on your task' },
+    { key: 'emailMentions', title: 'Mentions', description: 'Receive emails when someone @mentions you' },
+    { key: 'emailDueDates', title: 'Due Date Reminders', description: 'Receive reminder emails before tasks are due' },
+    { key: 'emailStatusChanges', title: 'Status Updates', description: 'Receive emails when your task status changes' }
+  ];
+
+  const reminderTypeOptions = [
+    { key: 'remindDueDates', title: 'Due Date Reminders', description: 'Get reminded before a task is due', icon: AlarmClock },
+    { key: 'remindOverdue', title: 'Overdue Tasks', description: 'Get notified when a task is past its due date', icon: BellRing },
+    { key: 'remindAssignments', title: 'New Assignments', description: 'Get a reminder shortly after being assigned a task', icon: Bell },
+    { key: 'remindMeetings', title: 'Meetings & Events', description: 'Reminders for scheduled meetings or events', icon: Clock },
+    { key: 'remindStatusUpdates', title: 'Status Changes', description: 'Remind you to update tasks stuck in a status', icon: Bell },
+  ];
+
+  const timingOptions = [
+    { value: '15_min', label: '15 minutes before' },
+    { value: '30_min', label: '30 minutes before' },
+    { value: '1_hour', label: '1 hour before' },
+    { value: '3_hours', label: '3 hours before' },
+    { value: '1_day', label: '1 day before' },
+    { value: '2_days', label: '2 days before' },
+    { value: '1_week', label: '1 week before' },
   ];
 
   return (
@@ -168,10 +226,11 @@ export default function Settings() {
 
       <Tabs defaultValue="general" className="w-full">
 
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="reminders">Reminders</TabsTrigger>
         </TabsList>
 
         {/* --- GENERAL TAB --- */}
@@ -312,7 +371,125 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
+        {/* --- REMINDERS TAB --- */}
+        <TabsContent value="reminders" className="space-y-6 mt-6">
+
+          {reminderLoading ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">Loading reminder preferences…</div>
+          ) : (
+            <>
+              {/* Default Timing */}
+              <Card className="rounded-2xl shadow-sm">
+                <CardHeader className="bg-muted/30 rounded-t-2xl border-b border-border/50 pb-4">
+                  <CardTitle className="text-base flex items-center gap-2.5"><Clock className="w-4 h-4 text-primary" /> Reminder Timing</CardTitle>
+                  <CardDescription>Choose how far in advance you want to be reminded about upcoming tasks.</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="space-y-3 max-w-sm">
+                    <Label>Default Reminder Time</Label>
+                    <Select
+                      value={reminderPrefs.defaultReminderTime}
+                      onValueChange={v => setReminderPrefs(p => ({ ...p, defaultReminderTime: v }))}
+                    >
+                      <SelectTrigger className="rounded-xl h-11"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {timingOptions.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">This applies to all task-type reminders by default.</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Enable/Disable Per Type */}
+              <Card className="rounded-2xl shadow-sm">
+                <CardHeader className="bg-muted/30 rounded-t-2xl border-b border-border/50 pb-4">
+                  <CardTitle className="text-base flex items-center gap-2.5"><BellRing className="w-4 h-4 text-primary" /> Reminder Types</CardTitle>
+                  <CardDescription>Enable or disable reminders for specific task types.</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-3">
+                  {/* eslint-disable-next-line no-unused-vars */}
+                  {reminderTypeOptions.map(({ key, title, description, icon: Icon }) => (
+                    <div key={key} className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-muted/20 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold">{title}</p>
+                          <p className="text-xs text-muted-foreground">{description}</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={reminderPrefs[key]}
+                        onCheckedChange={(checked) => handleReminderToggle(key, checked)}
+                      />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Quiet Hours */}
+              <Card className="rounded-2xl shadow-sm">
+                <CardHeader className="bg-muted/30 rounded-t-2xl border-b border-border/50 pb-4">
+                  <CardTitle className="text-base flex items-center gap-2.5"><BellOff className="w-4 h-4 text-amber-500" /> Quiet Hours</CardTitle>
+                  <CardDescription>Pause all reminders during specific hours so you can focus or rest.</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-5">
+
+                  <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/20">
+                    <div>
+                      <p className="text-sm font-semibold">Enable Quiet Hours</p>
+                      <p className="text-xs text-muted-foreground">Reminders will be silenced during the configured window</p>
+                    </div>
+                    <Switch
+                      checked={reminderPrefs.quietHoursEnabled}
+                      onCheckedChange={(checked) => handleReminderToggle('quietHoursEnabled', checked)}
+                    />
+                  </div>
+
+                  {reminderPrefs.quietHoursEnabled && (
+                    <div className="grid grid-cols-2 gap-4 pl-1" style={{ animation: 'fadeInUp 0.2s ease-out' }}>
+                      <div className="space-y-2">
+                        <Label className="text-sm flex items-center gap-1.5"><Moon className="w-3.5 h-3.5" /> Start Time</Label>
+                        <Input
+                          type="time"
+                          value={reminderPrefs.quietHoursStart}
+                          onChange={e => setReminderPrefs(p => ({ ...p, quietHoursStart: e.target.value }))}
+                          className="rounded-xl h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm flex items-center gap-1.5"><Sun className="w-3.5 h-3.5" /> End Time</Label>
+                        <Input
+                          type="time"
+                          value={reminderPrefs.quietHoursEnd}
+                          onChange={e => setReminderPrefs(p => ({ ...p, quietHoursEnd: e.target.value }))}
+                          className="rounded-xl h-11"
+                        />
+                      </div>
+                      <p className="col-span-2 text-xs text-muted-foreground">Reminders scheduled during this window will be held until quiet hours end.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Save Button */}
+              <Button onClick={handleSaveReminders} disabled={reminderSaving} className="w-full sm:w-auto h-11 rounded-xl font-semibold shadow-md">
+                {reminderSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Reminder Settings
+              </Button>
+            </>
+          )}
+        </TabsContent>
+
       </Tabs>
+
+      <style>{`
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
     </div>
   );
 }

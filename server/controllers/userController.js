@@ -387,6 +387,55 @@ const completeOnboarding = async (req, res) => {
   }
 };
 
+// @desc    Get reminder preferences
+// @route   GET /api/users/reminders
+const getReminderPreferences = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('reminderPreferences');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json(user.reminderPreferences || {
+      defaultReminderTime: '1_day',
+      remindDueDates: true,
+      remindOverdue: true,
+      remindAssignments: true,
+      remindMeetings: false,
+      remindStatusUpdates: false,
+      quietHoursEnabled: false,
+      quietHoursStart: '22:00',
+      quietHoursEnd: '08:00'
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update reminder preferences
+// @route   PUT /api/users/reminders
+const updateReminderPreferences = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const allowed = [
+      'defaultReminderTime', 'remindDueDates', 'remindOverdue',
+      'remindAssignments', 'remindMeetings', 'remindStatusUpdates',
+      'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd'
+    ];
+
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        user.reminderPreferences[key] = req.body[key];
+      }
+    }
+
+    await user.save();
+    res.json({ message: 'Reminder preferences updated', reminderPreferences: user.reminderPreferences });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -397,5 +446,7 @@ module.exports = {
   resetPassword,
   updateNotificationPreferences,
   getNotificationPreferences,
+  getReminderPreferences,
+  updateReminderPreferences,
   completeOnboarding
 };
