@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const Announcement = require('../models/Announcement');
-const { getIo } = require('../socket'); // assuming socket logic is extracted, wait, lets check server.js for socket io
 
 // @desc    Get active announcement
 // @route   GET /api/announcements/active
