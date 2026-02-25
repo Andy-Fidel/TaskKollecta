@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import api from '../api/axios';
+import { ExportMenu } from '../components/ExportMenu';
+import { exportToCSV, exportToPDF, buildSprintReportData } from '../utils/exportUtils';
 
 export default function SprintReports() {
   const [projects, setProjects] = useState([]);
@@ -111,6 +113,21 @@ export default function SprintReports() {
                 className="h-9 w-[140px] text-sm"
               />
             </div>
+
+            {data && (
+              <ExportMenu
+                onExportCSV={() => {
+                  const projectName = projects.find(p => p._id === selectedProject)?.name || '';
+                  const { headers, rows } = buildSprintReportData(data, projectName);
+                  exportToCSV({ headers, rows, filename: `sprint-report-${projectName || 'export'}.csv` });
+                }}
+                onExportPDF={() => {
+                  const projectName = projects.find(p => p._id === selectedProject)?.name || '';
+                  const { headers, rows } = buildSprintReportData(data, projectName);
+                  exportToPDF({ title: `Sprint Report – ${projectName}`, headers, rows, filename: `sprint-report-${projectName || 'export'}.pdf`, subtitle: `${startDate} to ${endDate}` });
+                }}
+              />
+            )}
           </div>
         </div>
       </div>

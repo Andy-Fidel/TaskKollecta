@@ -5,6 +5,8 @@ import {
 import {
   GanttChartSquare, Loader2, Filter, ChevronDown, Calendar as CalendarIcon
 } from 'lucide-react';
+import { ExportMenu } from '../components/ExportMenu';
+import { exportToCSV, exportToPDF, buildGanttExportData } from '../utils/exportUtils';
 import { format, differenceInDays, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -319,6 +321,18 @@ export default function GanttChart() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Export */}
+          <ExportMenu
+            onExportCSV={() => {
+              const { headers, rows } = buildGanttExportData(tasks);
+              exportToCSV({ headers, rows, filename: 'gantt-chart.csv' });
+            }}
+            onExportPDF={() => {
+              const { headers, rows } = buildGanttExportData(tasks);
+              exportToPDF({ title: 'Gantt Chart – Timeline', headers, rows, filename: 'gantt-chart.pdf' });
+            }}
+          />
         </div>
       </div>
 

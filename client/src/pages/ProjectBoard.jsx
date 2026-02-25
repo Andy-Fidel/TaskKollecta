@@ -26,6 +26,8 @@ import api from '../api/axios';
 import { useSocket } from '../hooks/useSocket';
 import { KanbanColumn } from '../components/KanbanColumn';
 import { TaskDetailsModal } from '../components/TaskDetailsModal';
+import { ExportMenu } from '../components/ExportMenu';
+import { exportToCSV, exportToPDF, buildTaskExportData } from '../utils/exportUtils';
 import { AutomationModal } from '../components/AutomationModal';
 import { ArchivedTasksModal } from '../components/ArchivedTasksModal';
 import { ProjectAnalytics } from '../components/ProjectAnalytics';
@@ -376,6 +378,18 @@ export default function ProjectBoard() {
                 <Settings className="w-5 h-5" />
               </Button>
             )}
+
+            {/* Export */}
+            <ExportMenu
+              onExportCSV={() => {
+                const { headers, rows } = buildTaskExportData(tasks);
+                exportToCSV({ headers, rows, filename: `${projectDetails?.name || 'project'}-tasks.csv` });
+              }}
+              onExportPDF={() => {
+                const { headers, rows } = buildTaskExportData(tasks);
+                exportToPDF({ title: `${projectDetails?.name || 'Project'} – Task List`, headers, rows, filename: `${projectDetails?.name || 'project'}-tasks.pdf` });
+              }}
+            />
 
             <Separator orientation="vertical" className="h-6 hidden md:block" />
 

@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import api from '../api/axios';
 import { Link } from 'react-router-dom';
+import { ExportMenu } from '../components/ExportMenu';
+import { exportToCSV, exportToPDF, buildTaskExportData } from '../utils/exportUtils';
 
 export default function MyTasks() {
   const [tasks, setTasks] = useState([]);
@@ -25,9 +27,21 @@ export default function MyTasks() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-10 font-[Poppins] py-10">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Tasks</h1>
-        <p className="text-slate-500">All your assigned work in one place.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Tasks</h1>
+          <p className="text-slate-500">All your assigned work in one place.</p>
+        </div>
+        <ExportMenu
+          onExportCSV={() => {
+            const { headers, rows } = buildTaskExportData(tasks);
+            exportToCSV({ headers, rows, filename: 'my-tasks.csv' });
+          }}
+          onExportPDF={() => {
+            const { headers, rows } = buildTaskExportData(tasks);
+            exportToPDF({ title: 'My Tasks', headers, rows, filename: 'my-tasks.pdf' });
+          }}
+        />
       </div>
 
       <Card className="border border-white/60 shadow-sm rounded-2xl bg-white min-h-[500px]">
