@@ -41,22 +41,45 @@ export default function SprintReports() {
 
   useEffect(() => {
     if (!orgId) return;
-    setSelectedProject('');
-    setData(null);
-    api.get(`/projects/${orgId}`).then(({ data }) => {
-      setProjects(data);
-      if (data.length > 0) setSelectedProject(data[0]._id);
-    }).catch(() => setProjects([]));
+    let isActive = true;
+
+    const loadProjects = async () => {
+      setSelectedProject('');
+      setData(null);
+      try {
+        const { data } = await api.get(`/projects/${orgId}`);
+        if (isActive) {
+          setProjects(data);
+          if (data.length > 0) setSelectedProject(data[0]._id);
+        }
+      } catch {
+        if (isActive) setProjects([]);
+      }
+    };
+
+    loadProjects();
+    return () => { isActive = false; };
   }, [orgId]);
 
   // Fetch data when project or dates change
   useEffect(() => {
     if (!selectedProject) return;
-    setLoading(true);
-    api.get(`/analytics/sprint/${selectedProject}?start=${startDate}&end=${endDate}`)
-      .then(({ data }) => setData(data))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+    let isActive = true;
+
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get(`/analytics/sprint/${selectedProject}?start=${startDate}&end=${endDate}`);
+        if (isActive) setData(data);
+      } catch {
+        if (isActive) setData(null);
+      } finally {
+        if (isActive) setLoading(false);
+      }
+    };
+
+    loadData();
+    return () => { isActive = false; };
   }, [selectedProject, startDate, endDate]);
 
   const statCards = useMemo(() => {

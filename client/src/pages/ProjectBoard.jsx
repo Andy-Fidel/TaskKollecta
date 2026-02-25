@@ -313,7 +313,7 @@ export default function ProjectBoard() {
       setNewTaskAssignee(null);
       setAssigneeSearch('');
       setIsCreateModalOpen(false);
-    } catch (err) { alert('Error creating task'); }
+    } catch { alert('Error creating task'); }
   };
 
   return (
