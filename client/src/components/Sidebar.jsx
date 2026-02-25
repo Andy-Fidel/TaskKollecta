@@ -104,22 +104,22 @@ export default function Sidebar({ onClose }) {
     return (
         <>
             <div
-                className={`relative flex flex-col h-screen border-r border-border bg-card/50 transition-all duration-300 ease-in-out font-[Poppins] ${isCollapsed ? 'w-20' : 'w-64'}`}
+                className={`relative flex flex-col h-full md:h-screen border-r border-white/10 bg-background/40 backdrop-blur-xl transition-all duration-300 ease-in-out font-[Poppins] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] ${isCollapsed ? 'w-20' : 'w-64'}`}
             >
-                {/* COLLAPSE TOGGLE */}
+                {/* COLLAPSE TOGGLE - hidden on mobile (sheet handles closing) */}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="absolute -right-3 top-9 z-20 bg-background border border-border rounded-full p-1 shadow-sm hover:bg-muted transition-colors"
+                    className="hidden md:flex absolute -right-3 top-9 z-20 bg-background/80 backdrop-blur-md border border-white/20 rounded-full p-1.5 shadow-md hover:bg-muted transition-all hover:scale-110"
                 >
-                    {isCollapsed ? <ChevronRight className="h-3 w-3 text-foreground" /> : <ChevronLeft className="h-3 w-3 text-foreground" />}
+                    {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-foreground" /> : <ChevronLeft className="h-3.5 w-3.5 text-foreground" />}
                 </button>
 
                 {/* ORGANIZATION SWITCHER */}
-                <div className={`p-4 border-b border-border h-16 flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
+                <div className={`p-4 border-b border-white/10 h-16 flex items-center shrink-0 ${isCollapsed ? 'justify-center' : ''}`}>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className={`flex items-center gap-3 hover:bg-muted/50 rounded-lg transition-colors group outline-none ${isCollapsed ? 'p-0 justify-center' : 'w-full p-2 text-left'}`}>
-                                <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground font-bold text-xs uppercase shadow-sm shrink-0">
+                            <button className={`flex items-center gap-3 hover:bg-white/5 rounded-xl transition-all group outline-none ${isCollapsed ? 'p-0 justify-center' : 'w-full p-2 text-left'}`}>
+                                <div className="h-8 w-8 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center text-primary-foreground font-bold text-xs uppercase shadow-[0_0_15px_-3px_hsl(var(--primary)/0.4)] shrink-0">
                                     {activeOrg ? activeOrg.name.substring(0, 2) : <Building2 className="w-4 h-4" />}
                                 </div>
 
@@ -159,7 +159,7 @@ export default function Sidebar({ onClose }) {
                 </div>
 
                 {/* NAVIGATION LINKS */}
-                <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+                <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto min-h-0 scrollbar-hide">
                     <TooltipProvider delayDuration={0}>
                         {navItems.map((item) => (
                             <div key={item.path}>
@@ -167,30 +167,50 @@ export default function Sidebar({ onClose }) {
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <NavLink to={item.path} onClick={onClose} className={({ isActive }) => `
-                                                relative flex items-center justify-center w-full h-10 rounded-xl transition-all duration-200
+                                                relative flex items-center justify-center w-full h-11 rounded-xl transition-all duration-300 group overflow-hidden
                                                 ${isActive 
-                                                    ? 'bg-primary/10 text-primary shadow-[0_0_12px_-3px_hsl(var(--primary)/0.3)]' 
-                                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground hover:scale-105'
+                                                    ? 'text-primary' 
+                                                    : 'text-slate-500 hover:text-foreground'
                                                 }
                                             `}>
-                                                <item.icon className="w-5 h-5" />
+                                                {({ isActive }) => (
+                                                    <>
+                                                        {isActive && (
+                                                            <div className="absolute inset-0 bg-primary/10 backdrop-blur-sm border border-primary/20 rounded-xl" />
+                                                        )}
+                                                        <item.icon className="w-5 h-5 relative z-10 transition-transform duration-300 group-hover:scale-110" />
+                                                        {isActive && (
+                                                            <div className="absolute right-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_2px_hsl(var(--primary)/0.6)] animate-pulse" />
+                                                        )}
+                                                    </>
+                                                )}
                                             </NavLink>
                                         </TooltipTrigger>
                                         <TooltipContent side="right" className="font-medium">{item.label}</TooltipContent>
                                     </Tooltip>
                                 ) : (
                                     <NavLink to={item.path} onClick={onClose} className={({ isActive }) => `
-                                        relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
+                                        relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 group overflow-hidden
                                         ${isActive 
-                                            ? 'bg-primary/10 text-primary shadow-[0_0_16px_-4px_hsl(var(--primary)/0.25)] border border-primary/10' 
-                                            : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-transparent'
+                                            ? 'text-primary shadow-[0_4px_20px_-8px_hsl(var(--primary)/0.3)]' 
+                                            : 'text-slate-500 hover:text-foreground hover:bg-white/5'
                                         }
                                     `}>
                                         {({ isActive }) => (
                                             <>
-                                                {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-r-full" />}
-                                                <item.icon className="w-5 h-5 shrink-0" />
-                                                <span className="truncate">{item.label}</span>
+                                                {/* Active Pill Background */}
+                                                <div className={`absolute inset-0 bg-gradient-to-r from-primary/15 to-transparent border border-primary/20 rounded-xl transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
+                                                
+                                                <item.icon className={`w-[18px] h-[18px] shrink-0 relative z-10 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+                                                <span className="truncate relative z-10 tracking-wide">{item.label}</span>
+
+                                                {/* Animated Indicator Dot */}
+                                                {isActive && (
+                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_10px_2px_hsl(var(--primary)/0.6)] relative z-10" />
+                                                        <div className="absolute w-3 h-3 rounded-full bg-primary/40 animate-ping" />
+                                                    </div>
+                                                )}
                                             </>
                                         )}
                                     </NavLink>
@@ -201,18 +221,18 @@ export default function Sidebar({ onClose }) {
                 </nav>
 
                 {/* USER FOOTER */}
-                <div className={`p-4 border-t border-border bg-card/30 ${isCollapsed ? 'flex justify-center' : ''}`}>
+                <div className={`shrink-0 p-4 border-t border-white/10 bg-white/5 backdrop-blur-md ${isCollapsed ? 'flex justify-center' : ''}`}>
                     {isCollapsed ? (
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Avatar className="h-9 w-9 border border-border cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all" onClick={() => navigate('/settings')}>
+                                    <Avatar className="h-10 w-10 border-2 border-background shadow-md cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all hover:scale-105" onClick={() => navigate('/settings')}>
                                         <AvatarImage src={user?.avatar} />
-                                        <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
+                                        <AvatarFallback className="bg-gradient-to-br from-indigo-100 to-primary/20 text-primary font-bold">{user?.name?.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                 </TooltipTrigger>
                                 <TooltipContent side="right">
-                                    <p>{user?.name}</p>
+                                    <p className="font-medium">{user?.name}</p>
                                     <p className="text-xs text-muted-foreground">Click for settings</p>
                                 </TooltipContent>
                             </Tooltip>
@@ -220,17 +240,17 @@ export default function Sidebar({ onClose }) {
                     ) : (
                         <>
                             <div className="flex items-center gap-3 mb-4 px-1">
-                                <Avatar className="h-9 w-9 border border-border shadow-sm">
+                                <Avatar className="h-10 w-10 border-2 border-background shadow-md">
                                     <AvatarImage src={user?.avatar} />
-                                    <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
+                                    <AvatarFallback className="bg-gradient-to-br from-indigo-100 to-primary/20 text-primary font-bold">{user?.name?.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-foreground truncate">{user?.name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                                    <p className="text-sm font-bold text-foreground truncate tracking-tight">{user?.name}</p>
+                                    <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
                                 </div>
                             </div>
-                            <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-red-600 hover:bg-red-50" onClick={logout}>
-                                <LogOut className="w-4 h-4 mr-2" /> Log out
+                            <Button variant="ghost" className="w-full justify-start text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors h-9" onClick={logout}>
+                                <LogOut className="w-4 h-4 mr-2" /> <span className="font-medium">Log out</span>
                             </Button>
                         </>
                     )}
