@@ -30,6 +30,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const inviteRoutes = require("./routes/inviteRoutes");
 const reminderRoutes = require("./routes/reminderRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const announcementRoutes = require("./routes/announcementRoutes");
 
 // Load environment variables
 
@@ -254,6 +255,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/invites", inviteRoutes);
 app.use("/api/reminders", reminderRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/announcements", announcementRoutes);
 
 // SECURITY: Global error handler (must be last)
 app.use(errorHandler);

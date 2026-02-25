@@ -18,6 +18,7 @@ import { NotificationBell } from './NotificationBell';
 import { CommandMenu } from './CommandMenu';
 import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '../hooks/useKeyboardShortcuts';
 import { PageTransition } from './PageTransition';
+import { AnnouncementBanner } from './AnnouncementBanner';
 
 // Context
 import { useAuth } from '../context/AuthContext';
@@ -37,6 +38,9 @@ export default function AppLayout() {
 
       {/* --- MAIN CONTENT AREA --- */}
       <div className="flex-1 flex flex-col overflow-hidden w-full min-w-0">
+        
+        {/* GLOBAL ANNOUNCEMENT BANNER */}
+        <AnnouncementBanner />
 
         {/* HEADER */}
         <header className="h-16 bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 sticky top-0 z-10 shrink-0">

@@ -7,7 +7,7 @@ import {
     Activity, Shield, Ban, RefreshCw, Key,
     Search, ChevronLeft, ChevronRight, MoreHorizontal,
     CheckCircle2, AlertTriangle, XCircle, Loader2,
-    TrendingUp, Crown, ArrowUpRight
+    TrendingUp, Crown, ArrowUpRight, Megaphone, Send, Cpu, Database, Trash2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,6 +68,11 @@ export default function SuperAdminDashboard() {
     const [actionReason, setActionReason] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
+    const [announcementMsg, setAnnouncementMsg] = useState('');
+    const [announcementType, setAnnouncementType] = useState('info');
+    const [announcementLoading, setAnnouncementLoading] = useState(false);
+    const [activeAnnouncement, setActiveAnnouncement] = useState(null);
+
     // Animated counters
     const totalUsers = useCountUp(stats?.totals?.users);
     const totalOrgs = useCountUp(stats?.totals?.organizations);
@@ -77,12 +82,14 @@ export default function SuperAdminDashboard() {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const [statsRes, healthRes] = await Promise.all([
+                const [statsRes, healthRes, annRes] = await Promise.all([
                     api.get('/admin/stats'),
-                    api.get('/admin/health')
+                    api.get('/admin/health'),
+                    api.get('/announcements/active').catch(() => ({ data: null }))
                 ]);
                 setStats(statsRes.data);
                 setHealth(healthRes.data);
+                if (annRes?.data) setActiveAnnouncement(annRes.data);
             } catch {
                 toast.error('Failed to load dashboard stats');
             } finally {
@@ -142,6 +149,40 @@ export default function SuperAdminDashboard() {
             toast.error(error.response?.data?.message || 'Action failed');
         } finally {
             setActionLoading(false);
+        }
+    };
+
+    const handlePushAnnouncement = async () => {
+        if (!announcementMsg.trim()) {
+            return toast.error("Please enter a message");
+        }
+        setAnnouncementLoading(true);
+        try {
+            const { data } = await api.post('/admin/announcements', {
+                message: announcementMsg,
+                type: announcementType
+            });
+            toast.success("Announcement pushed live globally!");
+            setAnnouncementMsg('');
+            setActiveAnnouncement(data);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to push announcement');
+        } finally {
+            setAnnouncementLoading(false);
+        }
+    };
+
+    const handleDismissAnnouncement = async () => {
+        if (!activeAnnouncement) return;
+        setAnnouncementLoading(true);
+        try {
+            await api.put(`/admin/announcements/${activeAnnouncement._id}/dismiss`);
+            toast.success("Announcement removed");
+            setActiveAnnouncement(null);
+        } catch {
+            toast.error("Failed to dismiss");
+        } finally {
+            setAnnouncementLoading(false);
         }
     };
 
@@ -334,35 +375,129 @@ export default function SuperAdminDashboard() {
             </div>
 
             {/* ====== SYSTEM HEALTH + TOP ORGS + USER STATUS ====== */}
-            <div className="grid lg:grid-cols-3 gap-8">
-                {/* System Health */}
+            <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-6 lg:gap-8">
+                
+                {/* System Health Gauges */}
                 <Card className={cardStyle}>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-bold flex items-center gap-2">
-                            <Activity className="w-4 h-4" /> System Health
+                            <Activity className="w-4 h-4 text-emerald-500" /> System Health
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
-                            <span className="text-sm font-medium">Database</span>
-                            {health?.database?.connected ? (
-                                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-500" /><span className="text-emerald-600 text-xs font-semibold">Connected</span></div>
-                            ) : (
-                                <div className="flex items-center gap-1.5"><XCircle className="w-4 h-4 text-red-500" /><span className="text-red-600 text-xs font-semibold">Disconnected</span></div>
+                    <CardContent className="space-y-4 pt-2">
+                        <div className="flex gap-4 justify-around py-2">
+                            {/* CPU Gauge */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="relative w-24 h-24">
+                                    <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                                        <circle cx="50" cy="50" r="40" strokeWidth="8" stroke="currentColor" fill="transparent" className="text-muted/30" />
+                                        <circle 
+                                            cx="50" cy="50" r="40" strokeWidth="8" fill="transparent" 
+                                            stroke="hsl(var(--primary))" 
+                                            strokeLinecap="round"
+                                            strokeDasharray={2 * Math.PI * 40}
+                                            strokeDashoffset={2 * Math.PI * 40 - ((health?.system?.cpuPercent || 0) / 100) * (2 * Math.PI * 40)}
+                                            className="transition-all duration-1000 ease-out"
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <Cpu className="w-4 h-4 text-muted-foreground mb-0.5" />
+                                        <span className="text-lg font-bold tabular-nums">{health?.system?.cpuPercent || 0}%</span>
+                                    </div>
+                                </div>
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CPU Load</span>
+                            </div>
+
+                            {/* Memory Gauge */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="relative w-24 h-24">
+                                    <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                                        <circle cx="50" cy="50" r="40" strokeWidth="8" stroke="currentColor" fill="transparent" className="text-muted/30" />
+                                        <circle 
+                                            cx="50" cy="50" r="40" strokeWidth="8" fill="transparent" 
+                                            stroke="hsl(var(--chart-2))" 
+                                            strokeLinecap="round"
+                                            strokeDasharray={2 * Math.PI * 40}
+                                            strokeDashoffset={2 * Math.PI * 40 - ((health?.system?.memoryPercent || 0) / 100) * (2 * Math.PI * 40)}
+                                            className="transition-all duration-1000 ease-out"
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <Database className="w-4 h-4 text-muted-foreground mb-0.5" />
+                                        <span className="text-lg font-bold tabular-nums">{health?.system?.memoryPercent || 0}%</span>
+                                    </div>
+                                </div>
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Memory</span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50">
+                            <div className="bg-muted/30 p-2.5 rounded-lg">
+                                <p className="text-[10px] text-muted-foreground mb-1 uppercase font-semibold">Uptime</p>
+                                <p className="text-xs font-medium tabular-nums">{health?.uptime}</p>
+                            </div>
+                            <div className="bg-muted/30 p-2.5 rounded-lg">
+                                <p className="text-[10px] text-muted-foreground mb-1 uppercase font-semibold">Database</p>
+                                <div className="flex items-center gap-1.5">
+                                    {health?.database?.connected ? <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : <XCircle className="w-3 h-3 text-red-500" />}
+                                    <span className={`text-xs font-medium ${health?.database?.connected ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600'}`}>{health?.database?.status}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Global Announcement Composer */}
+                <Card className={`${cardStyle} flex flex-col`}>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Megaphone className="w-4 h-4 text-primary" />
+                                Global Banner
+                            </div>
+                            {activeAnnouncement && (
+                                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
+                                </Badge>
                             )}
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
-                            <span className="text-sm font-medium">Memory</span>
-                            <span className="text-xs text-muted-foreground font-medium">{health?.memory?.heapUsed} / {health?.memory?.heapTotal}</span>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
-                            <span className="text-sm font-medium">Uptime</span>
-                            <span className="text-xs text-muted-foreground font-medium">{health?.uptime}</span>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
-                            <span className="text-sm font-medium">Environment</span>
-                            <Badge variant="outline" className="text-[10px] font-semibold">{health?.environment}</Badge>
-                        </div>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col gap-3">
+                        {activeAnnouncement ? (
+                            <div className="flex-1 flex flex-col items-center justify-center text-center p-4 border border-border bg-muted/20 rounded-xl">
+                                <p className="text-sm font-medium italic mb-4 max-w-[200px] break-words">"{activeAnnouncement.message}"</p>
+                                <Button variant="destructive" size="sm" onClick={handleDismissAnnouncement} disabled={announcementLoading} className="w-full">
+                                    {announcementLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                                    Remove Banner
+                                </Button>
+                            </div>
+                        ) : (
+                            <>
+                                <Textarea 
+                                    placeholder="Write a message to broadcast to all users..." 
+                                    className="resize-none flex-1 min-h-[80px]" 
+                                    value={announcementMsg}
+                                    onChange={(e) => setAnnouncementMsg(e.target.value)}
+                                    maxLength={250}
+                                />
+                                <div className="flex gap-2">
+                                    <Select value={announcementType} onValueChange={setAnnouncementType}>
+                                        <SelectTrigger className="w-[110px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="info">Info</SelectItem>
+                                            <SelectItem value="success">Success</SelectItem>
+                                            <SelectItem value="warning">Warning</SelectItem>
+                                            <SelectItem value="danger">Danger</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button className="flex-1" onClick={handlePushAnnouncement} disabled={announcementLoading || !announcementMsg.trim()}>
+                                        {announcementLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 mr-2" />} Push
+                                    </Button>
+                                </div>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 

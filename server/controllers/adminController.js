@@ -2,9 +2,11 @@ const User = require('../models/User');
 const Organization = require('../models/Organization');
 const Project = require('../models/Project');
 const Task = require('../models/Task');
+const Announcement = require('../models/Announcement');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const sendEmail = require('../utils/sendEmail');
+const os = require('os');
 
 /**
  * @desc    Get dashboard statistics
@@ -142,6 +144,12 @@ const getSystemHealth = async (req, res) => {
         // Memory usage
         const memoryUsage = process.memoryUsage();
         const formatBytes = (bytes) => (bytes / 1024 / 1024).toFixed(2) + ' MB';
+        
+        // System Memory & CPU
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        const usedMemPercent = (((totalMem - freeMem) / totalMem) * 100).toFixed(1);
+        const cpuPercent = Math.min((os.loadavg()[0] / os.cpus().length) * 100, 100).toFixed(1);
 
         // Uptime
         const uptime = process.uptime();
@@ -156,6 +164,10 @@ const getSystemHealth = async (req, res) => {
             database: {
                 status: dbStates[dbState] || 'unknown',
                 connected: dbState === 1
+            },
+            system: {
+                cpuPercent: parseFloat(cpuPercent),
+                memoryPercent: parseFloat(usedMemPercent)
             },
             memory: {
                 heapUsed: formatBytes(memoryUsage.heapUsed),
@@ -357,6 +369,57 @@ const changeUserRole = async (req, res) => {
     }
 };
 
+/**
+ * @desc    Create a global announcement
+ * @route   POST /api/admin/announcements
+ */
+const createAnnouncement = async (req, res) => {
+    try {
+        const { message, type } = req.body;
+        
+        // Deactivate previous active announcements
+        await Announcement.updateMany({ isActive: true }, { isActive: false });
+
+        const announcement = await Announcement.create({
+            message,
+            type,
+            createdBy: req.user._id,
+            isActive: true
+        });
+
+        // Broadcast to all connected clients
+        if (req.io) {
+            req.io.emit('new_announcement', announcement);
+        }
+
+        res.status(201).json(announcement);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * @desc    Dismiss a global announcement
+ * @route   PUT /api/admin/announcements/:id/dismiss
+ */
+const dismissAnnouncement = async (req, res) => {
+    try {
+        const announcement = await Announcement.findByIdAndUpdate(
+            req.params.id,
+            { isActive: false },
+            { new: true }
+        );
+        
+        if (req.io) {
+            req.io.emit('clear_announcement');
+        }
+        
+        res.json(announcement);
+    } catch (error) {
+         res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getDashboardStats,
     getSystemHealth,
@@ -365,5 +428,7 @@ module.exports = {
     banUser,
     activateUser,
     adminResetPassword,
-    changeUserRole
+    changeUserRole,
+    createAnnouncement,
+    dismissAnnouncement
 };
