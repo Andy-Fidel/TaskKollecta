@@ -23,7 +23,11 @@ export function AnnouncementBanner() {
         fetchActive();
 
         // Listen for socket events
-        const socketUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+        const isProd = import.meta.env.PROD || window.location.hostname !== 'localhost';
+        const prodApi = import.meta.env.VITE_API_URL || 'https://taskkollecta-api.onrender.com/api';
+        const socketUrl = isProd
+          ? prodApi.replace('/api', '')
+          : 'http://localhost:5000';
         const socket = io(socketUrl, { withCredentials: true });
 
         socket.on('new_announcement', (data) => {

@@ -6,8 +6,10 @@ export const useSocket = (projectId) => {
   const previousProjectId = useRef(null);
 
   useEffect(() => {
-    const SOCKET_URL = import.meta.env.VITE_API_URL
-      ? import.meta.env.VITE_API_URL.replace('/api', '')
+    const isProd = import.meta.env.PROD || window.location.hostname !== 'localhost';
+    const prodApi = import.meta.env.VITE_API_URL || 'https://taskkollecta-api.onrender.com/api';
+    const SOCKET_URL = isProd
+      ? prodApi.replace('/api', '')
       : 'http://localhost:5000';
 
     const newSocket = io(SOCKET_URL);
