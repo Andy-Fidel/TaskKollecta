@@ -29,7 +29,7 @@ export default function PublicForm() {
     try {
         await api.post(`/forms/${formId}/submit`, formData);
         setSubmitted(true);
-    } catch (error) {
+    } catch {
         alert("Submission failed.");
     }
   };
