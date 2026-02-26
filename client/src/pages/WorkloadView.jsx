@@ -48,22 +48,40 @@ export default function WorkloadView() {
 
   useEffect(() => {
     if (!orgId) return;
-    setSelectedProject('');
-    setData(null);
-    api.get(`/projects/${orgId}`).then(({ data }) => {
-      setProjects(data);
-      if (data.length > 0) setSelectedProject(data[0]._id);
-    }).catch(() => setProjects([]));
+    
+    // Clear data immediately, but avoid cascading render triggers. We handle it in the async context via IIFE.
+    const fetchProjects = async () => {
+      setSelectedProject('');
+      setData(null);
+      try {
+        const { data } = await api.get(`/projects/${orgId}`);
+        setProjects(data);
+        if (data.length > 0) setSelectedProject(data[0]._id);
+      } catch {
+        setProjects([]);
+      }
+    };
+    
+    void fetchProjects();
   }, [orgId]);
 
   // Fetch workload data
   useEffect(() => {
     if (!selectedProject) return;
-    setLoading(true);
-    api.get(`/analytics/workload/${selectedProject}`)
-      .then(({ data }) => setData(data))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+    
+    const fetchWorkload = async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get(`/analytics/workload/${selectedProject}`);
+        setData(data);
+      } catch {
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    void fetchWorkload();
   }, [selectedProject]);
 
   // Build chart data
