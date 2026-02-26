@@ -480,8 +480,8 @@ const impersonateUser = async (req, res) => {
 };
 
 module.exports = {
-    // getDashboardStats, // Uncomment if these functions are defined
-    // getSystemHealth,   // Uncomment if these functions are defined
+    getDashboardStats,
+    getSystemHealth,
     getAllUsers,
     suspendUser,
     banUser,
