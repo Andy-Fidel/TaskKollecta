@@ -7,7 +7,8 @@ import {
     Activity, Shield, Ban, RefreshCw, Key,
     Search, ChevronLeft, ChevronRight, MoreHorizontal,
     CheckCircle2, AlertTriangle, XCircle, Loader2,
-    TrendingUp, Crown, ArrowUpRight, Megaphone, Send, Cpu, Database, Trash2
+    TrendingUp, Crown, ArrowUpRight, Megaphone, Send, Cpu, Database, Trash2,
+    Eye, UserCheck, Clock, CalendarDays, History
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,9 +26,13 @@ import {
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
+import {
+    Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
+} from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 
 // --- Animated count-up hook ---
 function useCountUp(target, duration = 1200) {
@@ -54,6 +59,7 @@ function useCountUp(target, duration = 1200) {
 }
 
 export default function SuperAdminDashboard() {
+    const { user } = useAuth();
     const [stats, setStats] = useState(null);
     const [health, setHealth] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -72,6 +78,12 @@ export default function SuperAdminDashboard() {
     const [announcementType, setAnnouncementType] = useState('info');
     const [announcementLoading, setAnnouncementLoading] = useState(false);
     const [activeAnnouncement, setActiveAnnouncement] = useState(null);
+
+    // User Details Drawer & Impersonation
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [drawerDetails, setDrawerDetails] = useState(null);
+    const [drawerLoading, setDrawerLoading] = useState(false);
+    const [impersonating, setImpersonating] = useState(false);
 
     // Animated counters
     const totalUsers = useCountUp(stats?.totals?.users);
@@ -142,13 +154,52 @@ export default function SuperAdminDashboard() {
                     toast.success('Password reset email sent');
                     break;
             }
-            setActionDialog({ open: false, type: '', user: null });
-            setActionReason('');
             fetchUsers(pagination.page);
         } catch (error) {
             toast.error(error.response?.data?.message || 'Action failed');
         } finally {
             setActionLoading(false);
+            setActionDialog({ open: false, type: '', user: null });
+            setActionReason('');
+        }
+    };
+
+    const handleViewDetails = async (user) => {
+        setDrawerDetails({ user }); // Show base details instantly
+        setDrawerOpen(true);
+        setDrawerLoading(true);
+        try {
+            const { data } = await api.get(`/admin/users/${user._id}/details`);
+            setDrawerDetails(data);
+        } catch {
+            toast.error('Failed to load user details');
+        } finally {
+            setDrawerLoading(false);
+        }
+    };
+
+    const handleImpersonate = async (user) => {
+        setImpersonating(true);
+        try {
+            const { data } = await api.post(`/admin/users/${user._id}/impersonate`);
+            // data contains: token, _id, name, email, avatar, role, isImpersonated
+            // The AuthContext uses localStorage 'token' and 'userInfo'
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('userInfo', JSON.stringify({
+                _id: data._id,
+                name: data.name,
+                email: data.email,
+                avatar: data.avatar,
+                role: data.role,
+                onboardingCompleted: data.onboardingCompleted,
+                isImpersonated: true
+            }));
+            
+            // Reload the app to completely clear state and simulate a fresh login
+            window.location.href = '/dashboard';
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to impersonate user');
+            setImpersonating(false);
         }
     };
 
@@ -623,6 +674,7 @@ export default function SuperAdminDashboard() {
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Role</th>
                                     <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Joined</th>
+                                    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden xl:table-cell">Last Login</th>
                                     <th className="text-right py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
@@ -693,6 +745,12 @@ export default function SuperAdminDashboard() {
                                                     {new Date(user.createdAt).toLocaleDateString()}
                                                 </span>
                                             </td>
+                                            <td className="py-3 px-4 hidden xl:table-cell">
+                                                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                                    <Clock className="w-3 h-3" />
+                                                    {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}
+                                                </span>
+                                            </td>
                                             <td className="py-3 px-4 text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -701,6 +759,10 @@ export default function SuperAdminDashboard() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => handleViewDetails(user)} className="cursor-pointer">
+                                                            <Eye className="w-4 h-4 mr-2 text-primary" /> View Details
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
                                                         {user.status !== 'active' && (
                                                             <DropdownMenuItem onClick={() => setActionDialog({ open: true, type: 'activate', user })}>
                                                                 <RefreshCw className="w-4 h-4 mr-2" /> Activate
@@ -803,6 +865,87 @@ export default function SuperAdminDashboard() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* ====== USER DETAILS DRAWER ====== */}
+            <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="mb-6">
+                        <SheetTitle>User Details</SheetTitle>
+                        <SheetDescription>
+                            Detailed view and history
+                        </SheetDescription>
+                    </SheetHeader>
+
+                    {drawerLoading ? (
+                        <div className="flex justify-center p-12">
+                            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : drawerDetails?.user ? (
+                        <div className="space-y-8 pb-8">
+                            {/* Profile Header */}
+                            <div className="flex items-center gap-4">
+                                <Avatar className="h-16 w-16 border-2 border-primary/20">
+                                    <AvatarImage src={drawerDetails.user.avatar} />
+                                    <AvatarFallback className="text-2xl">{drawerDetails.user.name?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <h3 className="text-xl font-bold">{drawerDetails.user.name}</h3>
+                                    <p className="text-sm text-muted-foreground">{drawerDetails.user.email}</p>
+                                    <div className="flex gap-2 mt-2">
+                                        {getStatusBadge(drawerDetails.user.status || 'active')}
+                                        {getRoleBadge(drawerDetails.user.role || 'user')}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Actions */}
+                            {drawerDetails.user._id !== user._id && (
+                                <div className="flex gap-2">
+                                    <Button onClick={() => handleImpersonate(drawerDetails.user)} disabled={impersonating} className="w-full rounded-xl bg-primary/10 text-primary hover:bg-primary/20">
+                                        {impersonating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UserCheck className="w-4 h-4 mr-2" />}
+                                        Login As User
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Stats */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-muted/30 p-3 rounded-xl border border-border">
+                                    <p className="text-xs text-muted-foreground mb-1">Organizations</p>
+                                    <p className="font-bold">{drawerDetails.organizations?.length || 0}</p>
+                                </div>
+                                <div className="bg-muted/30 p-3 rounded-xl border border-border">
+                                    <p className="text-xs text-muted-foreground mb-1">Projects</p>
+                                    <p className="font-bold">{drawerDetails.projects?.length || 0}</p>
+                                </div>
+                            </div>
+
+                            {/* Login History */}
+                            <div className="space-y-3">
+                                <h4 className="text-sm font-semibold flex items-center gap-2">
+                                    <History className="w-4 h-4" /> Recent Logins
+                                </h4>
+                                {drawerDetails.user.loginHistory?.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {[...drawerDetails.user.loginHistory].reverse().slice(0, 5).map((login, i) => (
+                                            <div key={i} className="text-[10px] flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-border">
+                                                <div className="flex items-center gap-2 text-muted-foreground">
+                                                    <Clock className="w-3 h-3" />
+                                                    {new Date(login.timestamp).toLocaleString()}
+                                                </div>
+                                                <span className="truncate max-w-[100px] text-slate-500" title={login.device}>{login.device?.split(' ')[0]}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground">No login history recorded.</p>
+                                )}
+                            </div>
+
+                        </div>
+                    ) : null}
+                </SheetContent>
+            </Sheet>
 
             {/* Inline CSS animations */}
             <style>{`

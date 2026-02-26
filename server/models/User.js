@@ -77,7 +77,15 @@ const userSchema = new mongoose.Schema({
 
   // Invite tracking
   isInvitee: { type: Boolean, default: false },
-  invitedToOrg: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' }
+  invitedToOrg: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
+
+  // Login Tracking
+  lastLogin: { type: Date },
+  loginHistory: [{
+    timestamp: { type: Date, default: Date.now },
+    ip: { type: String },
+    device: { type: String }
+  }]
 }, { timestamps: true });
 
 // --- PASSWORD ENCRYPTION MIDDLEWARE ---

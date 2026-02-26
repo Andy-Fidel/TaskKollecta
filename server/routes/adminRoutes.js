@@ -12,7 +12,9 @@ const {
     adminResetPassword,
     changeUserRole,
     createAnnouncement,
-    dismissAnnouncement
+    dismissAnnouncement,
+    getUserDetails,
+    impersonateUser
 } = require('../controllers/adminController');
 
 // All routes require authentication + superadmin role
@@ -29,6 +31,8 @@ router.put('/users/:id/ban', banUser);
 router.put('/users/:id/activate', activateUser);
 router.post('/users/:id/reset-password', adminResetPassword);
 router.put('/users/:id/role', changeUserRole);
+router.get('/users/:id/details', getUserDetails);
+router.post('/users/:id/impersonate', impersonateUser);
 
 // Announcements
 router.post('/announcements', createAnnouncement);

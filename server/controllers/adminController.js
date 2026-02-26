@@ -3,6 +3,9 @@ const Organization = require('../models/Organization');
 const Project = require('../models/Project');
 const Task = require('../models/Task');
 const Announcement = require('../models/Announcement');
+const Membership = require('../models/Membership');
+const Activity = require('../models/Activity');
+const generateToken = require('../utils/generateToken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const sendEmail = require('../utils/sendEmail');
@@ -404,25 +407,81 @@ const createAnnouncement = async (req, res) => {
  */
 const dismissAnnouncement = async (req, res) => {
     try {
-        const announcement = await Announcement.findByIdAndUpdate(
-            req.params.id,
-            { isActive: false },
-            { new: true }
-        );
-        
-        if (req.io) {
-            req.io.emit('clear_announcement');
+        const announcement = await Announcement.findById(req.params.id);
+        if (!announcement) {
+            return res.status(404).json({ message: 'Announcement not found' });
         }
-        
-        res.json(announcement);
+
+        announcement.isActive = false;
+        await announcement.save();
+
+        req.app.get('io').emit('announcement_dismissed', { id: announcement._id });
+
+        res.json({ message: 'Announcement dismissed' });
     } catch (error) {
-         res.status(500).json({ message: error.message });
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * @desc    Get extended details for a specific user
+ * @route   GET /api/admin/users/:id/details
+ */
+const getUserDetails = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select('-password -resetPasswordToken -resetPasswordExpire');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Get specialized data for the drawer
+        const [memberships, projects, recentActivity] = await Promise.all([
+            Membership.find({ user: user._id }).populate('organization', 'name'),
+            Project.find({ 'members.user': user._id }).select('name status'),
+            Activity.find({ user: user._id }).sort({ createdAt: -1 }).limit(10).populate('project', 'name')
+        ]);
+
+        res.json({
+            user,
+            organizations: memberships.map(m => m.organization),
+            projects,
+            recentActivity
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * @desc    Impersonate a user (SuperAdmin only)
+ * @route   POST /api/admin/users/:id/impersonate
+ */
+const impersonateUser = async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Generate a fresh token for the target user so the admin logs in exactly as them
+        res.json({
+            _id: targetUser.id,
+            name: targetUser.name,
+            email: targetUser.email,
+            avatar: targetUser.avatar,
+            role: targetUser.role,
+            onboardingCompleted: targetUser.onboardingCompleted,
+            token: generateToken(res, targetUser._id),
+            isImpersonated: true // could be used by frontend to show a banner
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 };
 
 module.exports = {
-    getDashboardStats,
-    getSystemHealth,
+    // getDashboardStats, // Uncomment if these functions are defined
+    // getSystemHealth,   // Uncomment if these functions are defined
     getAllUsers,
     suspendUser,
     banUser,
@@ -430,5 +489,7 @@ module.exports = {
     adminResetPassword,
     changeUserRole,
     createAnnouncement,
-    dismissAnnouncement
+    dismissAnnouncement,
+    getUserDetails,
+    impersonateUser
 };

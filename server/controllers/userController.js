@@ -86,6 +86,18 @@ const loginUser = async (req, res) => {
 
 
     if (user && (await bcrypt.compare(password, user.password))) {
+      // Record login details
+      user.lastLogin = Date.now();
+      user.loginHistory.push({
+        ip: req.ip || req.connection.remoteAddress,
+        device: req.headers['user-agent'] || 'Unknown'
+      });
+      // Keep only last 20 logins to avoid document bloat
+      if (user.loginHistory.length > 20) {
+        user.loginHistory = user.loginHistory.slice(-20);
+      }
+      await user.save({ validateBeforeSave: false });
+
       res.json({
         _id: user.id,
         name: user.name,
