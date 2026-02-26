@@ -36,15 +36,16 @@ export function NotificationBell() {
     return () => socket.disconnect();
   }, [user]);
 
-  const fetchNotifications = async () => {
-    try {
-      const { data } = await api.get('/notifications');
-      setNotifications(data.notifications);
-      setUnreadCount(data.unreadCount);
-    } catch (error) { console.error("Failed to fetch notifications"); }
-  };
 
-  useEffect(() => { fetchNotifications(); }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/notifications');
+        setNotifications(data.notifications);
+        setUnreadCount(data.unreadCount);
+      } catch { /* ignore */ }
+    })();
+  }, []);
 
   
   const handleOpenChange = async (open) => {
@@ -63,7 +64,7 @@ export function NotificationBell() {
       try {
           await api.delete(`/notifications/${id}`);
           setNotifications(prev => prev.filter(n => n._id !== id));
-      } catch (e) { console.error("Failed to delete"); }
+      } catch { console.error("Failed to delete"); }
   };
 
   const handleClearAll = async () => {
@@ -71,7 +72,7 @@ export function NotificationBell() {
           await api.delete('/notifications');
           setNotifications([]);
           setUnreadCount(0);
-      } catch (e) { console.error("Failed to clear all"); }
+      } catch { console.error("Failed to clear all"); }
   };
 
   return (
