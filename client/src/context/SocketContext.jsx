@@ -10,9 +10,13 @@ export const SocketProvider = ({ children }) => {
   // Initialize socket with lazy initializer to ensure it's created only once
   // passing autoConnect: false to manage connection in useEffect
   const [socket] = useState(() => {
-    const SOCKET_URL = import.meta.env.VITE_API_URL
-      ? import.meta.env.VITE_API_URL.replace('/api', '')
+    // Resolve the backend URL depending on if we are dev or prod
+    const isProd = import.meta.env.PROD || window.location.hostname !== 'localhost';
+    const prodApi = import.meta.env.VITE_API_URL || 'https://taskkollecta-api.onrender.com/api';
+    const SOCKET_URL = isProd 
+      ? prodApi.replace('/api', '') 
       : 'http://localhost:5000';
+      
     return io(SOCKET_URL, {
       autoConnect: false,
       auth: {
