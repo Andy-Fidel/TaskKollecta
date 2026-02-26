@@ -36,7 +36,7 @@ const sendNotification = async (io, { recipientId, senderId, type, relatedId, re
       .populate('sender', 'name avatar');
 
     // Emit Real-time Event via Socket.io
-    io.to(recipientId.toString()).emit('new_notification', populated);
+    io.to(`user_${recipientId.toString()}`).emit('new_notification', populated);
 
     return populated;
   } catch (error) {

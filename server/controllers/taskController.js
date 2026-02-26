@@ -98,8 +98,17 @@ const createTask = async (req, res) => {
       details: `created the task "${task.title}"`
     });
 
-    // Send email notification for assignment
+    // Send in-app + email notification for assignment
     if (resolvedAssignee && resolvedAssignee.toString() !== req.user._id.toString()) {
+      await sendNotification(req.io, {
+        recipientId: resolvedAssignee,
+        senderId: req.user._id,
+        type: 'task_assigned',
+        relatedId: populatedTask._id,
+        relatedModel: 'Task',
+        message: `assigned you to task: ${populatedTask.title}`
+      });
+
       await sendTaskAssignmentEmail(resolvedAssignee, {
         assignerName: req.user.name,
         task: populatedTask,

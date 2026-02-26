@@ -11,30 +11,26 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import io from 'socket.io-client';
+import { useContext } from 'react';
+import { SocketContext } from '../context/socketContextDef';
 
 export function NotificationBell() {
   const { user } = useAuth();
+  const { socket } = useContext(SocketContext);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
 
   
   useEffect(() => {
-    if (!user) return;
-    const isProd = import.meta.env.PROD || window.location.hostname !== 'localhost';
-    const prodApi = import.meta.env.VITE_API_URL || 'https://taskkollecta-api.onrender.com/api';
-    const SOCKET_URL = isProd
-      ? prodApi.replace('/api', '')
-      : 'http://localhost:5000';
-    const socket = io(SOCKET_URL);
-    socket.emit('join_user_room', user._id);
-    socket.on('new_notification', (newNotif) => {
+    if (!user || !socket) return;
+    const handleNewNotification = (newNotif) => {
       setNotifications(prev => [newNotif, ...prev]);
       setUnreadCount(prev => prev + 1);
-    });
-    return () => socket.disconnect();
-  }, [user]);
+    };
+    socket.on('new_notification', handleNewNotification);
+    return () => socket.off('new_notification', handleNewNotification);
+  }, [user, socket]);
 
 
   useEffect(() => {
