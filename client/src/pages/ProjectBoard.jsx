@@ -23,6 +23,7 @@ import { AdvancedFilters, applyFilters } from '@/components/Filters/AdvancedFilt
 
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { toast } from 'sonner';
 import { useSocket } from '../hooks/useSocket';
 import { KanbanColumn } from '../components/KanbanColumn';
 import { TaskDetailsModal } from '../components/TaskDetailsModal';
@@ -304,6 +305,7 @@ export default function ProjectBoard() {
       const { data } = await api.post('/tasks', payload);
       setTasks([data, ...tasks]);
       if (socket) socket.emit('task_created', { task: data, projectId });
+      toast.success('Task created successfully');
       setNewTaskTitle('');
       setNewTaskDescription('');
       setNewTaskStartDate(null);
@@ -313,7 +315,7 @@ export default function ProjectBoard() {
       setNewTaskAssignee(null);
       setAssigneeSearch('');
       setIsCreateModalOpen(false);
-    } catch { alert('Error creating task'); }
+    } catch { toast.error('Failed to create task'); }
   };
 
   return (

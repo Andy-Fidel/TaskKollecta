@@ -697,7 +697,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                             </div>
 
                             {/* ACTIVITY & CHAT FEED */}
-                            <div className="flex-1 flex flex-col min-h-0 bg-background hidden lg:flex">
+                            <div className="flex-1 flex flex-col min-h-0 bg-background">
                                 <div className="p-3 border-b border-border bg-muted/20 flex items-center gap-2">
                                     <History className="w-3.5 h-3.5 text-muted-foreground" />
                                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activity</span>

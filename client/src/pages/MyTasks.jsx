@@ -45,7 +45,8 @@ export default function MyTasks() {
       </div>
 
       <Card className="border border-white/60 shadow-sm rounded-2xl bg-white min-h-[500px]">
-        <CardHeader className="border-b border-gray-50 bg-slate-50/50 rounded-t-2xl">
+        {/* Desktop header — hidden on mobile */}
+        <CardHeader className="border-b border-gray-50 bg-slate-50/50 rounded-t-2xl hidden md:block">
           <div className="grid grid-cols-12 text-xs font-bold text-slate-500 uppercase tracking-wider pl-2">
              <div className="col-span-6">Task Name</div>
              <div className="col-span-3">Project</div>
@@ -58,43 +59,68 @@ export default function MyTasks() {
             <div className="p-10 text-center text-slate-400">No tasks assigned to you.</div>
           ) : (
             tasks.map((task) => (
-              <div key={task._id} className="grid grid-cols-12 items-center p-4 border-b border-gray-50 hover:bg-slate-50 transition group">
-                
-                {/* Task Title + Checkbox */}
-                <div className="col-span-6 flex items-center gap-3">
-                   <button onClick={() => toggleTask(task._id, task.status)} className="text-slate-300 hover:text-green-600 transition">
+              <div key={task._id} className="p-4 border-b border-gray-50 hover:bg-slate-50 transition group">
+
+                {/* Desktop row */}
+                <div className="hidden md:grid grid-cols-12 items-center">
+                  <div className="col-span-6 flex items-center gap-3">
+                     <button onClick={() => toggleTask(task._id, task.status)} className="text-slate-300 hover:text-green-600 transition">
+                        {task.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <Circle className="w-5 h-5" />}
+                     </button>
+                     <span className={`text-sm font-medium ${task.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                        {task.title}
+                     </span>
+                  </div>
+                  <div className="col-span-3">
+                      {task.project && (
+                          <Link to={`/project/${task.project._id}`} className="flex items-center text-xs text-slate-500 hover:text-blue-600 hover:underline">
+                             {task.project.name} <ArrowRight className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100" />
+                          </Link>
+                      )}
+                  </div>
+                  <div className="col-span-2 flex items-center text-xs text-slate-500">
+                      {task.dueDate && (
+                          <span className={new Date(task.dueDate) < new Date() && task.status !== 'done' ? 'text-red-500 font-bold' : ''}>
+                             {format(new Date(task.dueDate), 'MMM d')}
+                          </span>
+                      )}
+                  </div>
+                  <div className="col-span-1">
+                      <Badge variant="outline" className={`text-[10px] capitalize 
+                          ${task.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-500 border-slate-100'}
+                      `}>
+                          {task.priority}
+                      </Badge>
+                  </div>
+                </div>
+
+                {/* Mobile card layout */}
+                <div className="md:hidden space-y-2">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => toggleTask(task._id, task.status)} className="text-slate-300 hover:text-green-600 transition shrink-0">
                       {task.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <Circle className="w-5 h-5" />}
-                   </button>
-                   <span className={`text-sm font-medium ${task.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                    </button>
+                    <span className={`text-sm font-medium ${task.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                       {task.title}
-                   </span>
-                </div>
-
-                {/* Project Link */}
-                <div className="col-span-3">
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 pl-8 flex-wrap">
                     {task.project && (
-                        <Link to={`/project/${task.project._id}`} className="flex items-center text-xs text-slate-500 hover:text-blue-600 hover:underline">
-                           {task.project.name} <ArrowRight className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100" />
-                        </Link>
+                      <Link to={`/project/${task.project._id}`} className="text-xs text-slate-500 hover:text-blue-600 hover:underline">
+                        {task.project.name}
+                      </Link>
                     )}
-                </div>
-
-                {/* Due Date */}
-                <div className="col-span-2 flex items-center text-xs text-slate-500">
                     {task.dueDate && (
-                        <span className={new Date(task.dueDate) < new Date() && task.status !== 'done' ? 'text-red-500 font-bold' : ''}>
-                           {format(new Date(task.dueDate), 'MMM d')}
-                        </span>
+                      <span className={`text-xs flex items-center gap-1 ${new Date(task.dueDate) < new Date() && task.status !== 'done' ? 'text-red-500 font-bold' : 'text-slate-500'}`}>
+                        <Calendar className="w-3 h-3" /> {format(new Date(task.dueDate), 'MMM d')}
+                      </span>
                     )}
-                </div>
-
-                {/* Priority */}
-                <div className="col-span-1">
                     <Badge variant="outline" className={`text-[10px] capitalize 
                         ${task.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-500 border-slate-100'}
                     `}>
                         {task.priority}
                     </Badge>
+                  </div>
                 </div>
 
               </div>
