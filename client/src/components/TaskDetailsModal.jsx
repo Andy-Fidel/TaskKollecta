@@ -71,7 +71,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     // --- 2. EFFECTS ---
     useEffect(() => {
         if (isOpen && task) {
-            api.get(`/comments/${task._id}`).then(({ data }) => setComments(data)).catch(() => { });
+            api.get(`/comments/${task._id}`).then(({ data }) => setComments(data.comments || [])).catch(() => { });
             api.get(`/activities/task/${task._id}`).then(({ data }) => setActivities(data)).catch(() => { });
 
             // Fetch team members from organization - use orgId prop, task.organization, or localStorage fallback
