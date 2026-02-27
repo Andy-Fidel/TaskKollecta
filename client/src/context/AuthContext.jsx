@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useContext } from 'react';
 import api from '../api/axios';
+import { useIdleTimeout } from '../hooks/useIdleTimeout';
 
 const AuthContext = createContext();
 
@@ -40,6 +41,9 @@ export const AuthProvider = ({ children }) => {
     // Clear any other cached filters
     localStorage.removeItem('project_filter');
   };
+
+  // Auto-logout after 2 hours of inactivity
+  useIdleTimeout(user, logout);
 
   return (
     <AuthContext.Provider value={{ user, login, logout, loading }}>
