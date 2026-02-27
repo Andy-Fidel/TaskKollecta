@@ -46,7 +46,9 @@ export default function Team() {
     const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
 
     // Forms
-    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviteEmails, setInviteEmails] = useState([]);
+    const [inviteInput, setInviteInput] = useState('');
+    const [inviteSending, setInviteSending] = useState(false);
     const [newOrgName, setNewOrgName] = useState('');
 
     // Org Settings State
@@ -148,15 +150,51 @@ export default function Team() {
         }
     };
 
+    const addInviteEmail = (raw) => {
+        const email = raw.trim().toLowerCase();
+        if (!email) return;
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error(`"${email}" is not a valid email`); return; }
+        if (inviteEmails.includes(email)) { toast.error('Email already added'); return; }
+        setInviteEmails(prev => [...prev, email]);
+        setInviteInput('');
+    };
+
+    const handleInviteKeyDown = (e) => {
+        if (['Enter', 'Tab', ','].includes(e.key)) {
+            e.preventDefault();
+            addInviteEmail(inviteInput);
+        }
+        if (e.key === 'Backspace' && !inviteInput && inviteEmails.length > 0) {
+            setInviteEmails(prev => prev.slice(0, -1));
+        }
+    };
+
     const handleInvite = async (e) => {
         e.preventDefault();
+        // Add any leftover text in the input
+        const all = [...inviteEmails];
+        if (inviteInput.trim()) {
+            const extra = inviteInput.trim().toLowerCase();
+            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(extra) && !all.includes(extra)) all.push(extra);
+        }
+        if (all.length === 0) { toast.error('Add at least one email'); return; }
+        setInviteSending(true);
         try {
-            await api.post('/invites', { email: inviteEmail, organizationId: selectedOrgId });
+            const { data } = await api.post('/invites/bulk', { emails: all, organizationId: selectedOrgId });
+            const sentCount = data.sent?.length || 0;
+            const failedCount = data.failed?.length || 0;
+            if (sentCount > 0) toast.success(`${sentCount} invite${sentCount > 1 ? 's' : ''} sent!`);
+            if (failedCount > 0) {
+                const reasons = data.failed.map(f => `${f.email}: ${f.reason}`).join('\n');
+                toast.error(`${failedCount} failed:\n${reasons}`, { duration: 6000 });
+            }
             setIsInviteOpen(false);
-            setInviteEmail('');
-            toast.success('Invitation sent!');
-        } catch (error) { 
-            toast.error(error.response?.data?.message || "Failed to send invite"); 
+            setInviteEmails([]);
+            setInviteInput('');
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to send invites');
+        } finally {
+            setInviteSending(false);
         }
     };
 
@@ -533,13 +571,39 @@ export default function Team() {
                 </DialogContent>
             </Dialog>
 
-            {/* --- Invite Modal --- */}
-            <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
-                <DialogContent>
-                    <DialogHeader><DialogTitle>Invite Member</DialogTitle><DialogDescription>Add via email.</DialogDescription></DialogHeader>
-                    <form onSubmit={handleInvite} className="space-y-4 py-4">
-                        <Input placeholder="Email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
-                        <Button type="submit" className="w-full">Invite</Button>
+            {/* --- Invite Modal (Multi-Email) --- */}
+            <Dialog open={isInviteOpen} onOpenChange={(open) => { setIsInviteOpen(open); if (!open) { setInviteEmails([]); setInviteInput(''); } }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Invite Members</DialogTitle>
+                        <DialogDescription>Add multiple emails. Press Enter, Tab, or comma after each one.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleInvite} className="space-y-4 py-2">
+                        <div className="min-h-[48px] flex flex-wrap gap-1.5 p-2 border border-border rounded-xl bg-background focus-within:ring-2 focus-within:ring-ring">
+                            {inviteEmails.map((email) => (
+                                <span key={email} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2.5 py-1 rounded-lg">
+                                    {email}
+                                    <button type="button" onClick={() => setInviteEmails(prev => prev.filter(e => e !== email))} className="hover:text-red-500 transition-colors">
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </span>
+                            ))}
+                            <input
+                                type="text"
+                                value={inviteInput}
+                                onChange={e => setInviteInput(e.target.value)}
+                                onKeyDown={handleInviteKeyDown}
+                                onBlur={() => addInviteEmail(inviteInput)}
+                                placeholder={inviteEmails.length === 0 ? 'name@example.com' : ''}
+                                className="flex-1 min-w-[140px] outline-none bg-transparent text-sm placeholder:text-muted-foreground"
+                            />
+                        </div>
+                        {inviteEmails.length > 0 && (
+                            <p className="text-xs text-muted-foreground">{inviteEmails.length} email{inviteEmails.length > 1 ? 's' : ''} ready to send</p>
+                        )}
+                        <Button type="submit" className="w-full" disabled={inviteSending || (inviteEmails.length === 0 && !inviteInput.trim())}>
+                            {inviteSending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : <><Mail className="w-4 h-4 mr-2" />Send {inviteEmails.length > 1 ? `${inviteEmails.length} Invites` : 'Invite'}</>}
+                        </Button>
                     </form>
                 </DialogContent>
             </Dialog>

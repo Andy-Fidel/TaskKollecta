@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const {
     createInvite,
+    createBulkInvites,
     validateInvite,
     acceptInvite,
     getOrgInvites,
@@ -11,6 +12,7 @@ const {
 
 // Protected routes (specific paths first)
 router.post('/', protect, createInvite);
+router.post('/bulk', protect, createBulkInvites);
 router.get('/org/:orgId', protect, getOrgInvites);
 
 // Parameterized routes (must come after specific routes)

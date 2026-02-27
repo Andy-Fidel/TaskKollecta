@@ -229,8 +229,97 @@ const cancelInvite = async (req, res) => {
     }
 };
 
+/**
+ * @desc    Bulk invite multiple emails at once
+ * @route   POST /api/invites/bulk
+ */
+const createBulkInvites = async (req, res) => {
+    try {
+        const { emails, organizationId, role = 'member' } = req.body;
+
+        if (!Array.isArray(emails) || emails.length === 0) {
+            return res.status(400).json({ message: 'Please provide at least one email' });
+        }
+        if (emails.length > 20) {
+            return res.status(400).json({ message: 'Maximum 20 invites at a time' });
+        }
+
+        // Validate org + permissions once
+        const org = await Organization.findById(organizationId);
+        if (!org) return res.status(404).json({ message: 'Organization not found' });
+
+        const membership = await Membership.findOne({
+            user: req.user._id,
+            organization: organizationId
+        });
+        if (!membership || !['owner', 'admin'].includes(membership.role)) {
+            return res.status(403).json({ message: 'Not authorized to invite' });
+        }
+
+        const sent = [];
+        const failed = [];
+
+        for (const rawEmail of emails) {
+            const email = rawEmail.trim().toLowerCase();
+            if (!email) continue;
+
+            try {
+                // Check duplicate pending invite
+                const existingInvite = await Invite.findOne({ email, organization: organizationId, status: 'pending' });
+                if (existingInvite) {
+                    failed.push({ email, reason: 'Already invited' });
+                    continue;
+                }
+
+                // Check if already a member
+                const existingUser = await User.findOne({ email });
+                if (existingUser) {
+                    const isMember = await Membership.findOne({ user: existingUser._id, organization: organizationId });
+                    if (isMember) {
+                        failed.push({ email, reason: 'Already a member' });
+                        continue;
+                    }
+                }
+
+                // Create invite
+                const invite = await Invite.create({
+                    email,
+                    organization: organizationId,
+                    invitedBy: req.user._id,
+                    role
+                });
+
+                // Send email
+                const inviteUrl = `${process.env.CLIENT_URL}/login?invite=${invite.token}`;
+                await sendEmail({
+                    email,
+                    subject: `You're invited to join ${org.name} on TaskKollecta`,
+                    message: `
+                        <h2>You've Been Invited!</h2>
+                        <p><strong>${req.user.name}</strong> has invited you to join <strong>${org.name}</strong> on TaskKollecta.</p>
+                        <p>Click the link below to accept the invitation:</p>
+                        <a href="${inviteUrl}" style="display:inline-block;margin-top:15px;padding:12px 24px;background:#6366f1;color:#fff;text-decoration:none;border-radius:8px;font-weight:500;">
+                          Accept Invitation
+                        </a>
+                        <p style="margin-top:20px;color:#666;font-size:14px;">This invite expires in 7 days.</p>
+                    `
+                });
+
+                sent.push({ email });
+            } catch {
+                failed.push({ email, reason: 'Failed to send' });
+            }
+        }
+
+        res.status(201).json({ sent, failed });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     createInvite,
+    createBulkInvites,
     validateInvite,
     acceptInvite,
     getOrgInvites,
