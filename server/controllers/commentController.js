@@ -34,65 +34,65 @@ const addComment = async (req, res) => {
 
     const fullComment = await Comment.findById(comment._id).populate('user', 'name avatar');
 
-    // --- NOTIFICATION 1: ASSIGNEE ---
-    if (task && task.assignee && task.assignee.toString() !== req.user._id.toString()) {
-      await sendNotification(req.io, {
-        recipientId: task.assignee,
-        senderId: req.user._id,
-        type: 'new_comment',
-        relatedId: taskId,
-        relatedModel: 'Task',
-        message: `commented on: ${task.title}`
-      });
+    // Send the response FIRST, then handle notifications
+    res.status(201).json(fullComment);
 
-      // Send email notification
-      await sendCommentEmail(task.assignee, {
-        commenterName: req.user.name,
-        task,
-        projectId: task.project,
-        comment: content
-      });
-    }
-
-    // --- NOTIFICATION 2: MENTIONS (@User) ---
-    const mentionRegex = /@(\w+)/g;
-    const mentions = content.match(mentionRegex);
-
-    if (mentions) {
-      // Remove '@' and get unique names
-      const uniqueNames = [...new Set(mentions.map(m => m.substring(1)))];
-
-      for (const name of uniqueNames) {
-        // ✅ FIX: Changed regex to 'starts with' (^... not ^...$) 
-        // This allows @John to match "John Doe"
-        const mentionedUser = await User.findOne({
-          name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, "i") }
+    // --- BACKGROUND: NOTIFICATIONS (failures must NOT affect the comment) ---
+    try {
+      // NOTIFICATION 1: ASSIGNEE
+      if (task && task.assignee && task.assignee.toString() !== req.user._id.toString()) {
+        await sendNotification(req.io, {
+          recipientId: task.assignee,
+          senderId: req.user._id,
+          type: 'new_comment',
+          relatedId: taskId,
+          relatedModel: 'Task',
+          message: `commented on: ${task.title}`
         });
 
-        if (mentionedUser && mentionedUser._id.toString() !== req.user._id.toString()) {
+        await sendCommentEmail(task.assignee, {
+          commenterName: req.user.name,
+          task,
+          projectId: task.project,
+          comment: content
+        });
+      }
 
-          // 1. In-App Notification
-          await sendNotification(req.io, {
-            recipientId: mentionedUser._id,
-            senderId: req.user._id,
-            type: 'mention',
-            relatedId: taskId,
-            relatedModel: 'Task',
-            message: `mentioned you in a comment`
+      // NOTIFICATION 2: MENTIONS (@User)
+      const mentionRegex = /@(\w+)/g;
+      const mentions = content.match(mentionRegex);
+
+      if (mentions) {
+        const uniqueNames = [...new Set(mentions.map(m => m.substring(1)))];
+
+        for (const name of uniqueNames) {
+          const mentionedUser = await User.findOne({
+            name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, "i") }
           });
 
-          // 2. Email Notification using template
-          await sendMentionEmail(mentionedUser._id, {
-            mentionerName: req.user.name,
-            task,
-            projectId: task.project,
-            comment: content
-          });
+          if (mentionedUser && mentionedUser._id.toString() !== req.user._id.toString()) {
+            await sendNotification(req.io, {
+              recipientId: mentionedUser._id,
+              senderId: req.user._id,
+              type: 'mention',
+              relatedId: taskId,
+              relatedModel: 'Task',
+              message: `mentioned you in a comment`
+            });
+
+            await sendMentionEmail(mentionedUser._id, {
+              mentionerName: req.user.name,
+              task,
+              projectId: task.project,
+              comment: content
+            });
+          }
         }
       }
+    } catch (notifError) {
+      console.warn('Comment saved but notification failed:', notifError.message);
     }
 
-    res.status(201).json(fullComment);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error.message });
