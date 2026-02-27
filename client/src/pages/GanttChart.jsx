@@ -233,7 +233,7 @@ export default function GanttChart() {
 
           {/* Project Selector */}
           <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="w-[200px] bg-card">
+            <SelectTrigger className="w-full sm:w-[200px] bg-card">
               <SelectValue placeholder="Select project" />
             </SelectTrigger>
             <SelectContent>

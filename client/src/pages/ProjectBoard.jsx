@@ -570,7 +570,7 @@ export default function ProjectBoard() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Start Date */}
                 <div>
                   <Label>Start Date</Label>

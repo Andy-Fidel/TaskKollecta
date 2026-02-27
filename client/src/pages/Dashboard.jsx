@@ -227,7 +227,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="space-y-10">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[...Array(2)].map((_, i) => (
               <div key={i} className="h-24 rounded-xl border border-border bg-card animate-pulse" />
             ))}
@@ -558,7 +558,7 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1.5 min-w-[120px]">
+                      <div className="flex flex-col items-end gap-1.5 shrink-0 w-[100px] sm:w-[120px]">
                         <Badge variant="secondary" className="capitalize text-[10px] h-5 px-1.5 font-normal bg-muted text-muted-foreground border-border">
                           {project.status || 'Active'}
                         </Badge>
@@ -581,7 +581,7 @@ export default function Dashboard() {
         {/* RIGHT COLUMN */}
         <div className="space-y-10">
           {/* Quick Actions */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <QuickAction icon={Plus} label="New Project" color="text-primary" bg="bg-primary/10" onClick={() => setIsProjectModalOpen(true)} />
             <QuickAction icon={CheckCircle2} label="My Tasks" color="text-foreground" bg="bg-accent" onClick={() => navigate('/tasks')} />
           </div>

@@ -249,7 +249,7 @@ export default function Workspace() {
                     <Textarea id="desc" placeholder="What is this project about?" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Lead */}
                     <div className="space-y-2">
                         <Label>Project Lead</Label>
