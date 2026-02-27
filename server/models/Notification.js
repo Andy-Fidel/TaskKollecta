@@ -5,7 +5,7 @@ const notificationSchema = new mongoose.Schema({
   sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   type: { 
     type: String, 
-    enum: ['task_assigned', 'task_status_change', 'new_comment', 'project_invite', 'automation'], 
+    enum: ['task_assigned', 'task_status_change', 'new_comment', 'project_invite', 'automation', 'mention'], 
     required: true 
   },
   // We store a reference to the related entity (Task or Project)
