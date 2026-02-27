@@ -21,7 +21,7 @@ import { Separator } from '@/components/ui/separator';
 import { ProjectSettingsDialog } from '@/components/ProjectSettingsDialog';
 import { AdvancedFilters, applyFilters } from '@/components/Filters/AdvancedFilters';
 
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import api from '../api/axios';
 import { toast } from 'sonner';
 import { useSocket } from '../hooks/useSocket';

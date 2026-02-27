@@ -32,7 +32,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import api from '../api/axios';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 // --- Animated count-up hook ---
 function useCountUp(target, duration = 1200) {

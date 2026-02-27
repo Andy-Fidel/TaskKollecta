@@ -29,7 +29,7 @@ import {
 
 import { formatActivityAction } from '../utils/formatActivity';
 import api from '../api/axios';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { PriorityBadge } from './PriorityBadge';
 import { TagPicker } from './TagPicker';
 import { RecurrencePicker } from './RecurrencePicker';

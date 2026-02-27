@@ -22,7 +22,7 @@ import { PageTransition } from './PageTransition';
 import { AnnouncementBanner } from './AnnouncementBanner';
 
 // Context
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 export default function AppLayout() {
   const { user, logout } = useAuth();

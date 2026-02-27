@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect } from 'react';
 import api from '../api/axios';
 import { useIdleTimeout } from '../hooks/useIdleTimeout';
 
@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
         try {
           const { data } = await api.get('/users/me');
           setUser(data);
-        } catch (error) {
+        } catch {
           localStorage.removeItem('token'); // Invalid token
         }
       }
@@ -52,4 +52,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export { AuthContext };

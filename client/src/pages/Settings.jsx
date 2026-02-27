@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { useTheme } from '@/components/ThemeProvider';
 import api from '../api/axios';
 import { toast } from 'sonner';

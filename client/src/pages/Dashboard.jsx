@@ -24,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { formatActivityAction } from "../utils/formatActivity";
 
 import api from '../api/axios';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { ReminderWidget } from '@/components/ReminderWidget';
 
 // --- Theme-compatible chart colors ---
