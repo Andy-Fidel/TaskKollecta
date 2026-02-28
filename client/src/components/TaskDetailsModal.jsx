@@ -26,6 +26,7 @@ import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 import { formatActivityAction } from '../utils/formatActivity';
 import api from '../api/axios';
@@ -343,371 +344,359 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                         </div>
                     </div>
 
-                    {/* SPLIT VIEW - Stack on mobile, side-by-side on desktop */}
-                    <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+                    {/* ENHANCED LAYOUT - Tabs on Mobile, Split View on Desktop */}
+                    <Tabs defaultValue="details" className="flex flex-col lg:flex-row flex-1 overflow-hidden w-full h-full">
 
-                        {/* LEFT: CONTENT */}
-                        <ScrollArea className="flex-1 bg-background p-4 md:p-8 order-1">
-                            <div className="max-w-3xl mx-auto space-y-8 md:space-y-10 pb-20">
-                                <DialogTitle className="text-xl md:text-3xl font-bold text-foreground leading-tight">{task.title}</DialogTitle>
+                        {/* MOBILE TABS HEADER - Hidden on large screens */}
+                        <div className="lg:hidden border-b border-border bg-card px-4 py-2 shrink-0">
+                            <TabsList className="w-full grid grid-cols-2 bg-muted/50 p-1 rounded-lg">
+                                <TabsTrigger value="details" className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">Details</TabsTrigger>
+                                <TabsTrigger value="activity" className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all">Activity</TabsTrigger>
+                            </TabsList>
+                        </div>
 
-                                {/* Description */}
-                                <div className="group">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <AlignLeft className="w-4 h-4 text-muted-foreground" />
-                                        <h3 className="text-sm font-semibold text-foreground">Description</h3>
-                                    </div>
-                                    {isEditingDesc ? (
-                                        <div className="space-y-3">
-                                            <Textarea
-                                                value={descInput}
-                                                onChange={e => setDescInput(e.target.value)}
-                                                className="min-h-[150px] bg-card resize-none"
-                                                autoFocus
+                        {/* LEFT: DETAILS CONTENT */}
+                        <TabsContent value="details" className="m-0 lg:flex-1 h-full lg:order-1 data-[state=inactive]:hidden lg:data-[state=inactive]:flex flex-col overflow-hidden focus-visible:outline-none">
+                            <ScrollArea className="flex-1 bg-background p-4 md:p-6 lg:p-8">
+                                <div className="max-w-3xl mx-auto space-y-6 md:space-y-8 pb-20">
+                                    <DialogTitle className="text-xl md:text-3xl font-bold text-foreground leading-tight tracking-tight">{task.title}</DialogTitle>
+
+                                    {/* --- COMPACT INLINE PROPERTIES HEADER --- */}
+                                    <div className="flex flex-wrap items-center gap-2 md:gap-4 p-3 md:p-4 bg-muted/10 border border-border/40 rounded-xl shadow-sm">
+                                        
+                                        {/* Status */}
+                                        <div className="flex items-center">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className="h-8 font-medium capitalize bg-background shadow-sm border border-border/50 hover:bg-muted text-xs md:text-sm rounded-full px-3">
+                                                        <div className={`w-2 h-2 rounded-full mr-2 ${currentStatus === 'done' ? 'bg-green-500' : 'bg-slate-400'}`}></div>
+                                                        {String(currentStatus || 'todo').replace(/-/g, ' ')}
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="start" className="w-[180px]">
+                                                    {['todo', 'in-progress', 'review', 'done'].map(s => (
+                                                        <DropdownMenuItem key={s} onClick={() => handleStatusChange(s)} className="capitalize">{String(s).replace(/-/g, ' ')}</DropdownMenuItem>
+                                                    ))}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+
+                                        {/* Priority */}
+                                        <div className="flex items-center">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger className="focus:outline-none">
+                                                    <div className="bg-background shadow-sm border border-border/50 hover:bg-muted px-3 py-1.5 rounded-full flex items-center text-xs md:text-sm h-8 cursor-pointer transition-colors">
+                                                        <PriorityBadge priority={currentPriority} />
+                                                    </div>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-[180px]">
+                                                    {['urgent', 'high', 'medium', 'low'].map(p => (
+                                                        <DropdownMenuItem key={p} onClick={() => handlePriorityChange(p)} className="capitalize">{p}</DropdownMenuItem>
+                                                    ))}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+
+                                        {/* Assignee */}
+                                        <div className="flex items-center">
+                                            <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className="h-8 font-medium bg-background shadow-sm border border-border/50 hover:bg-muted rounded-full px-3">
+                                                        {assignee ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <UIAvatar className="h-5 w-5"><AvatarImage src={assignee.avatar} /><AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback></UIAvatar>
+                                                                <span className="truncate max-w-[100px] text-xs md:text-sm">{assignee.name.split(' ')[0]}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 text-muted-foreground">
+                                                                <UserIcon className="w-3.5 h-3.5" />
+                                                                <span className="text-xs md:text-sm">Unassigned</span>
+                                                            </div>
+                                                        )}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[220px] p-0" align="start">
+                                                    <Command>
+                                                        <CommandInput placeholder="Search team..." />
+                                                        <CommandGroup>
+                                                            {Array.isArray(teamMembers) && teamMembers.map((m) => (
+                                                                <CommandItem key={m.user?._id} value={m.user?.name} onSelect={() => initiateAssignment(m.user)}>
+                                                                    <Check className={`mr-2 h-4 w-4 ${assignee?._id === m.user?._id ? "opacity-100" : "opacity-0"}`} />
+                                                                    <div className="flex items-center gap-2">
+                                                                        <UIAvatar className="h-5 w-5"><AvatarImage src={m.user?.avatar} /><AvatarFallback>{m.user?.name?.charAt(0)}</AvatarFallback></UIAvatar>
+                                                                        {m.user?.name}
+                                                                    </div>
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+
+                                        {/* Start Date */}
+                                        <div className="flex items-center">
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className={`h-8 font-medium bg-background shadow-sm border border-border/50 hover:bg-muted rounded-full px-3 ${!startDate && "text-muted-foreground"}`}>
+                                                        <CalendarIcon className="w-3.5 h-3.5 mr-2" />
+                                                        <span className="text-xs md:text-sm">{startDate ? format(startDate, "MMM d") : "Start"}</span>
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="end">
+                                                    <Calendar mode="single" selected={startDate} onSelect={async (d) => {
+                                                        setStartDate(d);
+                                                        if (d && dueDate && d > dueDate) {
+                                                            setDueDate(null);
+                                                            try { await api.put(`/tasks/${task._id}`, { startDate: d, dueDate: null }); toast.success("Start date updated"); } catch { /* silently ignore */ }
+                                                        } else {
+                                                            try { await api.put(`/tasks/${task._id}`, { startDate: d || null }); toast.success("Start date updated"); } catch { /* silently ignore */ }
+                                                        }
+                                                    }} initialFocus />
+                                                    {startDate && (
+                                                        <div className="px-3 pb-3">
+                                                            <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={async () => {
+                                                                setStartDate(null);
+                                                                try { await api.put(`/tasks/${task._id}`, { startDate: null }); toast.success("Start date cleared"); } catch { /* silently ignore */ }
+                                                            }}>Clear start date</Button>
+                                                        </div>
+                                                    )}
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+
+                                        {/* Due Date */}
+                                        <div className="flex items-center">
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className={`h-8 font-medium bg-background shadow-sm border border-border/50 hover:bg-muted rounded-full px-3 ${!dueDate && "text-muted-foreground"}`}>
+                                                        <Clock className="w-3.5 h-3.5 mr-2" />
+                                                        <span className="text-xs md:text-sm">{dueDate ? format(dueDate, "MMM d") : "Due"}</span>
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="end">
+                                                    <Calendar mode="single" selected={dueDate}
+                                                        disabled={(date) => startDate && date < startDate}
+                                                        onSelect={async (d) => {
+                                                        setDueDate(d);
+                                                        try { await api.put(`/tasks/${task._id}`, { dueDate: d }); toast.success("Date updated"); } catch { /* silently ignore */ }
+                                                    }} initialFocus />
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+
+                                        {/* Tags */}
+                                        <div className="flex items-center">
+                                            <TagPicker
+                                                taskId={task._id}
+                                                tags={tags}
+                                                onTagsChange={setTags}
                                             />
-                                            <div className="flex gap-2">
-                                                <Button size="sm" onClick={handleSaveDescription}>Save</Button>
-                                                <Button size="sm" variant="ghost" onClick={() => setIsEditingDesc(false)}>Cancel</Button>
-                                            </div>
                                         </div>
-                                    ) : (
-                                        <div
-                                            onClick={() => setIsEditingDesc(true)}
-                                            className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground p-4 rounded-xl border border-transparent hover:border-border hover:bg-muted/30 cursor-text transition-all min-h-[100px]"
-                                        >
-                                            <p className="whitespace-pre-wrap leading-relaxed">{descInput || "Click to add a description..."}</p>
+
+                                        {/* Recurrence */}
+                                        <div className="flex items-center">
+                                            <RecurrencePicker
+                                                taskId={task._id}
+                                                recurrence={recurrence}
+                                                onRecurrenceChange={setRecurrence}
+                                            />
                                         </div>
-                                    )}
-                                </div>
 
-                                <Separator />
-
-                                {/* Subtasks */}
-                                <div>
-                                    <div className="flex justify-between items-end mb-4">
-                                        <div className="flex items-center gap-2">
-                                            <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
-                                            <h3 className="text-sm font-semibold text-foreground">Subtasks</h3>
-                                        </div>
-                                        <span className="text-xs text-muted-foreground font-medium">
-                                            {subtasks.length > 0 ? `${Math.round((subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100)}%` : '0%'}
-                                        </span>
-                                    </div>
-
-                                    {Array.isArray(subtasks) && subtasks.length > 0 && (
-                                        <Progress value={(subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100} className="h-1.5 mb-8" />
-                                    )}
-
-                                    {!Array.isArray(subtasks) || subtasks.length === 0 ? (
-                                        <div className="text-center py-6 border-2 border-dashed border-border/60 rounded-xl mb-4 bg-muted/5">
-                                            <div className="flex justify-center mb-2">
-                                                <div className="bg-background p-2 rounded-full border border-border shadow-sm">
-                                                    <ListChecks className="w-4 h-4 text-muted-foreground" />
+                                        {/* Dependencies */}
+                                        <div className="flex items-center">
+                                            <Popover open={isDependencySearchOpen} onOpenChange={setIsDependencySearchOpen}>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className="h-8 font-medium bg-background shadow-sm border border-border/50 hover:bg-muted rounded-full px-3 text-muted-foreground">
+                                                        <Link2 className="w-3.5 h-3.5 mr-2" />
+                                                        <span className="text-xs md:text-sm">Link</span>
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[250px] p-0" align="end">
+                                                    <Command>
+                                                        <CommandInput placeholder="Search tasks..." />
+                                                        <CommandGroup>
+                                                            {Array.isArray(projectTasks) && projectTasks.length === 0 && <div className="p-3 text-xs text-muted-foreground text-center">No other tasks in project</div>}
+                                                            {Array.isArray(projectTasks) && projectTasks.slice(0, 8).map((t) => (
+                                                                <CommandItem key={t._id} onSelect={() => handleAddDependency(t._id)}>{t.title}</CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
+                                            {dependencies?.length > 0 && (
+                                                <div className="flex items-center gap-1 ml-2">
+                                                    {dependencies.map(dep => (
+                                                        <Badge key={dep._id} variant="secondary" className="text-[10px] h-6 px-2 flex items-center gap-1 font-mono hover:bg-red-100 hover:text-red-700 cursor-pointer transition-colors" title="Remove dependency" onClick={() => handleRemoveDependency(dep._id)}>
+                                                            {dep.title.substring(0, 10)}... <X className="w-3 h-3 ml-1 opacity-50" />
+                                                        </Badge>
+                                                    ))}
                                                 </div>
-                                            </div>
-                                            <p className="text-xs font-medium text-foreground">No subtasks yet</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-1 mb-4">
-                                            {Array.isArray(subtasks) && subtasks.map((st) => (
-                                                <div key={st._id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 group transition-colors">
-                                                    <button
-                                                        onClick={() => handleToggleSubtask(st._id)}
-                                                        className={`h-5 w-5 rounded border flex items-center justify-center transition-all ${st.isCompleted ? 'bg-primary border-primary' : 'border-muted-foreground hover:border-primary'}`}
-                                                    >
-                                                        {st.isCompleted && <Check className="h-3.5 w-3.5 text-primary-foreground" />}
-                                                    </button>
-                                                    <span className={`text-sm flex-1 ${st.isCompleted ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                                                        {st.title}
-                                                    </span>
-                                                    <button onClick={() => handleDeleteSubtask(st._id)} className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-500 transition-opacity"><Trash2 className="w-4 h-4" /></button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    <form onSubmit={handleAddSubtask} className="flex items-center gap-3 pl-2">
-                                        <Plus className="h-4 w-4 text-muted-foreground" />
-                                        <input
-                                            className="text-sm bg-transparent outline-none flex-1 placeholder:text-muted-foreground/60 text-foreground"
-                                            placeholder={subtasks.length === 0 ? "Add your first subtask..." : "Add another subtask..."}
-                                            value={newSubtask}
-                                            onChange={e => setNewSubtask(e.target.value)}
-                                        />
-                                    </form>
-                                </div>
-
-                                <Separator />
-
-                                {/* Attachments */}
-                                <div>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <div className="flex items-center gap-2">
-                                            <Paperclip className="w-4 h-4 text-muted-foreground" />
-                                            <h3 className="text-sm font-semibold text-foreground">Attachments</h3>
-                                            {attachments.length > 0 && (
-                                                <span className="text-xs text-muted-foreground">({attachments.length})</span>
                                             )}
                                         </div>
-                                        <label className="cursor-pointer text-xs font-medium px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition flex items-center gap-2">
-                                            {isUploading ? <span className="animate-pulse">Uploading...</span> : <><Plus className="w-3 h-3" /> Add</>}
-                                            <input type="file" className="hidden" onChange={handleFileUpload} multiple disabled={isUploading} />
-                                        </label>
                                     </div>
 
-                                    {attachments.length === 0 ? (
-                                        <div className="text-center py-6 border-2 border-dashed border-border/60 rounded-xl bg-muted/5">
-                                            <div className="flex justify-center mb-2">
-                                                <div className="bg-background p-2 rounded-full border border-border shadow-sm">
-                                                    <Paperclip className="w-4 h-4 text-muted-foreground" />
+                                    {/* Description */}
+                                    <div className="group pt-2">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="bg-muted p-1.5 rounded-md"><AlignLeft className="w-4 h-4 text-primary" /></div>
+                                            <h3 className="text-sm font-semibold text-foreground tracking-wide">Description</h3>
+                                        </div>
+                                        {isEditingDesc ? (
+                                            <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                                <Textarea
+                                                    value={descInput}
+                                                    onChange={e => setDescInput(e.target.value)}
+                                                    className="min-h-[150px] bg-card border-primary/30 focus-visible:ring-primary/30 shadow-sm resize-none"
+                                                    autoFocus
+                                                />
+                                                <div className="flex gap-2">
+                                                    <Button size="sm" onClick={handleSaveDescription}>Save Description</Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => setIsEditingDesc(false)}>Cancel</Button>
                                                 </div>
                                             </div>
-                                            <p className="text-xs font-medium text-foreground">No attachments yet</p>
-                                            <p className="text-[10px] text-muted-foreground mt-1">Click Add to attach files</p>
+                                        ) : (
+                                            <div
+                                                onClick={() => setIsEditingDesc(true)}
+                                                className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground p-5 rounded-xl border border-border/40 hover:border-primary/30 hover:bg-muted/30 cursor-text transition-all min-h-[100px] shadow-sm bg-card"
+                                            >
+                                                <p className="whitespace-pre-wrap leading-relaxed">{descInput || "Click to add a detailed description..."}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <Separator className="bg-border/60" />
+
+                                    {/* Subtasks */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-muted p-1.5 rounded-md"><CheckCircle2 className="w-4 h-4 text-primary" /></div>
+                                                <h3 className="text-sm font-semibold text-foreground tracking-wide">Subtasks</h3>
+                                            </div>
+                                            {subtasks.length > 0 && (
+                                                <span className="text-xs text-primary font-bold bg-primary/10 px-2 py-1 rounded-full">
+                                                    {Math.round((subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100)}%
+                                                </span>
+                                            )}
                                         </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {attachments.map((file) => (
-                                                <div key={file._id} className="relative group">
-                                                    <a href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/50 transition">
-                                                        <div className="h-10 w-10 bg-muted rounded-lg flex items-center justify-center text-muted-foreground shrink-0">
-                                                            {file.type?.includes('image') ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium text-foreground truncate">{file.filename}</p>
-                                                            <p className="text-[10px] text-muted-foreground">Attached {new Date(file.uploadedAt).toLocaleDateString()}</p>
-                                                        </div>
-                                                    </a>
-                                                    <button
-                                                        onClick={() => handleDeleteAttachment(file._id)}
-                                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md bg-background border border-border text-muted-foreground hover:text-red-500 hover:border-red-200 transition-all shadow-sm"
-                                                        title="Remove attachment"
-                                                    >
-                                                        <X className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </ScrollArea>
 
-                        {/* RIGHT: SIDEBAR - Full width on mobile, fixed on desktop */}
-                        <div className="w-full lg:w-[350px] bg-muted/10 border-t lg:border-t-0 lg:border-l border-border flex flex-col shrink-0 order-2 lg:order-none max-h-[40vh] lg:max-h-none overflow-y-auto lg:overflow-visible">
+                                        {Array.isArray(subtasks) && subtasks.length > 0 && (
+                                            <Progress value={(subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100} className="h-2 mb-6 bg-muted border border-border/40 rounded-full overflow-hidden" />
+                                        )}
 
-                            {/* Properties */}
-                            <div className="p-4 md:p-6 space-y-4 md:space-y-8 overflow-y-auto lg:max-h-[50%] border-b border-border">
-                                {/* Status */}
-                                <div className="grid grid-cols-3 items-center gap-4">
-                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Layout className="w-3.5 h-3.5" /> Status</span>
-                                    <div className="col-span-2">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" size="sm" className="w-full justify-start h-8 font-normal capitalize">
-                                                    <div className={`w-2 h-2 rounded-full mr-2 ${currentStatus === 'done' ? 'bg-green-500' : 'bg-slate-400'}`}></div>
-                                                    {/* FIX 1: Safe Replace */}
-                                                    {String(currentStatus || 'todo').replace(/-/g, ' ')}
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-[200px]">
-                                                {['todo', 'in-progress', 'review', 'done'].map(s => (
-                                                    <DropdownMenuItem key={s} onClick={() => handleStatusChange(s)} className="capitalize">{String(s).replace(/-/g, ' ')}</DropdownMenuItem>
-                                                ))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                </div>
-
-                                {/* Priority */}
-                                <div className="grid grid-cols-3 items-center gap-4">
-                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5" /> Priority</span>
-                                    <div className="col-span-2">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger className="focus:outline-none w-full text-left">
-                                                <div className="w-full border border-input bg-background hover:bg-accent px-3 py-1.5 rounded-md flex items-center text-sm h-8">
-                                                    <PriorityBadge priority={currentPriority} />
-                                                </div>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-[200px]">
-                                                {['urgent', 'high', 'medium', 'low'].map(p => (
-                                                    <DropdownMenuItem key={p} onClick={() => handlePriorityChange(p)} className="capitalize">{p}</DropdownMenuItem>
-                                                ))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                </div>
-
-                                {/* Assignee */}
-                                <div className="grid grid-cols-3 items-center gap-4">
-                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><UserIcon className="w-3.5 h-3.5" /> Assignee</span>
-                                    <div className="col-span-2">
-                                        <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" size="sm" className="w-full justify-start h-8 font-normal px-2">
-                                                    {assignee ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <UIAvatar className="h-5 w-5"><AvatarImage src={assignee.avatar} /><AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback></UIAvatar>
-                                                            <span className="truncate">{assignee.name}</span>
-                                                        </div>
-                                                    ) : <span className="text-muted-foreground">Unassigned</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-[220px] p-0" align="end">
-                                                <Command>
-                                                    <CommandInput placeholder="Search team..." />
-                                                    <CommandGroup>
-                                                        {Array.isArray(teamMembers) && teamMembers.map((m) => (
-                                                            <CommandItem key={m.user?._id} value={m.user?.name} onSelect={() => initiateAssignment(m.user)}>
-                                                                <Check className={`mr-2 h-4 w-4 ${assignee?._id === m.user?._id ? "opacity-100" : "opacity-0"}`} />
-                                                                <div className="flex items-center gap-2">
-                                                                    <UIAvatar className="h-5 w-5"><AvatarImage src={m.user?.avatar} /><AvatarFallback>{m.user?.name?.charAt(0)}</AvatarFallback></UIAvatar>
-                                                                    {m.user?.name}
-                                                                </div>
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                </Command>
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                </div>
-
-                                {/* Start Date */}
-                                <div className="grid grid-cols-3 items-center gap-4">
-                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><CalendarIcon className="w-3.5 h-3.5" /> Start Date</span>
-                                    <div className="col-span-2">
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" size="sm" className={`w-full justify-start h-8 font-normal ${!startDate && "text-muted-foreground"}`}>
-                                                    {startDate ? format(startDate, "MMM d, yyyy") : <span>No start date</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="end">
-                                                <Calendar mode="single" selected={startDate} onSelect={async (d) => {
-                                                    setStartDate(d);
-                                                    if (d && dueDate && d > dueDate) {
-                                                        setDueDate(null);
-                                                        try { await api.put(`/tasks/${task._id}`, { startDate: d, dueDate: null }); toast.success("Start date updated"); } catch { /* silently ignore */ }
-                                                    } else {
-                                                        try { await api.put(`/tasks/${task._id}`, { startDate: d || null }); toast.success("Start date updated"); } catch { /* silently ignore */ }
-                                                    }
-                                                }} initialFocus />
-                                                {startDate && (
-                                                    <div className="px-3 pb-3">
-                                                        <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={async () => {
-                                                            setStartDate(null);
-                                                            try { await api.put(`/tasks/${task._id}`, { startDate: null }); toast.success("Start date cleared"); } catch { /* silently ignore */ }
-                                                        }}>Clear start date</Button>
+                                        {!Array.isArray(subtasks) || subtasks.length === 0 ? (
+                                            <div className="text-center py-8 border-2 border-dashed border-border/60 rounded-xl mb-4 bg-muted/10 hover:bg-muted/30 transition-colors">
+                                                <div className="flex justify-center mb-3">
+                                                    <div className="bg-background p-2.5 rounded-full border border-border shadow-sm">
+                                                        <ListChecks className="w-5 h-5 text-muted-foreground" />
                                                     </div>
+                                                </div>
+                                                <p className="text-sm font-medium text-foreground">No subtasks yet</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Break down this task into smaller chunks.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2 mb-6">
+                                                {Array.isArray(subtasks) && subtasks.map((st) => (
+                                                    <div key={st._id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 group ${st.isCompleted ? 'bg-muted/30 border-transparent' : 'bg-card border-border/50 hover:border-primary/40 shadow-sm'}`}>
+                                                        <button
+                                                            onClick={() => handleToggleSubtask(st._id)}
+                                                            className={`h-5 w-5 shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-all ${st.isCompleted ? 'bg-primary border-primary' : 'border-muted-foreground hover:border-primary'}`}
+                                                        >
+                                                            {st.isCompleted && <Check className="h-3 w-3 text-primary-foreground" />}
+                                                        </button>
+                                                        <span className={`text-sm flex-1 break-words transition-all duration-300 ${st.isCompleted ? 'text-muted-foreground line-through opacity-70' : 'text-foreground font-medium'}`}>
+                                                            {st.title}
+                                                        </span>
+                                                        <button onClick={() => handleDeleteSubtask(st._id)} className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-all"><Trash2 className="w-4 h-4" /></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <form onSubmit={handleAddSubtask} className="flex items-center gap-3 p-1">
+                                            <Plus className="h-4 w-4 text-muted-foreground ml-2" />
+                                            <input
+                                                className="text-sm bg-transparent outline-none flex-1 placeholder:text-muted-foreground text-foreground border-b border-transparent focus:border-primary/50 py-1 transition-colors"
+                                                placeholder={subtasks.length === 0 ? "Add your first subtask..." : "Add another subtask..."}
+                                                value={newSubtask}
+                                                onChange={e => setNewSubtask(e.target.value)}
+                                            />
+                                        </form>
+                                    </div>
+
+                                    <Separator className="bg-border/60" />
+
+                                    {/* Attachments */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-muted p-1.5 rounded-md"><Paperclip className="w-4 h-4 text-primary" /></div>
+                                                <h3 className="text-sm font-semibold text-foreground tracking-wide">Attachments</h3>
+                                                {attachments.length > 0 && (
+                                                    <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{attachments.length}</span>
                                                 )}
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                </div>
-
-                                {/* Due Date */}
-                                <div className="grid grid-cols-3 items-center gap-4">
-                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Clock className="w-3.5 h-3.5" /> Due Date</span>
-                                    <div className="col-span-2">
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" size="sm" className={`w-full justify-start h-8 font-normal ${!dueDate && "text-muted-foreground"}`}>
-                                                    {dueDate ? format(dueDate, "MMM d, yyyy") : <span>No date</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="end">
-                                                <Calendar mode="single" selected={dueDate}
-                                                    disabled={(date) => startDate && date < startDate}
-                                                    onSelect={async (d) => {
-                                                    setDueDate(d);
-                                                    try { await api.put(`/tasks/${task._id}`, { dueDate: d }); toast.success("Date updated"); } catch { /* silently ignore */ }
-                                                }} initialFocus />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                </div>
-
-                                {/* Tags */}
-                                <div className="grid grid-cols-3 items-start gap-4">
-                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-2 pt-1"><Tag className="w-3.5 h-3.5" /> Tags</span>
-                                    <div className="col-span-2">
-                                        <TagPicker
-                                            taskId={task._id}
-                                            tags={tags}
-                                            onTagsChange={setTags}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Recurrence */}
-                                <div className="grid grid-cols-3 items-center gap-4">
-                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Repeat className="w-3.5 h-3.5" /> Repeat</span>
-                                    <div className="col-span-2">
-                                        <RecurrencePicker
-                                            taskId={task._id}
-                                            recurrence={recurrence}
-                                            onRecurrenceChange={setRecurrence}
-                                        />
-                                    </div>
-                                </div>
-
-                                <Separator />
-
-                                {/* Dependencies */}
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs font-medium text-muted-foreground flex items-center gap-2"><Link2 className="w-3.5 h-3.5" /> Blocking</span>
-                                        <Popover open={isDependencySearchOpen} onOpenChange={setIsDependencySearchOpen}>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-muted"><Plus className="w-3 h-3" /></Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-[250px] p-0" align="end">
-                                                <Command>
-                                                    <CommandInput placeholder="Search tasks..." />
-                                                    <CommandGroup>
-                                                        {Array.isArray(projectTasks) && projectTasks.length === 0 && <div className="p-3 text-xs text-muted-foreground text-center">No other tasks in project</div>}
-                                                        {Array.isArray(projectTasks) && projectTasks.slice(0, 8).map((t) => (
-                                                            <CommandItem key={t._id} onSelect={() => handleAddDependency(t._id)}>{t.title}</CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                </Command>
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-
-                                    {!Array.isArray(dependencies) || dependencies.length === 0 ? (
-                                        <div className="text-center py-4 border-2 border-dashed border-border/60 rounded-xl bg-muted/5">
-                                            <p className="text-[10px] font-medium text-muted-foreground">No dependencies</p>
+                                            </div>
+                                            <label className="cursor-pointer text-xs font-medium px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2 active:scale-95">
+                                                {isUploading ? <span className="animate-pulse">Uploading...</span> : <><Plus className="w-3 h-3" /> Upload File</>}
+                                                <input type="file" className="hidden" onChange={handleFileUpload} multiple disabled={isUploading} />
+                                            </label>
                                         </div>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {dependencies.map(dep => (
-                                                <div key={dep._id} className="flex items-center justify-between p-2 rounded-md bg-background border border-border text-xs shadow-sm">
-                                                    <div className="flex items-center gap-2 overflow-hidden">
-                                                        {dep.status !== 'done' ? <AlertCircle className="w-3 h-3 text-orange-500 shrink-0" /> : <Check className="w-3 h-3 text-green-500 shrink-0" />}
-                                                        <span className={`truncate ${dep.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>{dep.title}</span>
+
+                                        {attachments.length === 0 ? (
+                                            <div className="text-center py-8 border-2 border-dashed border-border/60 rounded-xl bg-muted/10 hover:bg-muted/30 transition-colors">
+                                                <div className="flex justify-center mb-3">
+                                                    <div className="bg-background p-2.5 rounded-full border border-border shadow-sm">
+                                                        <Paperclip className="w-5 h-5 text-muted-foreground" />
                                                     </div>
-                                                    <button onClick={() => handleRemoveDependency(dep._id)} className="text-muted-foreground hover:text-red-500 transition-colors"><Link2Off className="w-3 h-3" /></button>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                                <p className="text-sm font-medium text-foreground">No attachments yet</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Upload files related to this task.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {attachments.map((file) => (
+                                                    <div key={file._id} className="relative group">
+                                                        <a href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card hover:border-primary/40 hover:shadow-md transition-all">
+                                                            <div className="h-10 w-10 bg-muted/50 rounded-lg flex items-center justify-center text-primary shrink-0">
+                                                                {file.type?.includes('image') ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium text-foreground truncate">{file.filename}</p>
+                                                                <p className="text-[10px] text-muted-foreground mt-0.5">Attached {new Date(file.uploadedAt).toLocaleDateString()}</p>
+                                                            </div>
+                                                        </a>
+                                                        <button
+                                                            onClick={() => handleDeleteAttachment(file._id)}
+                                                            className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 p-1.5 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30 transition-all shadow-sm"
+                                                            title="Remove attachment"
+                                                        >
+                                                            <X className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            </ScrollArea>
+                        </TabsContent>
 
-                            {/* ACTIVITY & CHAT FEED */}
-                            <div className="flex-1 flex flex-col min-h-0 bg-background">
-                                <div className="p-3 border-b border-border bg-muted/20 flex items-center gap-2">
-                                    <History className="w-3.5 h-3.5 text-muted-foreground" />
-                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activity</span>
+                        {/* RIGHT: ACTIVITY SIDEBAR */}
+                        <TabsContent value="activity" className="m-0 lg:w-[380px] xl:w-[420px] h-full lg:border-l border-border bg-card lg:order-2 data-[state=inactive]:hidden lg:data-[state=inactive]:flex flex-col shrink-0 overflow-hidden focus-visible:outline-none">
+                            <div className="flex-1 flex flex-col min-h-0 bg-background/50 h-full">
+                                <div className="p-4 border-b border-border bg-muted/10 flex items-center gap-2 shrink-0">
+                                    <History className="w-4 h-4 text-primary" />
+                                    <span className="text-xs font-bold text-foreground uppercase tracking-widest">Activity & Chat</span>
                                 </div>
 
-                                <ScrollArea className="flex-1 p-4">
-                                    <div className="space-y-8">
+                                <ScrollArea className="flex-1 p-4 lg:p-5">
+                                    <div className="space-y-6">
                                         {timeline.length === 0 && (
-                                            <div className="text-center text-xs text-muted-foreground py-8 opacity-50">
-                                                No activity yet.
+                                            <div className="flex flex-col items-center justify-center text-center py-12 px-4 opacity-50">
+                                                <History className="w-8 h-8 mb-3 text-muted-foreground/50" />
+                                                <p className="text-sm font-medium text-foreground">Quiet here...</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Be the first to leave a comment.</p>
                                             </div>
                                         )}
 
@@ -716,24 +705,23 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                                 <div className="shrink-0 pt-1">
                                                     <Avatar user={item.user || item.performer} />
                                                 </div>
-                                                <div className="flex-1 space-y-1">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="font-semibold text-foreground text-xs">
+                                                <div className="flex-1 space-y-1.5 min-w-0">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="font-semibold text-foreground text-xs truncate">
                                                             {item.user?.name || item.performer?.name}
                                                         </span>
-                                                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                                                        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 font-medium">
                                                             {item.createdAt ? format(new Date(item.createdAt), "MMM d, h:mm a") : ''}
                                                         </span>
                                                     </div>
                                                     {item.type === 'comment' ? (
-                                                        <div className="bg-muted/30 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-border/50 text-foreground shadow-sm">
-                                                            <p className="whitespace-pre-wrap leading-relaxed">{renderMentions(item.content)}</p>
+                                                        <div className="bg-muted/40 p-3.5 rounded-2xl rounded-tl-sm border border-border/50 text-foreground shadow-sm">
+                                                            <p className="whitespace-pre-wrap leading-relaxed text-[13px]">{renderMentions(item.content)}</p>
                                                         </div>
                                                     ) : (
-                                                        <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                                            <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-                                                            {/* FIX 2: Check if helper function exists and is safe */}
-                                                            {formatActivityAction ? formatActivityAction(item) : "Action performed"}
+                                                        <div className="text-xs text-muted-foreground flex items-center gap-2 bg-background p-2 rounded-lg border border-border/30">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-primary/40 shrink-0" />
+                                                            <span className="truncate">{formatActivityAction ? formatActivityAction(item) : "Action performed"}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -742,24 +730,30 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                     </div>
                                 </ScrollArea>
 
-                                <div className="p-4 border-t border-border bg-background mt-auto">
-                                    <form onSubmit={handleSendComment} className="relative">
+                                <div className="p-4 border-t border-border bg-card shrink-0">
+                                    <form onSubmit={handleSendComment} className="relative group">
                                         <MentionInput
                                             value={newComment}
                                             onChange={setNewComment}
                                             users={Array.isArray(teamMembers) ? teamMembers.map(m => m.user).filter(Boolean) : []}
-                                            placeholder="Write a comment... Use @ to mention someone"
-                                            className="pr-12 bg-muted/20 focus:bg-background transition-all"
+                                            placeholder="Write a comment... Type @ to mention"
+                                            className="pr-12 bg-background border-border focus-visible:ring-primary/40 shadow-sm transition-all text-sm rounded-xl py-3"
                                             onSubmit={handleSendComment}
                                         />
-                                        <Button size="sm" type="submit" disabled={!newComment.trim()} className="absolute bottom-2 right-2 h-7 w-7 p-0 rounded-lg">
-                                            <div className="-rotate-90"><AlignLeft className="w-3 h-3" /></div>
+                                        <Button 
+                                            size="sm" 
+                                            type="submit" 
+                                            disabled={!newComment.trim()} 
+                                            className="absolute bottom-2.5 right-2.5 h-8 w-8 p-0 rounded-lg shadow-sm transition-all group-focus-within:bg-primary"
+                                        >
+                                            <div className="-rotate-90"><AlignLeft className="w-3.5 h-3.5" /></div>
                                         </Button>
                                     </form>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </TabsContent>
+
+                    </Tabs>
                 </DialogContent>
             </Dialog>
 
