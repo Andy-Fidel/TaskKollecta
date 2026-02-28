@@ -119,9 +119,13 @@ export default function Sidebar({ onClose }) {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <button className={`flex items-center gap-3 hover:bg-white/5 rounded-xl transition-all group outline-none ${isCollapsed ? 'p-0 justify-center' : 'w-full p-2 text-left'}`}>
-                                <div className="h-8 w-8 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center text-primary-foreground font-bold text-xs uppercase shadow-[0_0_15px_-3px_hsl(var(--primary)/0.4)] shrink-0">
-                                    {activeOrg ? activeOrg.name.substring(0, 2) : <Building2 className="w-4 h-4" />}
-                                </div>
+                                {activeOrg?.logo ? (
+                                    <img src={activeOrg.logo} alt={activeOrg.name} className="h-8 w-8 rounded-lg object-cover shadow-sm shrink-0" />
+                                ) : (
+                                    <div className="h-8 w-8 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center text-primary-foreground font-bold text-xs uppercase shadow-[0_0_15px_-3px_hsl(var(--primary)/0.4)] shrink-0">
+                                        {activeOrg ? activeOrg.name.substring(0, 2) : <Building2 className="w-4 h-4" />}
+                                    </div>
+                                )}
 
                                 {!isCollapsed && (
                                     <>
