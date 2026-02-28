@@ -321,7 +321,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                             <span className="text-xs md:text-sm font-medium font-mono truncate">TASK-{task._id.slice(-4)}</span>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 mr-6 md:mr-8">
                             <Button variant="ghost" size="icon" onClick={() => toast.info("Share link copied!")}><Link2 className="w-4 h-4 text-muted-foreground" /></Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
