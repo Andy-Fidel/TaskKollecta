@@ -101,7 +101,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                 setProjectTasks(data.filter(t => t._id !== task._id));
             });
         }
-    }, [isDependencySearchOpen, projectId, task]);
+    }, [isDependencySearchOpen, projectId, task, projectTasks.length]);
 
     useEffect(() => {
         if (!socket || !task) return;
