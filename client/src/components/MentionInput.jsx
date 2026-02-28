@@ -161,14 +161,15 @@ export function MentionInput({
                 className={cn("min-h-[80px] resize-none", className)}
             />
 
-            {/* Mentions Dropdown */}
+            {/* Mentions Dropdown (opens UPWARD since input is at bottom of modal) */}
             {showMentions && filteredUsers.length > 0 && (
                 <div
                     ref={dropdownRef}
-                    className="absolute z-50 w-64 bg-popover border border-border rounded-lg shadow-lg overflow-hidden"
+                    className="absolute z-[9999] w-64 bg-popover border border-border rounded-lg shadow-xl max-h-[200px] overflow-y-auto"
                     style={{
-                        top: dropdownPosition.top,
-                        left: dropdownPosition.left
+                        bottom: '100%',
+                        left: 0,
+                        marginBottom: 4
                     }}
                 >
                     <div className="py-1">
@@ -201,10 +202,11 @@ export function MentionInput({
             {showMentions && mentionQuery && filteredUsers.length === 0 && (
                 <div
                     ref={dropdownRef}
-                    className="absolute z-50 w-64 bg-popover border border-border rounded-lg shadow-lg p-3"
+                    className="absolute z-[9999] w-64 bg-popover border border-border rounded-lg shadow-xl p-3"
                     style={{
-                        top: dropdownPosition.top,
-                        left: dropdownPosition.left
+                        bottom: '100%',
+                        left: 0,
+                        marginBottom: 4
                     }}
                 >
                     <p className="text-sm text-muted-foreground text-center">
