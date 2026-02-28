@@ -356,7 +356,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                         </div>
 
                         {/* LEFT: DETAILS CONTENT */}
-                        <TabsContent value="details" className="m-0 lg:flex-1 h-full lg:order-1 data-[state=inactive]:hidden lg:data-[state=inactive]:flex flex-col overflow-hidden focus-visible:outline-none">
+                        <TabsContent value="details" forceMount={true} className="m-0 lg:flex-1 h-full lg:order-1 data-[state=inactive]:hidden lg:data-[state=inactive]:flex flex-col overflow-hidden focus-visible:outline-none">
                             <ScrollArea className="flex-1 bg-background p-4 md:p-6 lg:p-8">
                                 <div className="max-w-3xl mx-auto space-y-6 md:space-y-8 pb-20">
                                     <DialogTitle className="text-xl md:text-3xl font-bold text-foreground leading-tight tracking-tight">{task.title}</DialogTitle>
@@ -683,7 +683,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                         </TabsContent>
 
                         {/* RIGHT: ACTIVITY SIDEBAR */}
-                        <TabsContent value="activity" className="m-0 lg:w-[380px] xl:w-[420px] h-full lg:border-l border-border bg-card lg:order-2 data-[state=inactive]:hidden lg:data-[state=inactive]:flex flex-col shrink-0 overflow-hidden focus-visible:outline-none">
+                        <TabsContent value="activity" forceMount={true} className="m-0 lg:w-[380px] xl:w-[420px] h-full lg:border-l border-border bg-card lg:order-2 data-[state=inactive]:hidden lg:data-[state=inactive]:flex flex-col shrink-0 overflow-hidden focus-visible:outline-none">
                             <div className="flex-1 flex flex-col min-h-0 bg-background/50 h-full">
                                 <div className="p-4 border-b border-border bg-muted/10 flex items-center gap-2 shrink-0">
                                     <History className="w-4 h-4 text-primary" />
