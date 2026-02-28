@@ -357,8 +357,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
 
                         {/* LEFT: DETAILS CONTENT */}
                         <TabsContent value="details" forceMount={true} className="m-0 lg:flex-1 h-full lg:order-1 data-[state=inactive]:hidden lg:data-[state=inactive]:flex flex-col overflow-hidden focus-visible:outline-none">
-                            <ScrollArea className="flex-1 bg-background p-4 md:p-6 lg:p-8">
-                                <div className="max-w-3xl mx-auto space-y-6 md:space-y-8 pb-20">
+                            <ScrollArea className="flex-1 h-full bg-background overflow-y-auto">
+                                <div className="p-4 md:p-6 lg:p-8 max-w-3xl mx-auto space-y-6 md:space-y-8 pb-32">
                                     <DialogTitle className="text-xl md:text-3xl font-bold text-foreground leading-tight tracking-tight">{task.title}</DialogTitle>
 
                                     {/* --- COMPACT INLINE PROPERTIES HEADER --- */}
