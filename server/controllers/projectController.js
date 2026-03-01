@@ -8,7 +8,7 @@ const { invalidateProjectCache } = require('../utils/cacheUtils');
 // @desc    Create a new project
 // @route   POST /api/projects
 const createProject = async (req, res) => {
-  const { name, description, orgId, lead, dueDate, color } = req.body;
+  const { name, description, orgId, lead, dueDate, color, defaultView, privacy } = req.body;
 
   try {
     const project = await Project.create({
@@ -18,7 +18,9 @@ const createProject = async (req, res) => {
       // Use provided lead OR default to creator
       lead: lead || req.user._id,
       dueDate,
-      color
+      color,
+      defaultView,
+      privacy
     });
 
     // Populate the lead immediately for the frontend

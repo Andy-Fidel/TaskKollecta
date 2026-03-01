@@ -14,10 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import CreateProjectWizard from '@/components/CreateProjectWizard';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -99,9 +96,7 @@ export default function Dashboard() {
 
   // Modal State
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectDesc, setNewProjectDesc] = useState('');
-  const [userOrgs, setUserOrgs] = useState([]);
+  const [orgMembers, setOrgMembers] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
   const onPieEnter = (_, index) => {
@@ -119,7 +114,13 @@ export default function Dashboard() {
         setData(dashboardRes.data);
 
         const orgRes = await api.get('/organizations');
-        setUserOrgs(orgRes.data);
+
+        // Fetch org members for the project wizard
+        const activeOrgId = localStorage.getItem('activeOrgId') || orgRes.data?.[0]?._id;
+        if (activeOrgId) {
+          const memRes = await api.get(`/organizations/${activeOrgId}/members`);
+          setOrgMembers(memRes.data);
+        }
       } catch {
         console.error("Failed to load dashboard");
       } finally {
@@ -135,17 +136,8 @@ export default function Dashboard() {
     { name: 'Overdue', value: data.stats.overdue || 0, color: 'hsl(var(--destructive))' },
   ].filter(i => i.value > 0) : [];
 
-  const handleCreateProject = async (e) => {
-    e.preventDefault();
-    if (userOrgs.length === 0) return alert("You need an organization first!");
-    try {
-      const { data } = await api.post('/projects', {
-        name: newProjectName,
-        description: newProjectDesc,
-        orgId: userOrgs[0]._id
-      });
-      navigate(`/project/${data._id}`);
-    } catch { alert("Failed to create project"); }
+  const handleProjectCreated = (project) => {
+    navigate(`/project/${project._id}`);
   };
 
   const greeting = getGreeting();
@@ -615,20 +607,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Create Project Modal */}
-      <Dialog open={isProjectModalOpen} onOpenChange={setIsProjectModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Quick Create Project</DialogTitle>
-            <DialogDescription>Start a new project immediately.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreateProject} className="space-y-4 py-4">
-            <div className="space-y-2"><Label>Name</Label><Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} required /></div>
-            <div className="space-y-2"><Label>Description</Label><Textarea value={newProjectDesc} onChange={e => setNewProjectDesc(e.target.value)} /></div>
-            <DialogFooter><Button type="submit" className="bg-primary text-primary-foreground">Create Project</Button></DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Create Project Wizard */}
+      <CreateProjectWizard
+        open={isProjectModalOpen}
+        onOpenChange={setIsProjectModalOpen}
+        members={orgMembers}
+        onProjectCreated={handleProjectCreated}
+      />
 
       {/* Inline CSS animations */}
       <style>{`

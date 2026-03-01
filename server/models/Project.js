@@ -29,6 +29,16 @@ const projectSchema = new mongoose.Schema({
     type: String,
     default: '#0f172a'
   },
+  defaultView: {
+    type: String,
+    enum: ['list', 'board', 'timeline', 'calendar'],
+    default: 'board'
+  },
+  privacy: {
+    type: String,
+    enum: ['public', 'private'],
+    default: 'public'
+  },
   tags: [{
     name: String,
     color: String
