@@ -167,7 +167,7 @@ const updateProject = async (req, res) => {
     }
 
     // Whitelist allowed update fields
-    const allowedFields = ['name', 'description', 'color', 'dueDate', 'lead', 'status'];
+    const allowedFields = ['name', 'description', 'color', 'dueDate', 'lead', 'status', 'defaultView', 'privacy'];
     const updateData = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {

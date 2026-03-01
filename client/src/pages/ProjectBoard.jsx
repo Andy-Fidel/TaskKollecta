@@ -784,6 +784,7 @@ export default function ProjectBoard() {
         onClose={() => setIsSettingsOpen(false)}
         project={projectDetails}
         onUpdate={(updated) => setProjectDetails(updated)}
+        members={projectMembers}
       />
 
       <AutomationModal

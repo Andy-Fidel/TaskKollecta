@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  Plus, Search, Filter, MoreHorizontal, Calendar as CalendarIcon, Check
+  Plus, Search, Filter, MoreHorizontal, Calendar as CalendarIcon, Check, Settings
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -10,9 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-// Project Wizard
+// Project Wizard & Settings
 import CreateProjectWizard from '@/components/CreateProjectWizard';
+import { ProjectSettingsDialog } from '@/components/ProjectSettingsDialog';
 
 import api from '../api/axios';
 
@@ -22,8 +24,12 @@ export default function Workspace() {
   const [members, setMembers] = useState([]);
   const [, setLoading] = useState(true);
   
-  // Modal State
+  // Create Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Settings Modal State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
 
   // Fetch Data
   useEffect(() => {
@@ -74,6 +80,16 @@ export default function Workspace() {
     fetchData();
   };
 
+  const handleProjectUpdated = (updatedProject) => {
+    setProjects(prev => prev.map(p => p._id === updatedProject._id ? { ...p, ...updatedProject } : p));
+  };
+
+  const openSettings = (e, project) => {
+    e.stopPropagation(); // Prevent card click navigation
+    setSelectedProject(project);
+    setIsSettingsOpen(true);
+  };
+
   return (
     <div className="space-y-10 font-[Poppins] py-10">
       
@@ -104,9 +120,21 @@ export default function Workspace() {
                 >
                   {project.name.charAt(0)}
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                    <MoreHorizontal className="w-4 h-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 -mr-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary"
+                      onClick={(e) => openSettings(e, project)}
+                    >
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Edit project</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <CardTitle className="mt-3 text-lg">{project.name}</CardTitle>
               <CardDescription className="line-clamp-2 min-h-[40px]">
@@ -178,6 +206,15 @@ export default function Workspace() {
         onOpenChange={setIsModalOpen} 
         members={members}
         onProjectCreated={handleProjectCreated}
+      />
+
+      {/* PROJECT SETTINGS DIALOG */}
+      <ProjectSettingsDialog
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        project={selectedProject}
+        onUpdate={handleProjectUpdated}
+        members={members}
       />
 
     </div>
