@@ -290,9 +290,9 @@ export default function Login() {
 
         <p className="text-center text-xs text-slate-400 px-8">
           By clicking continue, you agree to our{' '}
-          <a href="#" className="underline underline-offset-4 hover:text-slate-900">Terms of Service</a>{' '}
+          <Link to="/terms" className="underline underline-offset-4 hover:text-slate-900">Terms of Service</Link>{' '}
           and{' '}
-          <a href="#" className="underline underline-offset-4 hover:text-slate-900">Privacy Policy</a>.
+          <Link to="/privacy" className="underline underline-offset-4 hover:text-slate-900">Privacy Policy</Link>.
         </p>
       </div>
 

@@ -22,6 +22,8 @@ import { ThemeProvider } from "@/components/ThemeProvider"
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import LandingPage from './pages/LandingPage';
+import TermsOfService from './pages/TermsOfService';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 import { SocketProvider } from './context/SocketContext';
 
 
@@ -76,6 +78,9 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password/:token" element={<ResetPassword />} />
               <Route path="/forms/:formId" element={<PublicForm />} />
+
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
 
               {/* Onboarding - outside AppLayout */}
               <Route path="/onboarding" element={

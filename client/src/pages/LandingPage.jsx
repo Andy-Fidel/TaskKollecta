@@ -284,8 +284,8 @@ export default function LandingPage() {
               <div>
                   <h4 className="font-bold text-slate-900 mb-8">Legal</h4>
                   <ul className="space-y-3 text-sm text-slate-500">
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">Privacy</a></li>
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">Terms</a></li>
+                      <li><Link to="/privacy" className="hover:text-indigo-600 transition-colors">Privacy</Link></li>
+                      <li><Link to="/terms" className="hover:text-indigo-600 transition-colors">Terms</Link></li>
                       <li><a href="#" className="hover:text-indigo-600 transition-colors">Security</a></li>
                   </ul>
               </div>
@@ -304,6 +304,7 @@ export default function LandingPage() {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 function FeatureCard({ icon: Icon, title, desc }) {
     return (
         <div className="group bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
