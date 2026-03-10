@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Search, User, Settings, LogOut, Shield } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // UI Components
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,6 @@ import { ModeToggle } from './ModeToggle';
 import { NotificationBell } from './NotificationBell';
 import { CommandMenu } from './CommandMenu';
 import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '../hooks/useKeyboardShortcuts';
-import { PageTransition } from './PageTransition';
 import { AnnouncementBanner } from './AnnouncementBanner';
 
 // Context
@@ -27,25 +27,33 @@ import { useAuth } from '../context/useAuth';
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { showHelp, setShowHelp } = useKeyboardShortcuts();
 
   return (
-    <div className="flex h-screen bg-background font-sans text-foreground">
+    <div className="relative flex h-screen bg-background font-sans text-foreground overflow-hidden">
+      
+      {/* --- DYNAMIC MESH BACKGROUND --- */}
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-500/20 blur-[120px] animate-pulse"></div>
+         <div className="absolute bottom-[10%] right-[-5%] w-[35%] h-[35%] rounded-full bg-purple-500/20 blur-[100px] animate-pulse [animation-delay:2s]"></div>
+         <div className="absolute top-[20%] right-[10%] w-[25%] h-[25%] rounded-full bg-blue-500/10 blur-[80px] animate-pulse [animation-delay:4s]"></div>
+      </div>
 
       {/* --- DESKTOP SIDEBAR --- */}
-      <div className="hidden md:block h-full shrink-0">
+      <div className="hidden md:block h-full shrink-0 relative z-20">
         <Sidebar />
       </div>
 
       {/* --- MAIN CONTENT AREA --- */}
-      <div className="flex-1 flex flex-col overflow-hidden w-full min-w-0">
+      <div className="flex-1 flex flex-col overflow-hidden w-full min-w-0 relative z-10">
         
         {/* GLOBAL ANNOUNCEMENT BANNER */}
         <AnnouncementBanner />
 
         {/* HEADER */}
-        <header className="h-16 bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 sticky top-0 z-10 shrink-0">
+        <header className="h-16 bg-background/60 backdrop-blur-xl border-b border-border flex items-center justify-between px-4 md:px-8 sticky top-0 z-40 shrink-0">
 
           {/* LEFT: Mobile Menu & Search */}
           <div className="flex items-center gap-4 flex-1">
@@ -71,7 +79,7 @@ export default function AppLayout() {
               <Input
                 readOnly
                 placeholder="Search..."
-                className="pl-10 bg-secondary/50 border-transparent focus:bg-background focus:border-border transition-all rounded-xl cursor-pointer pointer-events-none"
+                className="pl-10 bg-secondary/20 border-border focus:bg-background focus:border-primary/50 transition-all rounded-xl cursor-pointer pointer-events-none"
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 border border-border bg-background rounded px-1.5 text-[10px] text-muted-foreground font-medium">
                 ⌘ K
@@ -131,11 +139,20 @@ export default function AppLayout() {
           </div>
         </header>
 
-        {/* PAGE CONTENT */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth w-full">
-          <PageTransition>
-            <Outlet />
-          </PageTransition>
+        {/* PAGE CONTENT WITH ANIMATIONS */}
+        <main className="flex-1 overflow-y-auto scroll-smooth w-full relative">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="p-4 md:p-8 min-h-full"
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
 
         {/* GLOBAL COMMAND MENU */}

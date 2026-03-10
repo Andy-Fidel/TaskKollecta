@@ -156,14 +156,37 @@ io.on("connection", (socket) => {
     }
   });
 
-  // --- 2. PROJECT ROOM MANAGEMENT ---
-  socket.on("join_project", (projectId) => {
+  // Maps to track active viewers per project and typing status per task
+  // In a real app with multiple instances, use Redis, but an in-memory Map is fine for single-node.
+  if (!global.activeProjectViewers) global.activeProjectViewers = new Map(); // projectId -> Set of {userId, name, avatar}
+
+  socket.on("join_project", (data) => {
+    // Sometimes data is just projectId string (legacy), sometimes an object
+    const projectId = typeof data === 'string' ? data : data.projectId;
+    const user = typeof data === 'object' ? data.user : null;
+
     if (projectId) {
       socket.join(`project_${projectId}`);
       socket.currentProjectId = projectId;
-      console.log(
-        `User ${socket.id} joined project room: project_${projectId}`,
-      );
+      console.log(`User ${socket.id} joined project room: project_${projectId}`);
+
+      // Track active viewers for this project
+      if (user) {
+        socket.userProfile = user; // attach to socket for cleanup on disconnect/leave
+        
+        if (!global.activeProjectViewers.has(projectId)) {
+          global.activeProjectViewers.set(projectId, new Map());
+        }
+        
+        const projectViewers = global.activeProjectViewers.get(projectId);
+        projectViewers.set(socket.id, user); // use socket.id as key to handle multiple tabs by same user safely
+
+        // Broadcast to everyone in the project (including new user)
+        io.to(`project_${projectId}`).emit(
+          "active_project_viewers",
+          Array.from(projectViewers.values())
+        );
+      }
     }
   });
 
@@ -171,6 +194,52 @@ io.on("connection", (socket) => {
     if (projectId) {
       socket.leave(`project_${projectId}`);
       console.log(`User ${socket.id} left project room: project_${projectId}`);
+
+      // Remove from active viewers
+      if (global.activeProjectViewers.has(projectId)) {
+        const projectViewers = global.activeProjectViewers.get(projectId);
+        projectViewers.delete(socket.id);
+        
+        io.to(`project_${projectId}`).emit(
+          "active_project_viewers",
+          Array.from(projectViewers.values())
+        );
+
+        if (projectViewers.size === 0) {
+          global.activeProjectViewers.delete(projectId);
+        }
+      }
+    }
+  });
+
+  // --- 2.5 TASK LEVEL (Typing Indicators) ---
+  socket.on("join_task", (taskId) => {
+    if (taskId) {
+      socket.join(`task_${taskId}`);
+      socket.currentTaskId = taskId;
+    }
+  });
+
+  socket.on("leave_task", (taskId) => {
+    if (taskId) {
+      socket.leave(`task_${taskId}`);
+      // Also stop typing if they leave
+      socket.to(`task_${taskId}`).emit("user_stopped_typing", { userId: socket.userId });
+    }
+  });
+
+  socket.on("typing_comment", (data) => {
+    const { taskId, user } = data;
+    if (taskId && user) {
+      // Broadcast to others in the task room
+      socket.to(`task_${taskId}`).emit("user_typing", { user, taskId });
+    }
+  });
+
+  socket.on("stopped_typing_comment", (data) => {
+    const { taskId, userId } = data;
+    if (taskId && userId) {
+      socket.to(`task_${taskId}`).emit("user_stopped_typing", { userId, taskId });
     }
   });
 
@@ -208,6 +277,24 @@ io.on("connection", (socket) => {
   // --- 5. DISCONNECT (Clean up rooms and presence) ---
   socket.on("disconnect", () => {
     console.log("User Disconnected", socket.id);
+
+    // Remove from active project viewers if they were in a project
+    if (socket.currentProjectId && socket.userProfile) {
+      const projectId = socket.currentProjectId;
+      if (global.activeProjectViewers.has(projectId)) {
+        const projectViewers = global.activeProjectViewers.get(projectId);
+        projectViewers.delete(socket.id);
+        
+        io.to(`project_${projectId}`).emit(
+          "active_project_viewers",
+          Array.from(projectViewers.values())
+        );
+
+        if (projectViewers.size === 0) {
+          global.activeProjectViewers.delete(projectId);
+        }
+      }
+    }
 
     // Remove from online users tracking
     if (socket.orgId && socket.userId) {

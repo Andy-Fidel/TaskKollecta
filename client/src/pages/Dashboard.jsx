@@ -23,6 +23,7 @@ import { formatActivityAction } from "../utils/formatActivity";
 import api from '../api/axios';
 import { useAuth } from '../context/useAuth';
 import { ReminderWidget } from '@/components/ReminderWidget';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // --- Theme-compatible chart colors ---
 const COLORS = [
@@ -173,22 +174,22 @@ export default function Dashboard() {
 
   // --- SKELETON LOADING STATE ---
   if (loading && !data) return (
-    <div className="space-y-10 pb-12 font-[Poppins]" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
+    <div className="space-y-10 pb-12 font-[Poppins]">
       {/* Greeting skeleton */}
       <div className="space-y-3">
-        <div className="h-9 w-80 bg-muted rounded-lg animate-pulse" />
-        <div className="h-4 w-48 bg-muted/60 rounded animate-pulse" />
+        <Skeleton className="h-9 w-80" />
+        <Skeleton className="h-4 w-48 opacity-60" />
       </div>
       {/* Stat cards skeleton */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="rounded-xl border border-border bg-card p-6 space-y-4">
             <div className="flex justify-between">
-              <div className="h-10 w-10 bg-muted rounded-xl animate-pulse" />
-              <div className="h-4 w-16 bg-muted/40 rounded animate-pulse" />
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <Skeleton className="h-4 w-16 opacity-40" />
             </div>
-            <div className="h-7 w-20 bg-muted rounded animate-pulse" />
-            <div className="h-3 w-28 bg-muted/40 rounded animate-pulse" />
+            <Skeleton className="h-7 w-20" />
+            <Skeleton className="h-3 w-28 opacity-40" />
           </div>
         ))}
       </div>
@@ -198,20 +199,20 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {[...Array(2)].map((_, i) => (
               <div key={i} className="rounded-xl border border-border bg-card p-6">
-                <div className="h-4 w-32 bg-muted rounded animate-pulse mb-8" />
-                <div className="h-[250px] bg-muted/30 rounded-lg animate-pulse" />
+                <Skeleton className="h-4 w-32 mb-8" />
+                <Skeleton className="h-[250px] w-full bg-muted/30 rounded-lg" />
               </div>
             ))}
           </div>
           <div className="rounded-xl border border-border bg-card p-6">
-            <div className="h-5 w-40 bg-muted rounded animate-pulse mb-8" />
+            <Skeleton className="h-5 w-40 mb-8" />
             <div className="space-y-4">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="flex gap-3">
-                  <div className="h-6 w-6 bg-muted rounded-full animate-pulse" />
+                  <Skeleton className="h-6 w-6 rounded-full" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-3 w-full bg-muted/40 rounded animate-pulse" />
-                    <div className="h-8 w-full bg-muted/20 rounded animate-pulse" />
+                    <Skeleton className="h-3 w-full opacity-40" />
+                    <Skeleton className="h-8 w-full opacity-20" />
                   </div>
                 </div>
               ))}
@@ -221,10 +222,10 @@ export default function Dashboard() {
         <div className="space-y-10">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[...Array(2)].map((_, i) => (
-              <div key={i} className="h-24 rounded-xl border border-border bg-card animate-pulse" />
+              <Skeleton key={i} className="h-24 rounded-xl border border-border bg-card" />
             ))}
           </div>
-          <div className="h-[320px] rounded-xl border border-border bg-card animate-pulse" />
+          <Skeleton className="h-[320px] rounded-xl border border-border bg-card" />
         </div>
       </div>
     </div>

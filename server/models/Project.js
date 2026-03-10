@@ -42,7 +42,11 @@ const projectSchema = new mongoose.Schema({
   tags: [{
     name: String,
     color: String
-  }]
+  }],
+  isTemplate: {
+    type: Boolean,
+    default: false
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Project', projectSchema);

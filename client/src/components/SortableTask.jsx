@@ -6,6 +6,8 @@ import { format, isPast, isToday } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+import { motion } from 'framer-motion';
+
 export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
   const {
     attributes,
@@ -30,18 +32,25 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
   };
 
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
       style={style}
+      layout
+      animate={{
+        rotate: isDragging ? 2 : 0,
+        scale: isDragging ? 1.05 : 1,
+        boxShadow: isDragging ? "0 25px 50px -12px rgba(0, 0, 0, 0.25)" : "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
+      }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
       {...attributes}
       {...listeners}
       onClick={onClick}
       className={`
         group relative p-4 rounded-xl bg-card 
         border shadow-sm 
-        transition-all duration-200 cursor-grab active:cursor-grabbing
+        transition-colors duration-200 cursor-grab active:cursor-grabbing
         ${isDragging 
-          ? 'rotate-[2deg] scale-105 shadow-2xl shadow-primary/10 ring-2 ring-primary/20 z-50 opacity-90' 
+          ? 'ring-2 ring-primary/20 z-50 opacity-90' 
           : 'hover:shadow-md hover:-translate-y-0.5'
         }
         ${isSelected ? 'border-primary ring-1 ring-primary/30' : 'border-border'}
@@ -134,6 +143,6 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

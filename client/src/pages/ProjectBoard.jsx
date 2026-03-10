@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { ProjectSettingsDialog } from '@/components/ProjectSettingsDialog';
 import { AdvancedFilters, applyFilters } from '@/components/Filters/AdvancedFilters';
+import { Skeleton } from '@/components/ui/skeleton';
 
 import { useAuth } from '../context/useAuth';
 import api from '../api/axios';
@@ -54,6 +55,7 @@ export default function ProjectBoard() {
   const [activeId, setActiveId] = useState(null);
   const [projectDetails, setProjectDetails] = useState(null);
   const [projectMembers, setProjectMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isAutoOpen, setIsAutoOpen] = useState(false);
@@ -114,6 +116,7 @@ export default function ProjectBoard() {
 
   const [view, setView] = useState('board');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeViewers, setActiveViewers] = useState([]);
 
   // Advanced Filters State
   const [filters, setFilters] = useState({
@@ -133,12 +136,24 @@ export default function ProjectBoard() {
 
   // Effects
   useEffect(() => {
-    api.get(`/projects/single/${projectId}`).then(({ data }) => setProjectDetails(data));
-    api.get(`/tasks/project/${projectId}?page=0&limit=50`).then(({ data }) => {
-      setTasks(data.tasks);
-      setHasMoreTasks(data.pagination.hasMore);
-      setTaskPage(0);
-    });
+    const fetchInitialData = async () => {
+      try {
+        setLoading(true);
+        const [detailsRes, tasksRes] = await Promise.all([
+          api.get(`/projects/single/${projectId}`),
+          api.get(`/tasks/project/${projectId}?page=0&limit=50`)
+        ]);
+        setProjectDetails(detailsRes.data);
+        setTasks(tasksRes.data.tasks);
+        setHasMoreTasks(tasksRes.data.pagination.hasMore);
+        setTaskPage(0);
+      } catch (err) {
+        console.error("Failed to load project data", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInitialData();
   }, [projectId]);
 
   const loadMoreTasks = useCallback(async () => {
@@ -163,6 +178,10 @@ export default function ProjectBoard() {
 
   useEffect(() => {
     if (!socket) return;
+    
+    // Join project room to start receiving active viewer updates immediately
+    const user = JSON.parse(localStorage.getItem('user'));
+    socket.emit("join_project", { projectId, user });
 
     // Live status/field update from teammate
     socket.on('receive_task_update', (updatedTask) => {
@@ -182,12 +201,28 @@ export default function ProjectBoard() {
       setTasks((prev) => prev.filter(t => t._id !== data._id));
     });
 
+    // Active project viewers update
+    socket.on('active_project_viewers', (viewers) => {
+      // deduplicate by user ID in case same user has multiple tabs open
+      const uniqueViewers = [];
+      const seenIds = new Set();
+      for (const v of viewers) {
+        if (!seenIds.has(v._id) && v._id !== user?._id) { // don't show self
+          seenIds.add(v._id);
+          uniqueViewers.push(v);
+        }
+      }
+      setActiveViewers(uniqueViewers);
+    });
+
     return () => {
+      socket.emit("leave_project", projectId);
       socket.off('receive_task_update');
       socket.off('receive_new_task');
       socket.off('receive_task_deleted');
+      socket.off('active_project_viewers');
     };
-  }, [socket]);
+  }, [socket, projectId]);
 
   useEffect(() => {
     if (projectDetails?.organization) {
@@ -318,8 +353,49 @@ export default function ProjectBoard() {
     } catch { toast.error('Failed to create task'); }
   };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-100px)] animate-in fade-in duration-500">
+        <div className="flex items-center justify-between mb-8 px-2">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-64" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+        </div>
+        <div className="flex gap-6 overflow-x-auto pb-4 h-full">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="flex-shrink-0 w-80 bg-muted/30 rounded-xl p-4 space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-5 w-8 rounded-full" />
+              </div>
+              {[...Array(3)].map((_, j) => (
+                <div key={j} className="bg-card rounded-lg p-4 border border-border space-y-3">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-12 rounded-full" />
+                    <Skeleton className="h-4 w-4" />
+                  </div>
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-3 w-2/3" />
+                  <div className="flex justify-between items-center pt-2">
+                    <Skeleton className="h-6 w-16" />
+                    <Skeleton className="h-6 w-6 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background font-[Poppins]">
+    <div className="flex flex-col h-[calc(100vh-100px)] overflow-hidden bg-background font-[Poppins]">
 
       {/* 1. Board Header */}
       <div className="border-b border-border bg-card shrink-0">
@@ -332,6 +408,31 @@ export default function ProjectBoard() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-3 shrink-0">
+            {/* Active Viewers (Presence) */}
+            {activeViewers.length > 0 && (
+              <div className="flex items-center mr-4 border-r border-border/50 pr-4">
+                <span className="text-[10px] font-semibold text-green-600 dark:text-green-500 mr-2 flex items-center gap-1.5 animate-pulse">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                  Live
+                </span>
+                <div className="flex -space-x-2">
+                  {activeViewers.slice(0, 3).map((viewer) => (
+                    <Avatar key={viewer._id} className="w-7 h-7 border-2 border-background cursor-help shadow-sm ring-1 ring-green-500/20" title={`${viewer.name} is viewing`}>
+                      <AvatarImage src={viewer.avatar || `https://ui-avatars.com/api/?name=${viewer.name}&background=random`} />
+                      <AvatarFallback className="bg-muted text-[10px] uppercase">
+                        {viewer.name?.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                  {activeViewers.length > 3 && (
+                    <div className="w-7 h-7 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] text-muted-foreground font-bold shadow-sm ring-1 ring-green-500/20">
+                      +{activeViewers.length - 3}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Avatars - hidden on mobile */}
             <div className="hidden md:flex -space-x-2 mr-2">
               {projectMembers.slice(0, 4).map((member) => (
@@ -510,6 +611,8 @@ export default function ProjectBoard() {
           <ProjectList
             tasks={filteredTasks}
             onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
+            selectedTasks={selectedTasks}
+            onToggleSelect={toggleTaskSelection}
           />
         </div>
       ) : view === 'calendar' ? (

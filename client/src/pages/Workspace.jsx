@@ -17,12 +17,13 @@ import CreateProjectWizard from '@/components/CreateProjectWizard';
 import { ProjectSettingsDialog } from '@/components/ProjectSettingsDialog';
 
 import api from '../api/axios';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Workspace() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [members, setMembers] = useState([]);
-  const [, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   
   // Create Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -89,6 +90,49 @@ export default function Workspace() {
     setSelectedProject(project);
     setIsSettingsOpen(true);
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-10 font-[Poppins] py-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-36" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="border-border bg-card">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between">
+                  <Skeleton className="h-10 w-10 rounded-lg" />
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                </div>
+                <Skeleton className="mt-4 h-6 w-3/4" />
+                <Skeleton className="mt-2 h-4 w-full" />
+              </CardHeader>
+              <CardContent className="pb-3">
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-12" />
+                  <Skeleton className="h-2 w-full rounded-full" />
+                </div>
+              </CardContent>
+              <CardFooter className="pt-3 border-t border-border flex justify-between items-center">
+                <div className="flex -space-x-2">
+                  {[...Array(3)].map((_, j) => (
+                    <Skeleton key={j} className="w-7 h-7 rounded-full border-2 border-card" />
+                  ))}
+                </div>
+                <Skeleton className="h-5 w-16" />
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10 font-[Poppins] py-10">
@@ -207,6 +251,7 @@ export default function Workspace() {
         open={isModalOpen} 
         onOpenChange={setIsModalOpen} 
         members={members}
+        templates={projects.filter(p => p.isTemplate)}
         onProjectCreated={handleProjectCreated}
       />
 

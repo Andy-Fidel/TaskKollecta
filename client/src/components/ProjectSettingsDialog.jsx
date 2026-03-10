@@ -42,6 +42,7 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
   const [privacy, setPrivacy] = useState('public');
   const [lead, setLead] = useState('');
   const [isArchived, setIsArchived] = useState(false);
+  const [isTemplate, setIsTemplate] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
       setPrivacy(project.privacy || 'public');
       setLead(project.lead?._id || project.lead || '');
       setIsArchived(project.status === 'archived');
+      setIsTemplate(project.isTemplate || false);
     }
   }, [project]);
 
@@ -71,7 +73,8 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
         defaultView,
         privacy,
         lead: lead || undefined,
-        status: isArchived ? 'archived' : 'active'
+        status: isArchived ? 'archived' : 'active',
+        isTemplate
       });
       onUpdate(data);
       toast.success('Project updated successfully');
@@ -142,6 +145,15 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
                   placeholder="Brief description..."
                   className="min-h-[80px] bg-card border-border/60 focus-visible:ring-primary/40 resize-none"
                 />
+              </div>
+
+              {/* Template Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-card">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold text-foreground">Save as Template</p>
+                  <p className="text-[11px] text-muted-foreground">Allow others in this workspace to duplicate this project.</p>
+                </div>
+                <Switch checked={isTemplate} onCheckedChange={setIsTemplate} />
               </div>
 
               {/* Color */}

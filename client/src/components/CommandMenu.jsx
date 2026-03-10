@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Calculator, Calendar, CreditCard, Settings, User,
@@ -42,6 +42,13 @@ export function CommandMenu() {
 
   // 2. Debounced Search
   useEffect(() => {
+    // If it's a command action, don't ping the API
+    if (searchQuery.startsWith('>')) {
+      setSearchResults({ tasks: [], projects: [], users: [] });
+      setIsSearching(false);
+      return;
+    }
+
     if (!searchQuery || searchQuery.length < 2) {
       setSearchResults({ tasks: [], projects: [], users: [] });
       return;
@@ -50,7 +57,9 @@ export function CommandMenu() {
     const debounceTimer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const { data } = await api.get(`/search?q=${encodeURIComponent(searchQuery)}`);
+        const activeOrgId = localStorage.getItem('activeOrgId');
+        const orgParam = activeOrgId ? `&orgId=${activeOrgId}` : '';
+        const { data } = await api.get(`/search?q=${encodeURIComponent(searchQuery)}${orgParam}`);
         setSearchResults(data);
       } catch (error) {
         console.error("Search failed:", error);
@@ -167,12 +176,27 @@ export function CommandMenu() {
             )}
 
             <CommandEmpty>
-              {searchQuery.length >= 2 ? "No results found." : "Start typing to search..."}
+              {searchQuery.startsWith('>') 
+                ? "No actions found." 
+                : (searchQuery.length >= 2 ? "No results found." : "Start typing to search or type > for actions...")}
             </CommandEmpty>
 
-            {/* Navigation - Show when not searching */}
+            {/* Navigation & Actions - Show when not searching remotely */}
             {!hasSearchResults && (
               <>
+                {/* Actions */}
+                <CommandGroup heading="Actions">
+                  <CommandItem onSelect={() => runCommand(() => navigate("/projects"))} keywords={['>', 'create', 'new', 'task', 'project']}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span>Create new Project...</span>
+                    <CommandShortcut>⌘N</CommandShortcut>
+                  </CommandItem>
+                  <CommandItem onSelect={() => runCommand(() => navigate("/team"))} keywords={['>', 'invite', 'user', 'team']}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Invite Team Member</span>
+                  </CommandItem>
+                </CommandGroup>
+                <CommandSeparator />
                 <CommandGroup heading="Suggestions">
                   <CommandItem onSelect={() => runCommand(() => navigate("/dashboard"))}>
                     <LayoutDashboard className="mr-2 h-4 w-4" />

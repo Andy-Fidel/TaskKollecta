@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import {
@@ -57,6 +58,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     const [isEditingDesc, setIsEditingDesc] = useState(false);
     const [descInput, setDescInput] = useState('');
     const [isUploading, setIsUploading] = useState(false);
+    const [showCompletionAnim, setShowCompletionAnim] = useState(false);
 
     const [openUserSelect, setOpenUserSelect] = useState(false);
     const [isDependencySearchOpen, setIsDependencySearchOpen] = useState(false);
@@ -68,6 +70,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     const [pendingAssignee, setPendingAssignee] = useState(null);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState([]);
+    
+    // Typing indicator state
+    const [typingUsers, setTypingUsers] = useState([]);
+    const [typingTimeout, setTypingTimeout] = useState(null);
 
     // --- 2. EFFECTS ---
     useEffect(() => {
@@ -104,10 +110,19 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     }, [isDependencySearchOpen, projectId, task, projectTasks.length]);
 
     useEffect(() => {
-        if (!socket || !task) return;
+        if (!socket || !task || !isOpen) return;
+
+        // Join task room for typing events
+        socket.emit("join_task", task._id);
 
         const handleNewComment = (comment) => {
-            if (comment.task === task._id) setComments((prev) => [...prev, comment]);
+            if (comment.task === task._id) {
+                setComments((prev) => [...prev, comment]);
+                // Remove the user from typing array since they sent the message
+                if (comment.user) {
+                   setTypingUsers(prev => prev.filter(u => u._id !== comment.user._id));
+                }
+            }
         };
         const handleNewActivity = (activity) => {
             if (activity.task === task._id) setActivities((prev) => [activity, ...prev]);
@@ -115,17 +130,46 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
         const handleOnlineUsers = (users) => {
             setOnlineUsers(users);
         };
+        
+        const handleUserTyping = ({ user: typingUser, taskId }) => {
+            if (taskId === task._id && typingUser._id !== user._id) {
+                setTypingUsers(prev => {
+                    if (!prev.find(u => u._id === typingUser._id)) {
+                        return [...prev, typingUser];
+                    }
+                    return prev;
+                });
+            }
+        };
+
+        const handleUserStoppedTyping = ({ userId, taskId }) => {
+            if (taskId === task._id) {
+                setTypingUsers(prev => prev.filter(u => u._id !== userId));
+            }
+        };
 
         socket.on('receive_new_comment', handleNewComment);
         socket.on('new_activity', handleNewActivity);
         socket.on('get_online_users', handleOnlineUsers);
+        socket.on('user_typing', handleUserTyping);
+        socket.on('user_stopped_typing', handleUserStoppedTyping);
 
         return () => {
+            socket.emit("leave_task", task._id);
             socket.off('receive_new_comment', handleNewComment);
             socket.off('new_activity', handleNewActivity);
             socket.off('get_online_users', handleOnlineUsers);
+            socket.off('user_typing', handleUserTyping);
+            socket.off('user_stopped_typing', handleUserStoppedTyping);
         };
-    }, [socket, task]);
+    }, [socket, task, isOpen, user]);
+
+    // Clean up typing timeout on unmount or task change
+    useEffect(() => {
+        return () => {
+             if (typingTimeout) clearTimeout(typingTimeout);
+        };
+    }, [typingTimeout]);
 
     // --- 3. GUARD CLAUSE (After hooks) ---
     if (!task) return null;
@@ -171,7 +215,16 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
         }
     };
 
+
     const handleStatusChange = async (newStatus) => {
+        const isHighPriority = currentPriority === 'high' || currentPriority === 'urgent';
+        const isMovingToDone = newStatus === 'done' || newStatus === 'completed';
+        
+        if (isHighPriority && isMovingToDone && currentStatus !== newStatus) {
+            setShowCompletionAnim(true);
+            setTimeout(() => setShowCompletionAnim(false), 3000);
+        }
+
         setCurrentStatus(newStatus);
         try {
             await api.put(`/tasks/${task._id}`, { status: newStatus });
@@ -235,6 +288,24 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setDependencies(data.dependencies);
             toast.success("Dependency removed");
         } catch { toast.error("Failed to unlink task"); }
+    };
+
+    const handleCommentChange = (val) => {
+        setNewComment(val);
+        
+        // Emit typing event
+        if (socket && task) {
+            socket.emit("typing_comment", { taskId: task._id, user });
+            
+            // Clear existing timeout
+            if (typingTimeout) clearTimeout(typingTimeout);
+            
+            // Set new timeout to stop typing after 2 seconds of inactivity
+            const timeout = setTimeout(() => {
+                socket.emit("stopped_typing_comment", { taskId: task._id, userId: user._id });
+            }, 2000);
+            setTypingTimeout(timeout);
+        }
     };
 
     const handleSendComment = async (e) => {
@@ -313,8 +384,46 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
         <>
             <Dialog open={isOpen} onOpenChange={onClose}>
                 <DialogContent className="w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
-
-                    {/* HEADER */}
+                    
+                    {/* --- COMPLETION ANIMATION OVERLAY --- */}
+                    <AnimatePresence>
+                        {showCompletionAnim && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.5 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 1.5 }}
+                                className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none overflow-hidden"
+                            >
+                                <motion.div 
+                                    initial={{ rotate: 0 }}
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 0.8, ease: "easeOut" }}
+                                    className="relative flex items-center justify-center"
+                                >
+                                    {[...Array(12)].map((_, i) => (
+                                        <motion.div
+                                            key={i}
+                                            initial={{ x: 0, y: 0, opacity: 1 }}
+                                            animate={{ 
+                                                x: Math.cos(i * 30 * Math.PI / 180) * 150, 
+                                                y: Math.sin(i * 30 * Math.PI / 180) * 150, 
+                                                opacity: 0 
+                                            }}
+                                            transition={{ duration: 1, ease: "easeOut", delay: 0.1 }}
+                                            className="absolute w-2 h-2 rounded-full bg-primary"
+                                        />
+                                    ))}
+                                    <motion.div
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: [0, 1.2, 1] }}
+                                        className="bg-primary text-primary-foreground p-6 rounded-full shadow-2xl"
+                                    >
+                                        <Check className="w-12 h-12 stroke-[3]" />
+                                    </motion.div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                     <div className="bg-card border-b border-border p-3 md:p-4 px-4 md:px-6 flex justify-between items-center shrink-0 min-h-[56px] md:h-16">
                         <div className="flex items-center gap-2 md:gap-3 text-muted-foreground overflow-hidden">
                             <Badge variant="outline" className="rounded-md font-mono text-[10px] md:text-xs shrink-0">{task.project?.name || 'Project'}</Badge>
@@ -731,10 +840,35 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                 </ScrollArea>
 
                                 <div className="p-4 border-t border-border bg-card shrink-0">
+                                    {/* Typing Indicator */}
+                                    {typingUsers.length > 0 && (
+                                        <div className="flex items-center gap-2 mb-2 px-2 text-xs text-muted-foreground animate-in fade-in slide-in-from-bottom-2">
+                                            <div className="flex -space-x-1.5 overflow-hidden">
+                                                {typingUsers.slice(0, 3).map((u) => (
+                                                    <img 
+                                                        key={u._id} 
+                                                        src={u.avatar || `https://ui-avatars.com/api/?name=${u.name}&background=random`} 
+                                                        className="inline-block h-4 w-4 rounded-full ring-2 ring-background grayscale opacity-70"
+                                                        alt={u.name}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <span>
+                                                {typingUsers.length === 1 && `${typingUsers[0].name.split(' ')[0]} is typing...`}
+                                                {typingUsers.length === 2 && `${typingUsers[0].name.split(' ')[0]} and ${typingUsers[1].name.split(' ')[0]} are typing...`}
+                                                {typingUsers.length > 2 && `${typingUsers.length} people are typing...`}
+                                            </span>
+                                            <span className="flex gap-0.5 ml-1">
+                                                <span className="animate-[bounce_1s_infinite] text-primary delay-75">.</span>
+                                                <span className="animate-[bounce_1s_infinite] text-primary delay-150">.</span>
+                                                <span className="animate-[bounce_1s_infinite] text-primary delay-300">.</span>
+                                            </span>
+                                        </div>
+                                    )}
                                     <form onSubmit={handleSendComment} className="relative group">
                                         <MentionInput
                                             value={newComment}
-                                            onChange={setNewComment}
+                                            onChange={handleCommentChange}
                                             users={Array.isArray(teamMembers) ? teamMembers.map(m => m.user).filter(Boolean) : []}
                                             placeholder="Write a comment... Type @ to mention"
                                             className="pr-12 bg-background border-border focus-visible:ring-primary/40 shadow-sm transition-all text-sm rounded-xl py-3"

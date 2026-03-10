@@ -8,8 +8,10 @@ const getNotifications = async (req, res) => {
       .limit(20) 
       .populate('sender', 'name avatar');
     
-    
-    const unreadCount = await Notification.countDocuments({ recipient: req.user._id, isRead: false });
+    const unreadCount = await Notification.countDocuments({ 
+        recipient: req.user._id, 
+        $or: [{ status: 'unread' }, { isRead: false, status: { $ne: 'archived' } }]
+    });
     
     res.json({ notifications, unreadCount });
   } catch (error) {
@@ -21,8 +23,8 @@ const getNotifications = async (req, res) => {
 const markRead = async (req, res) => {
   try {
     await Notification.updateMany(
-      { recipient: req.user._id, isRead: false },
-      { $set: { isRead: true } }
+      { recipient: req.user._id, $or: [{ isRead: false }, { status: 'unread' }] },
+      { $set: { isRead: true, status: 'read' } }
     );
     res.json({ message: 'Marked as read' });
   } catch (error) {
@@ -63,4 +65,31 @@ const clearAllNotifications = async (req, res) => {
     }
 }
 
-module.exports = { getNotifications, markRead, deleteNotification, clearAllNotifications };
+// @desc    Update a specific notification's status (read, unread, archived)
+// @route   PUT /api/notifications/:id/status
+const updateNotificationStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const notification = await Notification.findById(req.params.id);
+
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+
+    if (notification.recipient.toString() !== req.user._id.toString()) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+
+    if (['unread', 'read', 'archived'].includes(status)) {
+        notification.status = status;
+        notification.isRead = (status === 'read' || status === 'archived');
+        await notification.save();
+    }
+
+    res.json(notification);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { getNotifications, markRead, deleteNotification, clearAllNotifications, updateNotificationStatus };

@@ -167,7 +167,7 @@ const updateProject = async (req, res) => {
     }
 
     // Whitelist allowed update fields
-    const allowedFields = ['name', 'description', 'color', 'dueDate', 'lead', 'status', 'defaultView', 'privacy'];
+    const allowedFields = ['name', 'description', 'color', 'dueDate', 'lead', 'status', 'defaultView', 'privacy', 'isTemplate'];
     const updateData = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
@@ -321,9 +321,69 @@ const getAllProjects = async (req, res) => {
   }
 };
 
+// @desc    Duplicate a project (and its tasks)
+// @route   POST /api/projects/:id/duplicate
+const duplicateProject = async (req, res) => {
+  try {
+    const sourceProject = await Project.findById(req.params.id);
+    if (!sourceProject) return res.status(404).json({ message: 'Source project not found' });
+
+    // Permission Check: Member
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      organization: sourceProject.organization
+    });
+
+    if (!membership) {
+      return res.status(403).json({ message: 'Not authorized to duplicate project' });
+    }
+
+    // 1. Create the new project
+    const newProject = await Project.create({
+      name: req.body.name || `${sourceProject.name} (Copy)`,
+      description: sourceProject.description,
+      organization: sourceProject.organization,
+      lead: req.user._id,
+      color: sourceProject.color,
+      defaultView: sourceProject.defaultView,
+      privacy: sourceProject.privacy,
+      tags: sourceProject.tags,
+      isTemplate: req.body.isTemplate || false
+    });
+
+    // 2. Fetch all tasks from the source project
+    const sourceTasks = await Task.find({ project: sourceProject._id });
+
+    // 3. Duplicate all tasks
+    if (sourceTasks.length > 0) {
+      const newTasksData = sourceTasks.map(task => ({
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        priority: task.priority,
+        organization: task.organization,
+        project: newProject._id,
+        reporter: req.user._id,
+        assignee: task.assignee, // keep assignments or clear them? Usually keep or clear based on preference.
+        tags: task.tags
+      }));
+
+      await Task.insertMany(newTasksData);
+    }
+
+    // 4. Invalidate cache
+    await invalidateProjectCache(sourceProject.organization);
+
+    res.status(201).json(newProject);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createProject,
   getOrgProjects, getProjectDetails,
   getProjectAnalytics, createUpdate,
-  getUpdates, updateProject, deleteProject, getAllProjects
+  getUpdates, updateProject, deleteProject, getAllProjects,
+  duplicateProject
 };

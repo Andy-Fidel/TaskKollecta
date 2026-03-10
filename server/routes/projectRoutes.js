@@ -9,7 +9,8 @@ const {
   getUpdates,
   updateProject,
   deleteProject,
-  getAllProjects
+  getAllProjects,
+  duplicateProject
 } = require('../controllers/projectController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -18,6 +19,9 @@ const { cacheResponse } = require('../middleware/cacheMiddleware');
 
 // Create Project
 router.post('/', protect, checkRole('owner', 'admin', 'member'), createProject);
+
+// Duplicate Project
+router.post('/:id/duplicate', protect, checkRole('owner', 'admin', 'member'), duplicateProject);
 
 // Get All Projects (Global) - cached for 120 seconds
 router.get('/', protect, cacheResponse(120), getAllProjects);

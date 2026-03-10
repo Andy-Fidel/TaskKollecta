@@ -40,7 +40,7 @@ const STEPS = [
   { label: 'Team', number: 3 },
 ];
 
-export default function CreateProjectWizard({ open, onOpenChange, members = [], onProjectCreated }) {
+export default function CreateProjectWizard({ open, onOpenChange, members = [], templates = [], onProjectCreated }) {
   // Step
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,6 +49,7 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(COLORS[0]);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   // Step 2
   const [defaultView, setDefaultView] = useState('board');
@@ -65,6 +66,7 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
     setName('');
     setDescription('');
     setColor(COLORS[0]);
+    setSelectedTemplate(null);
     setDefaultView('board');
     setPrivacy('public');
     setLead('');
@@ -95,6 +97,27 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
   const handleCreate = async () => {
     const targetOrgId = localStorage.getItem('activeOrgId');
     if (!targetOrgId) return alert("You must create or join an Organization first!");
+    
+    // If a template is selected, we use the duplicate endpoint
+    if (selectedTemplate) {
+      setIsSubmitting(true);
+      try {
+        const { data } = await api.post(`/projects/${selectedTemplate}/duplicate`, {
+          name: name.trim() || undefined,
+          isTemplate: false // Duplicated projects shouldn't be templates by default
+        });
+        onProjectCreated?.(data);
+        onOpenChange(false);
+        resetForm();
+      } catch {
+        alert('Failed to create project from template');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // Blank Project Creation
     if (!name.trim()) return;
 
     setIsSubmitting(true);
@@ -125,7 +148,7 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
     onOpenChange(val);
   };
 
-  const isStep1Valid = name.trim().length > 0;
+  const isStep1Valid = !!selectedTemplate || name.trim().length > 0;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -137,9 +160,11 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
             <DialogTitle className="text-xl font-bold text-foreground tracking-tight">
               Create Project
             </DialogTitle>
-            <Badge variant="outline" className="text-xs font-mono tabular-nums">
-              {step}/3
-            </Badge>
+            {selectedTemplate ? (
+               <Badge variant="outline" className="text-xs font-mono tabular-nums">Template</Badge>
+            ) : (
+               <Badge variant="outline" className="text-xs font-mono tabular-nums">{step}/3</Badge>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
             {step === 1 && 'Give your project a name and identity.'}
@@ -177,6 +202,38 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
             <div className="flex">
               {/* ---- STEP 1: Basics ---- */}
               <div className="w-full flex-shrink-0 p-6 space-y-5">
+                
+                {templates && templates.length > 0 && (
+                  <div className="space-y-2 border-b border-border/40 pb-5">
+                    <Label className="text-sm font-semibold">Start from a Template (Optional)</Label>
+                    <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto pr-1">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTemplate(null)}
+                        className={cn(
+                          "p-2.5 text-left rounded-xl text-sm transition-colors border-2 focus:outline-none",
+                          !selectedTemplate ? "border-primary bg-primary/5 font-medium" : "border-transparent bg-muted/40 hover:bg-muted/70 text-muted-foreground"
+                        )}
+                      >
+                        Start from Scratch
+                      </button>
+                      {templates.map(t => (
+                        <button
+                          key={t._id}
+                          type="button"
+                          onClick={() => setSelectedTemplate(t._id)}
+                          className={cn(
+                            "p-2.5 text-left rounded-xl text-sm transition-colors border-2 truncate focus:outline-none",
+                            selectedTemplate === t._id ? "border-primary bg-primary/5 font-medium" : "border-transparent bg-muted/40 hover:bg-muted/70 text-muted-foreground"
+                          )}
+                        >
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="project-name" className="text-sm font-semibold">
                     Project Name <span className="text-destructive">*</span>

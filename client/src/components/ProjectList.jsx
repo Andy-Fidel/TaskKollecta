@@ -2,8 +2,9 @@ import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { PriorityBadge } from './PriorityBadge';
+import { Checkbox } from '@/components/ui/checkbox';
 
-export function ProjectList({ tasks, onTaskClick }) {
+export function ProjectList({ tasks, onTaskClick, selectedTasks, onToggleSelect }) {
   if (tasks.length === 0) return <div className="p-8 text-center text-slate-500">No tasks found.</div>;
 
   return (
@@ -11,6 +12,18 @@ export function ProjectList({ tasks, onTaskClick }) {
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
           <tr>
+            <th className="px-4 py-3 w-12 text-center">
+              <Checkbox 
+                checked={tasks.length > 0 && tasks.every(t => selectedTasks?.has(t._id))}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    tasks.forEach(t => { if (!selectedTasks?.has(t._id)) onToggleSelect(t._id); });
+                  } else {
+                    tasks.forEach(t => { if (selectedTasks?.has(t._id)) onToggleSelect(t._id); });
+                  }
+                }}
+              />
+            </th>
             <th className="px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Title</th>
             <th className="px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Status</th>
             <th className="px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Priority</th>
@@ -22,10 +35,15 @@ export function ProjectList({ tasks, onTaskClick }) {
           {tasks.map((task) => (
             <tr 
                 key={task._id} 
-                onClick={() => onTaskClick(task)}
-                className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
+                className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${selectedTasks?.has(task._id) ? 'bg-primary/5 dark:bg-primary/10' : ''}`}
             >
-              <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-200">{task.title}</td>
+              <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                <Checkbox 
+                  checked={selectedTasks?.has(task._id)}
+                  onCheckedChange={() => onToggleSelect?.(task._id)}
+                />
+              </td>
+              <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-200 cursor-pointer" onClick={() => onTaskClick(task)}>{task.title}</td>
               <td className="px-6 py-4">
                 <Badge variant="secondary" className="capitalize bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                     {task.status.replace('-', ' ')}

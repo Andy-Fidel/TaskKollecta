@@ -13,7 +13,8 @@ const notificationSchema = new mongoose.Schema({
   relatedModel: { type: String, enum: ['Task', 'Project'], required: true },
   
   message: { type: String, required: true },
-  isRead: { type: Boolean, default: false }
+  isRead: { type: Boolean, default: false },
+  status: { type: String, enum: ['unread', 'read', 'archived'], default: 'unread' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Notification', notificationSchema);
