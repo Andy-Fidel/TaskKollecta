@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, useInView, useSpring } from 'framer-motion';
 import { 
   ArrowRight, CheckCircle2, Zap, Layout, 
   Users, BarChart3, ShieldCheck, Play, Globe, Lock, Clock
@@ -406,9 +406,9 @@ function FeatureCard({ icon: Icon, title, desc, variants }) {
 
 function Counter({ from, to, decimals = 0 }) {
     const nodeRef = React.useRef(null);
-    const inView = motion.useInView(nodeRef, { once: true, margin: "-100px" });
-    const springValue = motion.useSpring(from, { stiffness: 50, damping: 20 });
-    const displayValue = motion.useTransform(springValue, (val) => val.toFixed(decimals));
+    const inView = useInView(nodeRef, { once: true, margin: "-100px" });
+    const springValue = useSpring(from, { stiffness: 50, damping: 20 });
+    const displayValue = useTransform(springValue, (val) => val.toFixed(decimals));
 
     React.useEffect(() => {
         if (inView) {
