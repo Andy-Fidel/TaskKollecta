@@ -174,7 +174,7 @@ export default function Dashboard() {
 
   // --- SKELETON LOADING STATE ---
   if (loading && !data) return (
-    <div className="space-y-10 pb-12 font-[Poppins]">
+    <div className="space-y-10 pb-12">
       {/* Greeting skeleton */}
       <div className="space-y-3">
         <Skeleton className="h-9 w-80" />
@@ -245,7 +245,7 @@ export default function Dashboard() {
   const cardStyle = "border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl";
 
   return (
-    <div className="space-y-10 pb-12 font-[Poppins]"
+    <div className="space-y-10 pb-12"
          style={{ animation: 'fadeInUp 0.5s ease-out' }}>
 
       {/* ====== GREETING HEADER ====== */}

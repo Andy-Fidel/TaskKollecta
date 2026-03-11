@@ -74,13 +74,13 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
         >
           <div className={`flex-1 space-y-3 min-h-[100px] transition-all duration-200 rounded-xl ${isOver ? 'border-2 border-dashed border-primary/20 p-2' : 'border-2 border-transparent p-0'}`}>
             {tasks.length === 0 && !isOver && (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/50">
-                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" className="mb-3 opacity-40">
-                  <rect x="8" y="12" width="32" height="8" rx="3" fill="currentColor" opacity="0.2"/>
-                  <rect x="8" y="24" width="32" height="8" rx="3" fill="currentColor" opacity="0.1"/>
-                  <rect x="8" y="36" width="20" height="4" rx="2" fill="currentColor" opacity="0.08"/>
+              <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/40">
+                <svg width="56" height="56" viewBox="0 0 56 56" fill="none" className="mb-3 opacity-50">
+                  <rect x="10" y="14" width="36" height="7" rx="3.5" fill="currentColor" opacity="0.12"/>
+                  <rect x="10" y="25" width="36" height="7" rx="3.5" fill="currentColor" opacity="0.08"/>
+                  <rect x="10" y="36" width="24" height="7" rx="3.5" fill="currentColor" opacity="0.05"/>
                 </svg>
-                <p className="text-xs font-medium">No tasks</p>
+                <p className="text-xs font-medium">Drop tasks here</p>
               </div>
             )}
             {tasks.length === 0 && isOver && (

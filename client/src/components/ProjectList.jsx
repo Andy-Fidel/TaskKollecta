@@ -5,7 +5,19 @@ import { PriorityBadge } from './PriorityBadge';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export function ProjectList({ tasks, onTaskClick, selectedTasks, onToggleSelect }) {
-  if (tasks.length === 0) return <div className="p-8 text-center text-slate-500">No tasks found.</div>;
+  if (tasks.length === 0) return (
+    <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+      <svg width="120" height="120" viewBox="0 0 120 120" fill="none" className="mb-6 opacity-60">
+        <rect x="20" y="30" width="80" height="14" rx="7" fill="currentColor" opacity="0.08"/>
+        <rect x="20" y="52" width="80" height="14" rx="7" fill="currentColor" opacity="0.06"/>
+        <rect x="20" y="74" width="55" height="14" rx="7" fill="currentColor" opacity="0.04"/>
+        <circle cx="95" cy="81" r="18" stroke="currentColor" strokeWidth="3" opacity="0.12"/>
+        <path d="M95 73v16M87 81h16" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity="0.15"/>
+      </svg>
+      <h3 className="text-lg font-semibold text-foreground mb-1">No tasks yet</h3>
+      <p className="text-sm text-muted-foreground max-w-xs">Tasks will appear here once they are created in this project. Switch to the Board view to get started.</p>
+    </div>
+  );
 
   return (
     <div className="w-full bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">

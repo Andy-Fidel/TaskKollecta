@@ -75,6 +75,12 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-[Poppins];
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3 {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   }
 }

@@ -104,7 +104,7 @@ export default function Sidebar({ onClose }) {
     return (
         <>
             <div
-                className={`relative flex flex-col h-full md:h-screen border-r border-white/10 bg-background/40 backdrop-blur-xl transition-all duration-300 ease-in-out font-[Poppins] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] ${isCollapsed ? 'w-20' : 'w-64'}`}
+                className={`relative flex flex-col h-full md:h-screen border-r border-white/10 bg-background/40 backdrop-blur-xl transition-all duration-300 ease-in-out shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] ${isCollapsed ? 'w-20' : 'w-64'}`}
             >
                 {/* COLLAPSE TOGGLE - hidden on mobile (sheet handles closing) */}
                 <button

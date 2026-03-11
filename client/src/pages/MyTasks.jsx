@@ -26,7 +26,7 @@ export default function MyTasks() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10 font-[Poppins] py-10">
+    <div className="max-w-5xl mx-auto space-y-10 py-10">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Tasks</h1>
@@ -56,7 +56,15 @@ export default function MyTasks() {
         </CardHeader>
         <CardContent className="p-0">
           {tasks.length === 0 ? (
-            <div className="p-10 text-center text-slate-400">No tasks assigned to you.</div>
+            <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+              <svg width="120" height="120" viewBox="0 0 120 120" fill="none" className="mb-6 opacity-50">
+                <circle cx="60" cy="50" r="35" stroke="currentColor" strokeWidth="2.5" opacity="0.1"/>
+                <path d="M45 50l10 10 20-20" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.18"/>
+                <rect x="30" y="95" width="60" height="8" rx="4" fill="currentColor" opacity="0.06"/>
+              </svg>
+              <h3 className="text-lg font-semibold text-foreground mb-1">You're all clear!</h3>
+              <p className="text-sm text-muted-foreground max-w-xs">No tasks are assigned to you right now. When a teammate assigns you work, it will show up here.</p>
+            </div>
           ) : (
             tasks.map((task) => (
               <div key={task._id} className="p-4 border-b border-gray-50 hover:bg-slate-50 transition group">

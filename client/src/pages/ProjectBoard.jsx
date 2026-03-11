@@ -395,7 +395,7 @@ export default function ProjectBoard() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)] overflow-hidden bg-background font-[Poppins]">
+    <div className="flex flex-col h-[calc(100vh-100px)] overflow-hidden bg-background">
 
       {/* 1. Board Header */}
       <div className="border-b border-border bg-card shrink-0">

@@ -138,7 +138,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 text-slate-900 p-4 sm:p-8 font-[Poppins]">
+    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 text-slate-900 p-4 sm:p-8">
       {/* Background patterns/glows for aesthetic flair */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10 bg-grid-slate-200/[0.2]">
         <div className="absolute top-0 left-[20%] w-[500px] h-[500px] bg-indigo-200 rounded-full blur-[100px] opacity-20" />

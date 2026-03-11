@@ -147,7 +147,7 @@ export default function CalendarView() {
     }
 
     return (
-        <div className="space-y-8 font-[Poppins]">
+        <div className="space-y-8">
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 {[

@@ -216,7 +216,7 @@ export default function GanttChart() {
   }
 
   return (
-    <div className="space-y-8 font-[Poppins]">
+    <div className="space-y-8">
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -353,10 +353,16 @@ export default function GanttChart() {
         </CardHeader>
         <CardContent className="p-0">
           {chartData.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <GanttChartSquare className="w-12 h-12 mb-4 opacity-50" />
-              <p className="text-sm">No tasks with due dates in this range.</p>
-              <p className="text-xs mt-1">Try adjusting filters or date range.</p>
+            <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
+              <svg width="100" height="100" viewBox="0 0 100 100" fill="none" className="mb-5 opacity-40">
+                <rect x="15" y="25" width="50" height="8" rx="4" fill="currentColor" opacity="0.15"/>
+                <rect x="25" y="40" width="40" height="8" rx="4" fill="currentColor" opacity="0.10"/>
+                <rect x="10" y="55" width="60" height="8" rx="4" fill="currentColor" opacity="0.08"/>
+                <rect x="20" y="70" width="35" height="8" rx="4" fill="currentColor" opacity="0.05"/>
+                <line x1="80" y1="20" x2="80" y2="85" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" opacity="0.12"/>
+              </svg>
+              <h3 className="text-base font-semibold text-foreground mb-1">No tasks in this timeline</h3>
+              <p className="text-sm max-w-xs">Try adjusting the date range or filters to see your scheduled work.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">

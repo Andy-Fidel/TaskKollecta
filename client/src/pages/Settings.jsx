@@ -217,7 +217,7 @@ export default function Settings() {
   ];
 
   return (
-    <div className="space-y-10 pb-12 font-[Poppins]">
+    <div className="space-y-10 pb-12">
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Settings</h1>

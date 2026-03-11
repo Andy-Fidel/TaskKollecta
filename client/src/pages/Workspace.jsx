@@ -93,7 +93,7 @@ export default function Workspace() {
 
   if (loading) {
     return (
-      <div className="space-y-10 font-[Poppins] py-10">
+      <div className="space-y-10 py-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
             <Skeleton className="h-8 w-48" />
@@ -135,7 +135,7 @@ export default function Workspace() {
   }
 
   return (
-    <div className="space-y-10 font-[Poppins] py-10">
+    <div className="space-y-10 py-10">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
