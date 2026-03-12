@@ -660,11 +660,53 @@ const bulkDeleteTasks = async (req, res) => {
   }
 };
 
+// @desc    Create a sub-task (real Task document linked to parent)
+// @route   POST /api/tasks/:id/children
+const createChildTask = async (req, res) => {
+  try {
+    const parentTask = await Task.findById(req.params.id);
+    if (!parentTask) return res.status(404).json({ message: 'Parent task not found' });
+
+    const { title, description, priority, assignee, dueDate } = req.body;
+    const child = await Task.create({
+      title,
+      description,
+      priority: priority || 'medium',
+      assignee: assignee || null,
+      dueDate: dueDate || null,
+      project: parentTask.project,
+      organization: parentTask.organization,
+      reporter: req.user._id,
+      parentTask: parentTask._id,
+      parentType: 'subtask',
+    });
+
+    const populated = await child.populate('assignee', 'name avatar email');
+    res.status(201).json(populated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get child sub-tasks for a task
+// @route   GET /api/tasks/:id/children
+const getChildTasks = async (req, res) => {
+  try {
+    const children = await Task.find({ parentTask: req.params.id, parentType: 'subtask' })
+      .populate('assignee', 'name avatar email')
+      .sort({ createdAt: -1 });
+    res.json(children);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createTask, getProjectTasks, getTask,
   getMyTasks, deleteTask, addAttachment, deleteAttachment,
   addSubtask, toggleSubtask,
   addDependency, removeDependency, updateTask, deleteSubtask, toggleArchiveTask,
   addTag, removeTag, setRecurrence, removeRecurrence,
-  bulkUpdateTasks, bulkDeleteTasks
+  bulkUpdateTasks, bulkDeleteTasks,
+  createChildTask, getChildTasks
 };

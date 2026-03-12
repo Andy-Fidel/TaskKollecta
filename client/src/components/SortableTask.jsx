@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, MoreHorizontal, User as UserIcon, Repeat, Check } from 'lucide-react';
+import { Calendar, MoreHorizontal, User as UserIcon, Repeat, Check, Diamond, Link2 } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
@@ -74,13 +74,19 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
         <MoreHorizontal className="h-4 w-4" />
       </button>
 
-      {/* Priority Badge & Recurring Indicator */}
+      {/* Priority Badge & Indicators */}
       <div className="flex items-center gap-2 mb-3">
         <Badge variant="outline" className={`text-[10px] uppercase tracking-wider font-bold border ${priorityColors[task.priority] || priorityColors.medium}`}>
           {task.priority}
         </Badge>
+        {task.isMilestone && (
+          <Diamond className="h-3.5 w-3.5 text-amber-500 fill-amber-500" title="Milestone" />
+        )}
         {task.recurrence?.enabled && (
           <Repeat className="h-3 w-3 text-violet-500" title="Recurring task" />
+        )}
+        {task.dependencies?.length > 0 && (
+          <Link2 className="h-3 w-3 text-blue-500" title={`${task.dependencies.length} dependenc${task.dependencies.length === 1 ? 'y' : 'ies'}`} />
         )}
       </div>
 

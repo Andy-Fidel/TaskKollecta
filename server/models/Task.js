@@ -65,8 +65,10 @@ const taskSchema = new mongoose.Schema({
     endDate: { type: Date }, // Optional end date for recurrence
     lastGenerated: { type: Date } // Track when last instance was created
   },
-  parentTask: { type: mongoose.Schema.Types.ObjectId, ref: 'Task' }, // Link to recurring parent
+  parentTask: { type: mongoose.Schema.Types.ObjectId, ref: 'Task' }, // Link to recurring parent or subtask parent
+  parentType: { type: String, enum: ['recurrence', 'subtask'], default: 'recurrence' },
 
+  isMilestone: { type: Boolean, default: false },
   archived: { type: Boolean, default: false },
   dependencies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
 }, { timestamps: true });

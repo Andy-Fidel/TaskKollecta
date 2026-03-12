@@ -151,6 +151,42 @@ export default function GanttChart() {
     const barX = x + (payload.startOffset / (differenceInDays(dateRange.to, dateRange.from) || 1)) * width;
     const barWidth = (payload.duration / (differenceInDays(dateRange.to, dateRange.from) || 1)) * width;
 
+    const handleClick = () => {
+      setSelectedTask(payload);
+      setIsDetailsOpen(true);
+    };
+
+    // Milestone: render as diamond
+    if (payload.isMilestone) {
+      const cx = barX + Math.max(barWidth, 8) / 2;
+      const cy = y + height / 2;
+      const r = (height - 8) / 2;
+      const points = `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`;
+      return (
+        <g>
+          <polygon
+            points={points}
+            fill="#f59e0b"
+            stroke="#d97706"
+            strokeWidth={1.5}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={handleClick}
+          />
+          {/* Label next to diamond */}
+          <text
+            x={cx + r + 6}
+            y={cy + 4}
+            fill="hsl(var(--foreground))"
+            fontSize={11}
+            fontWeight="600"
+            className="pointer-events-none"
+          >
+            {payload.name.length > 20 ? payload.name.substring(0, 20) + '…' : payload.name}
+          </text>
+        </g>
+      );
+    }
+
     return (
       <g>
         <rect
@@ -162,10 +198,7 @@ export default function GanttChart() {
           rx={4}
           ry={4}
           className="cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => {
-            setSelectedTask(payload);
-            setIsDetailsOpen(true);
-          }}
+          onClick={handleClick}
         />
         {/* Task title on bar if wide enough */}
         {barWidth > 60 && (

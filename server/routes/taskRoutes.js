@@ -19,7 +19,9 @@ const { createTask,
     setRecurrence,
     removeRecurrence,
     bulkUpdateTasks,
-    bulkDeleteTasks } = require('../controllers/taskController');
+    bulkDeleteTasks,
+    createChildTask,
+    getChildTasks } = require('../controllers/taskController');
 const { protect } = require('../middleware/authMiddleware');
 const { validateCreateTask, validateUpdateTask, validateIdParam } = require('../middleware/validators');
 const { cacheResponse } = require('../middleware/cacheMiddleware');
@@ -37,10 +39,14 @@ router.delete('/:id/attachments/:attachmentId', protect, deleteAttachment);
 router.get('/single/:id', protect, cacheResponse(30), getTask);
 router.put('/:id/archive', protect, toggleArchiveTask);
 
-// Subtasks
+// Subtasks (checklist)
 router.post('/:id/subtasks', protect, addSubtask);
 router.put('/:id/subtasks/:subtaskId', protect, toggleSubtask);
 router.delete('/:id/subtasks/:subtaskId', protect, deleteSubtask);
+
+// Child tasks (real sub-task documents)
+router.post('/:id/children', protect, createChildTask);
+router.get('/:id/children', protect, getChildTasks);
 
 // Dependencies
 router.post('/:id/dependencies', protect, addDependency);

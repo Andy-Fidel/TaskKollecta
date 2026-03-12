@@ -6,7 +6,7 @@ import {
     User as UserIcon, Check, MoreHorizontal, Trash2, Paperclip, FileText,
     Image as ImageIcon, Link2, Link2Off, AlertCircle, X, Plus,
     AlignLeft, Layout, Clock, CheckCircle2, ListChecks, History, Tag, Repeat,
-    Calendar as CalendarIcon
+    Calendar as CalendarIcon, Diamond, GitBranch
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -49,6 +49,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     const [tags, setTags] = useState(task?.tags || []);
     const [recurrence, setRecurrence] = useState(task?.recurrence || null);
     const [attachments, setAttachments] = useState(task?.attachments || []);
+    const [isMilestone, setIsMilestone] = useState(task?.isMilestone || false);
+    const [childTasks, setChildTasks] = useState([]);
+    const [newChildTitle, setNewChildTitle] = useState('');
+    const [isCreatingChild, setIsCreatingChild] = useState(false);
 
     const [newComment, setNewComment] = useState('');
     const [newSubtask, setNewSubtask] = useState('');
@@ -98,6 +102,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setTags(task.tags || []);
             setRecurrence(task.recurrence || null);
             setAttachments(task.attachments || []);
+            setIsMilestone(task.isMilestone || false);
+
+            // Fetch child tasks (real sub-task documents)
+            api.get(`/tasks/${task._id}/children`).then(({ data }) => setChildTasks(data)).catch(() => {});
         }
     }, [isOpen, task, orgId]);
 
@@ -271,6 +279,28 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setSubtasks(originalSubtasks);
             toast.error("Delete error");
         }
+    };
+
+    const handleToggleMilestone = async () => {
+        const newVal = !isMilestone;
+        setIsMilestone(newVal);
+        try {
+            await api.put(`/tasks/${task._id}`, { isMilestone: newVal });
+            toast.success(newVal ? 'Marked as milestone' : 'Milestone removed');
+        } catch { setIsMilestone(!newVal); toast.error('Failed to update'); }
+    };
+
+    const handleCreateChildTask = async (e) => {
+        e.preventDefault();
+        if (!newChildTitle.trim()) return;
+        setIsCreatingChild(true);
+        try {
+            const { data } = await api.post(`/tasks/${task._id}/children`, { title: newChildTitle });
+            setChildTasks(prev => [data, ...prev]);
+            setNewChildTitle('');
+            toast.success('Sub-task created');
+        } catch { toast.error('Failed to create sub-task'); }
+        setIsCreatingChild(false);
     };
 
     const handleAddDependency = async (dependencyId) => {
@@ -506,6 +536,21 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                             </DropdownMenu>
                                         </div>
 
+                                        {/* Milestone Toggle */}
+                                        <div className="flex items-center">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={handleToggleMilestone}
+                                                className={`h-8 font-medium bg-background shadow-sm border border-border/50 hover:bg-muted rounded-full px-3 text-xs md:text-sm ${
+                                                    isMilestone ? 'text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-800' : 'text-muted-foreground'
+                                                }`}
+                                            >
+                                                <Diamond className={`w-3.5 h-3.5 mr-2 ${isMilestone ? 'fill-amber-500' : ''}`} />
+                                                {isMilestone ? 'Milestone' : 'Milestone'}
+                                            </Button>
+                                        </div>
+
                                         {/* Assignee */}
                                         <div className="flex items-center">
                                             <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
@@ -613,31 +658,41 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                         </div>
 
                                         {/* Dependencies */}
-                                        <div className="flex items-center">
+                                        <div className="flex items-center flex-wrap gap-2">
                                             <Popover open={isDependencySearchOpen} onOpenChange={setIsDependencySearchOpen}>
                                                 <PopoverTrigger asChild>
                                                     <Button variant="ghost" size="sm" className="h-8 font-medium bg-background shadow-sm border border-border/50 hover:bg-muted rounded-full px-3 text-muted-foreground">
                                                         <Link2 className="w-3.5 h-3.5 mr-2" />
-                                                        <span className="text-xs md:text-sm">Link</span>
+                                                        <span className="text-xs md:text-sm">Blocked by</span>
                                                     </Button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-[250px] p-0" align="end">
+                                                <PopoverContent className="w-[280px] p-0" align="end">
                                                     <Command>
-                                                        <CommandInput placeholder="Search tasks..." />
+                                                        <CommandInput placeholder="Search tasks to depend on..." />
                                                         <CommandGroup>
                                                             {Array.isArray(projectTasks) && projectTasks.length === 0 && <div className="p-3 text-xs text-muted-foreground text-center">No other tasks in project</div>}
-                                                            {Array.isArray(projectTasks) && projectTasks.slice(0, 8).map((t) => (
-                                                                <CommandItem key={t._id} onSelect={() => handleAddDependency(t._id)}>{t.title}</CommandItem>
+                                                            {Array.isArray(projectTasks) && projectTasks
+                                                                .filter(t => !dependencies?.some(d => d._id === t._id))
+                                                                .slice(0, 8)
+                                                                .map((t) => (
+                                                                <CommandItem key={t._id} onSelect={() => handleAddDependency(t._id)}>
+                                                                    <div className={`w-2 h-2 rounded-full mr-2 ${t.status === 'done' ? 'bg-green-500' : 'bg-slate-400'}`} />
+                                                                    {t.title}
+                                                                </CommandItem>
                                                             ))}
                                                         </CommandGroup>
                                                     </Command>
                                                 </PopoverContent>
                                             </Popover>
                                             {dependencies?.length > 0 && (
-                                                <div className="flex items-center gap-1 ml-2">
+                                                <div className="flex items-center gap-1 flex-wrap">
                                                     {dependencies.map(dep => (
-                                                        <Badge key={dep._id} variant="secondary" className="text-[10px] h-6 px-2 flex items-center gap-1 font-mono hover:bg-red-100 hover:text-red-700 cursor-pointer transition-colors" title="Remove dependency" onClick={() => handleRemoveDependency(dep._id)}>
-                                                            {dep.title.substring(0, 10)}... <X className="w-3 h-3 ml-1 opacity-50" />
+                                                        <Badge key={dep._id} variant="secondary" className={`text-[10px] h-6 px-2 flex items-center gap-1 cursor-pointer transition-colors ${
+                                                            dep.status === 'done' ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' : 'hover:bg-red-100 hover:text-red-700'
+                                                        }`} title={dep.status === 'done' ? 'Completed dependency' : 'Click to remove'} onClick={() => handleRemoveDependency(dep._id)}>
+                                                            <div className={`w-1.5 h-1.5 rounded-full ${dep.status === 'done' ? 'bg-green-500' : 'bg-amber-500'}`} />
+                                                            {dep.title?.substring(0, 15)}{dep.title?.length > 15 ? '…' : ''}
+                                                            <X className="w-3 h-3 ml-0.5 opacity-40" />
                                                         </Badge>
                                                     ))}
                                                 </div>
@@ -730,6 +785,56 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                                 placeholder={subtasks.length === 0 ? "Add your first subtask..." : "Add another subtask..."}
                                                 value={newSubtask}
                                                 onChange={e => setNewSubtask(e.target.value)}
+                                            />
+                                        </form>
+                                    </div>
+
+                                    <Separator className="bg-border/60" />
+
+                                    {/* Child Tasks (Real Sub-task Documents) */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-muted p-1.5 rounded-md"><GitBranch className="w-4 h-4 text-primary" /></div>
+                                                <h3 className="text-sm font-semibold text-foreground tracking-wide">Sub-tasks</h3>
+                                                {childTasks.length > 0 && (
+                                                    <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{childTasks.length}</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {childTasks.length > 0 && (
+                                            <div className="space-y-2 mb-4">
+                                                {childTasks.map(child => (
+                                                    <div key={child._id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all group ${
+                                                        child.status === 'done' ? 'bg-muted/30 border-transparent' : 'bg-card border-border/50 hover:border-primary/40 shadow-sm'
+                                                    }`}>
+                                                        <div className={`w-2 h-2 rounded-full shrink-0 ${
+                                                            child.status === 'done' ? 'bg-green-500' : child.status === 'in-progress' ? 'bg-blue-500' : 'bg-slate-400'
+                                                        }`} />
+                                                        <span className={`text-sm flex-1 break-words ${
+                                                            child.status === 'done' ? 'text-muted-foreground line-through opacity-70' : 'text-foreground font-medium'
+                                                        }`}>{child.title}</span>
+                                                        {child.assignee && (
+                                                            <UIAvatar className="h-5 w-5 border border-border">
+                                                                <AvatarImage src={child.assignee.avatar} />
+                                                                <AvatarFallback className="text-[8px]">{child.assignee.name?.charAt(0)}</AvatarFallback>
+                                                            </UIAvatar>
+                                                        )}
+                                                        <Badge variant="outline" className="text-[9px] capitalize h-5">{child.status?.replace('-', ' ')}</Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <form onSubmit={handleCreateChildTask} className="flex items-center gap-3 p-1">
+                                            <Plus className="h-4 w-4 text-muted-foreground ml-2" />
+                                            <input
+                                                className="text-sm bg-transparent outline-none flex-1 placeholder:text-muted-foreground text-foreground border-b border-transparent focus:border-primary/50 py-1 transition-colors"
+                                                placeholder={childTasks.length === 0 ? 'Add a sub-task with its own status & assignee...' : 'Add another sub-task...'}
+                                                value={newChildTitle}
+                                                onChange={e => setNewChildTitle(e.target.value)}
+                                                disabled={isCreatingChild}
                                             />
                                         </form>
                                     </div>

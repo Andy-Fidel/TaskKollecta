@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { motion } from 'framer-motion';
+import confetti from 'canvas-confetti';
 import {
   Search,
   Users, Plus, Mail,
@@ -294,6 +296,21 @@ export default function ProjectBoard() {
       setTasks((prev) => prev.map(t => t._id === activeTask._id ? { ...t, status: newStatus } : t));
       if (socket) socket.emit("task_moved", { _id: activeTask._id, status: newStatus, projectId });
 
+      // Milestone Celebration!
+      if (newStatus === 'done' && activeTask.isMilestone) {
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#F59E0B', '#FCD34D', '#FFFBEB'], // Amber/Gold tones
+          zIndex: 9999
+        });
+        toast('Milestone Achieved! 🏆', {
+          description: `"${activeTask.title}" has been completed.`,
+          duration: 5000,
+        });
+      }
+
       try {
         await api.put(`/tasks/${activeTask._id}`, { status: newStatus });
       } catch (error) {
@@ -506,29 +523,70 @@ export default function ProjectBoard() {
         {/* Bottom row: View switcher + toggles - scrollable on mobile */}
         <div className="flex items-center gap-2 md:gap-3 px-4 md:px-8 pb-3 md:pb-0 md:py-2 overflow-x-auto scrollbar-hide">
           {/* Analytics / Updates Toggle */}
-          <div className="flex bg-muted/50 p-1 rounded-lg shrink-0">
-            <button onClick={() => setView('board')} className="hidden">Board</button>
-            <button onClick={() => setView('analytics')} className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1 text-xs font-medium rounded-md transition whitespace-nowrap ${view === 'analytics' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-              <Activity className="w-3.5 h-3.5" /> Analytics
+          <div className="flex bg-muted/50 p-1 rounded-lg shrink-0 overflow-hidden">
+            <button
+              onClick={() => setView('analytics')}
+              className={`relative flex items-center gap-1.5 px-2.5 md:px-3 py-1 text-xs font-medium rounded-md transition whitespace-nowrap ${view === 'analytics' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {view === 'analytics' && (
+                <motion.div
+                  layoutId="active-nav-bg"
+                  className="absolute inset-0 bg-background shadow rounded-md"
+                  transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5" /> Analytics
+              </span>
             </button>
-            <button onClick={() => setView('updates')} className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1 text-xs font-medium rounded-md transition whitespace-nowrap ${view === 'updates' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-              <CheckCircle2 className="w-3.5 h-3.5" /> Updates
+            <button
+              onClick={() => setView('updates')}
+              className={`relative flex items-center gap-1.5 px-2.5 md:px-3 py-1 text-xs font-medium rounded-md transition whitespace-nowrap ${view === 'updates' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {view === 'updates' && (
+                <motion.div
+                  layoutId="active-nav-bg"
+                  className="absolute inset-0 bg-background shadow rounded-md"
+                  transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Updates
+              </span>
             </button>
           </div>
 
           {/* View Switcher (Board vs List) */}
-          <div className="flex bg-muted/50 p-1 rounded-lg border border-border shrink-0">
+          <div className="flex bg-muted/50 p-1 rounded-lg border border-border shrink-0 overflow-hidden">
             <button
               onClick={() => setView('board')}
-              className={`p-1.5 px-2.5 md:px-3 rounded-md flex items-center gap-1.5 md:gap-2 text-sm transition-all whitespace-nowrap ${view === 'board' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`relative p-1.5 px-2.5 md:px-3 rounded-md flex items-center gap-1.5 md:gap-2 text-sm transition-all whitespace-nowrap ${view === 'board' ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <LayoutGrid className="w-4 h-4" /> <span className="hidden sm:inline">Board</span>
+              {view === 'board' && (
+                <motion.div
+                  layoutId="active-view-bg"
+                  className="absolute inset-0 bg-background shadow rounded-md"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5 md:gap-2">
+                <LayoutGrid className="w-4 h-4" /> <span className="hidden sm:inline">Board</span>
+              </span>
             </button>
             <button
               onClick={() => setView('list')}
-              className={`p-1.5 px-2.5 md:px-3 rounded-md flex items-center gap-1.5 md:gap-2 text-sm transition-all whitespace-nowrap ${view === 'list' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`relative p-1.5 px-2.5 md:px-3 rounded-md flex items-center gap-1.5 md:gap-2 text-sm transition-all whitespace-nowrap ${view === 'list' ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <ListIcon className="w-4 h-4" /> <span className="hidden sm:inline">List</span>
+              {view === 'list' && (
+                <motion.div
+                  layoutId="active-view-bg"
+                  className="absolute inset-0 bg-background shadow rounded-md"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5 md:gap-2">
+                <ListIcon className="w-4 h-4" /> <span className="hidden sm:inline">List</span>
+              </span>
             </button>
           </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useContext } from 'react';
-import { Bell, X, CheckCheck, Trash2, Archive, CheckCircle2 } from 'lucide-react';
+import { Bell, X, CheckCheck, Trash2, Archive, CheckCircle2, Reply, Send } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { 
   Popover, PopoverContent, PopoverTrigger 
@@ -21,6 +21,8 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('unread');
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState('');
 
   useEffect(() => {
     if (!user || !socket) return;
@@ -83,6 +85,27 @@ export function NotificationBell() {
           setNotifications([]);
           setUnreadCount(0);
       } catch { console.error("Failed to clear all"); }
+  };
+
+  const handleReply = async (e, notif) => {
+      e.preventDefault();
+      if (!replyText.trim() || !notif.relatedId) return;
+      try {
+          await api.post('/comments', { taskId: notif.relatedId, content: replyText });
+          // Emit socket event for real-time
+          if (socket) {
+              socket.emit('new_comment', { taskId: notif.relatedId, comment: { content: replyText, user } });
+          }
+          // Auto-mark as read
+          const isUnread = notif.status === 'unread' || (!notif.status && !notif.isRead);
+          if (isUnread) {
+              await api.put(`/notifications/${notif._id}/status`, { status: 'read' });
+              setUnreadCount(prev => Math.max(0, prev - 1));
+              setNotifications(prev => prev.map(n => n._id === notif._id ? { ...n, status: 'read', isRead: true } : n));
+          }
+          setReplyText('');
+          setReplyingTo(null);
+      } catch { console.error("Failed to send reply"); }
   };
 
   const displayedNotifications = notifications.filter(n => {
@@ -164,6 +187,22 @@ export function NotificationBell() {
                                     <p className="text-[10px] text-muted-foreground/70 font-medium">
                                         {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
                                     </p>
+
+                                    {/* Inline Reply for new_comment */}
+                                    {notif.type === 'new_comment' && replyingTo === notif._id && (
+                                        <form onSubmit={(e) => handleReply(e, notif)} className="flex items-center gap-2 mt-2" onClick={e => e.stopPropagation()}>
+                                            <input
+                                                className="flex-1 text-xs bg-muted/50 border border-border/50 rounded-md px-2.5 py-1.5 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 text-foreground placeholder:text-muted-foreground transition-all"
+                                                placeholder="Write a reply..."
+                                                value={replyText}
+                                                onChange={e => setReplyText(e.target.value)}
+                                                autoFocus
+                                            />
+                                            <Button type="submit" size="icon" className="h-7 w-7 shrink-0" disabled={!replyText.trim()}>
+                                                <Send className="w-3 h-3" />
+                                            </Button>
+                                        </form>
+                                    )}
                                 </div>
       
                                 {/* Actions (Visible on Hover) */}
@@ -217,6 +256,21 @@ export function NotificationBell() {
                                           <TooltipContent side="bottom" className="text-xs">Delete</TooltipContent>
                                       </Tooltip>
                                   </TooltipProvider>
+
+                                  {/* Reply button for comments */}
+                                  {notif.type === 'new_comment' && notif.relatedModel === 'Task' && (
+                                      <TooltipProvider>
+                                          <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10" onClick={(e) => { e.stopPropagation(); setReplyingTo(replyingTo === notif._id ? null : notif._id); setReplyText(''); }}>
+                                                      <Reply className="w-3.5 h-3.5" />
+                                                  </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent side="bottom" className="text-xs">Reply</TooltipContent>
+                                          </Tooltip>
+                                      </TooltipProvider>
+                                  )}
+
                                 </div>
                             </div>
                         );
