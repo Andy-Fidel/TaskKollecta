@@ -302,6 +302,11 @@ const getAllProjects = async (req, res) => {
           status: 1,
           lead: 1,
           organization: 1,
+          privacy: 1,
+          tags: 1,
+          isTemplate: 1,
+          totalTasks: 1,
+          completedTasks: 1,
           team: { name: 1, avatar: 1, _id: 1 },
           progress: {
             $cond: [

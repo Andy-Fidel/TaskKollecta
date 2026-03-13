@@ -10,7 +10,7 @@ const projectSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'completed', 'archived'],
+    enum: ['active', 'completed', 'paused', 'archived'],
     default: 'active'
   },
   dueDate: {

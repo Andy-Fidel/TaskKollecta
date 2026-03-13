@@ -115,6 +115,57 @@ const getDashboardStats = async (req, res) => {
       }
     ]);
 
+    // Chart 3: Tasks by Priority (for Priority Breakdown chart)
+    const tasksByPriority = await Task.aggregate([
+      {
+        $match: {
+          assignee: userId,
+          status: { $ne: 'done' },
+          organization: { $in: targetOrgIds.map(id => new mongoose.Types.ObjectId(id)) }
+        }
+      },
+      {
+        $group: {
+          _id: '$priority',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Chart 4: Tasks by Project × Status (for Stacked Bar chart)
+    const tasksByProjectStatus = await Task.aggregate([
+      {
+        $match: {
+          assignee: userId,
+          organization: { $in: targetOrgIds.map(id => new mongoose.Types.ObjectId(id)) }
+        }
+      },
+      {
+        $lookup: {
+          from: 'projects',
+          localField: 'project',
+          foreignField: '_id',
+          as: 'projectData'
+        }
+      },
+      { $unwind: '$projectData' },
+      {
+        $group: {
+          _id: { project: '$projectData.name', status: '$status' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Transform byProjectStatus into [{name, todo, 'in-progress', review, done}, ...]
+    const projectStatusMap = {};
+    tasksByProjectStatus.forEach(d => {
+      const proj = d._id.project;
+      if (!projectStatusMap[proj]) projectStatusMap[proj] = { name: proj, todo: 0, 'in-progress': 0, review: 0, done: 0 };
+      projectStatusMap[proj][d._id.status] = d.count;
+    });
+    const byProjectStatus = Object.values(projectStatusMap);
+
     // Today's Tasks
     const todaysTasks = await Task.find({
       assignee: userId,
@@ -144,7 +195,9 @@ const getDashboardStats = async (req, res) => {
       },
       charts: {
         productivity: productivityData.map(d => ({ name: d._id, value: d.count })),
-        byProject: tasksByProject.map(d => ({ name: d._id, value: d.count }))
+        byProject: tasksByProject.map(d => ({ name: d._id, value: d.count })),
+        byPriority: tasksByPriority.map(d => ({ name: d._id || 'none', value: d.count })),
+        byProjectStatus
       },
       recentProjects,
       todaysTasks,

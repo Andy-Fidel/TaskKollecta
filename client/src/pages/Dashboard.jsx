@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector, Legend,
-  AreaChart, Area
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  AreaChart, Area, RadialBarChart, RadialBar, Legend, CartesianGrid,
+  ComposedChart, Line
 } from 'recharts';
 import {
   CheckCircle2, TrendingUp, Users, FolderOpen,
@@ -33,6 +34,15 @@ const COLORS = [
   'hsl(var(--chart-4))',
   'hsl(var(--chart-5))'
 ];
+
+// --- Priority config for Priority Breakdown chart ---
+const PRIORITY_CONFIG = {
+  urgent: { color: '#ef4444', label: 'Urgent' },
+  high: { color: '#f97316', label: 'High' },
+  medium: { color: '#eab308', label: 'Medium' },
+  low: { color: '#22c55e', label: 'Low' },
+  none: { color: '#94a3b8', label: 'No Priority' },
+};
 
 // --- Animated count-up hook ---
 function useCountUp(target, duration = 1200) {
@@ -98,11 +108,6 @@ export default function Dashboard() {
   // Modal State
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [orgMembers, setOrgMembers] = useState([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  const onPieEnter = (_, index) => {
-    setActiveIndex(index);
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -131,11 +136,37 @@ export default function Dashboard() {
     fetchData();
   }, [dateRange]);
 
-  const statusData = data ? [
-    { name: 'Active', value: data.stats.activeTasks || 0, color: 'hsl(var(--chart-2))' },
-    { name: 'Completed', value: data.stats.completedInPeriod || 0, color: 'hsl(var(--chart-4))' },
-    { name: 'Overdue', value: data.stats.overdue || 0, color: 'hsl(var(--destructive))' },
-  ].filter(i => i.value > 0) : [];
+  // Radial gauge data for Task Status
+  const radialData = data ? [
+    { name: 'Completed', value: data.stats.completionRate || 0, fill: 'hsl(var(--chart-4))' },
+    { name: 'Active', value: Math.min(((data.stats.activeTasks || 0) / Math.max(data.stats.activeTasks + data.stats.completedInPeriod, 1)) * 100, 100), fill: 'hsl(var(--chart-2))' },
+    { name: 'Overdue', value: Math.min(((data.stats.overdue || 0) / Math.max(data.stats.activeTasks + data.stats.completedInPeriod, 1)) * 100, 100), fill: 'hsl(var(--destructive))' },
+  ] : [];
+
+  // Compute moving average for Productivity
+  const productivityWithMA = useMemo(() => {
+    if (!data?.charts?.productivity) return [];
+    const raw = data.charts.productivity;
+    return raw.map((d, i) => {
+      const window = raw.slice(Math.max(0, i - 2), i + 1);
+      const avg = window.reduce((s, x) => s + x.value, 0) / window.length;
+      return { ...d, ma: Math.round(avg * 10) / 10 };
+    });
+  }, [data]);
+
+  // Priority breakdown data
+  const priorityData = useMemo(() => {
+    if (!data?.charts?.byPriority) return [];
+    const total = data.charts.byPriority.reduce((s, d) => s + d.value, 0);
+    return data.charts.byPriority
+      .map(d => ({
+        name: PRIORITY_CONFIG[d.name]?.label || d.name,
+        value: d.value,
+        pct: total > 0 ? Math.round((d.value / total) * 100) : 0,
+        color: PRIORITY_CONFIG[d.name]?.color || '#94a3b8',
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [data]);
 
   const handleProjectCreated = (project) => {
     navigate(`/project/${project._id}`);
@@ -364,78 +395,118 @@ export default function Dashboard() {
           {/* Charts Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-            {/* CHART 1: Task Status (Interactive Pie) */}
+            {/* CHART 1: Completion Radial Gauge */}
             <Card className={cardStyle}>
               <CardHeader>
-                <CardTitle className="text-sm font-bold text-foreground">Task Status Distribution</CardTitle>
+                <CardTitle className="text-sm font-bold text-foreground">Task Status Overview</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-[250px] w-full min-h-[250px] min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={statusData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={80}
-                        fill="#8884d8"
+                    <RadialBarChart
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="30%"
+                      outerRadius="90%"
+                      barSize={14}
+                      data={radialData}
+                      startAngle={180}
+                      endAngle={0}
+                    >
+                      <RadialBar
+                        background={{ fill: 'hsl(var(--muted))' }}
                         dataKey="value"
-                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                      >
-                        {statusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} stroke="var(--background)" strokeWidth={2} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))', fontSize: '13px' }}
-                        itemStyle={{ color: 'hsl(var(--foreground))' }}
+                        cornerRadius={8}
                       />
-                      <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                    </PieChart>
+                      <Legend
+                        iconSize={10}
+                        layout="horizontal"
+                        verticalAlign="bottom"
+                        iconType="circle"
+                        wrapperStyle={{ fontSize: '11px' }}
+                      />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: '12px' }}
+                        formatter={(value) => [`${Math.round(value)}%`]}
+                      />
+                    </RadialBarChart>
                   </ResponsiveContainer>
+                </div>
+                <div className="text-center -mt-4">
+                  <span className="text-2xl font-extrabold text-primary tabular-nums">{completionRate}%</span>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Overall Completion Rate</p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* CHART 2: Workload (Donut Active) */}
+            {/* CHART 2: Priority Breakdown */}
             <Card className={cardStyle}>
               <CardHeader>
-                <CardTitle className="text-sm font-bold text-foreground">Workload by Project</CardTitle>
+                <CardTitle className="text-sm font-bold text-foreground">Priority Breakdown</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[250px] w-full min-h-[250px] min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        activeIndex={activeIndex}
-                        activeShape={renderActiveShape}
-                        data={data.charts.byProject}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        fill="var(--primary)"
-                        dataKey="value"
-                        onMouseEnter={onPieEnter}
-                        paddingAngle={2}
-                      >
-                        {data.charts.byProject.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={`hsl(var(--chart-${(index % 5) + 1}))`} stroke="var(--background)" strokeWidth={2} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="text-center text-xs text-muted-foreground mt-[-10px]">
-                  Hover segments for details
+                <div className="space-y-3">
+                  {priorityData.length > 0 ? priorityData.map((d) => (
+                    <div key={d.name} className="space-y-1.5">
+                      <div className="flex justify-between items-center text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                          <span className="font-medium text-foreground">{d.name}</span>
+                        </div>
+                        <span className="text-muted-foreground tabular-nums">{d.value} tasks ({d.pct}%)</span>
+                      </div>
+                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${d.pct}%`, backgroundColor: d.color }}
+                        />
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="text-center py-12 text-muted-foreground text-sm">No active tasks</div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Productivity Chart (weekly sparkline expanded) */}
-          {data.charts?.productivity?.length > 0 && (
+          {/* CHART 3: Workload by Project × Status (Horizontal Stacked Bars) */}
+          {data.charts?.byProjectStatus?.length > 0 && (
+            <Card className={cardStyle}>
+              <CardHeader>
+                <CardTitle className="text-sm font-bold text-foreground">Workload by Project</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.charts.byProjectStatus} layout="vertical" barCategoryGap="20%">
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        width={100}
+                        tick={{ fontSize: 11, fill: 'hsl(var(--foreground))' }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: '12px' }}
+                      />
+                      <Bar dataKey="todo" stackId="a" fill="hsl(var(--chart-1))" name="To Do" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="in-progress" stackId="a" fill="hsl(var(--chart-2))" name="In Progress" />
+                      <Bar dataKey="review" stackId="a" fill="hsl(var(--chart-3))" name="Review" />
+                      <Bar dataKey="done" stackId="a" fill="hsl(var(--chart-4))" name="Done" radius={[0, 4, 4, 0]} />
+                      <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* CHART 4: Productivity Trend (Gradient Bars + Moving Average Line) */}
+          {productivityWithMA.length > 0 && (
             <Card className={cardStyle}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -445,15 +516,16 @@ export default function Dashboard() {
                 <Badge variant="secondary" className="text-[10px]">{dateRange.from ? format(dateRange.from, "MMM d") : ''} – {dateRange.to ? format(dateRange.to, "MMM d") : ''}</Badge>
               </CardHeader>
               <CardContent>
-                <div className="h-[180px]">
+                <div className="h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data.charts.productivity}>
+                    <ComposedChart data={productivityWithMA}>
                       <defs>
-                        <linearGradient id="prodGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
                         </linearGradient>
                       </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                       <XAxis
                         dataKey="name"
                         tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
@@ -461,12 +533,14 @@ export default function Dashboard() {
                         axisLine={false}
                         tickLine={false}
                       />
+                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} allowDecimals={false} />
                       <Tooltip
                         contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: '12px' }}
                         labelFormatter={(d) => new Date(d).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
                       />
-                      <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#prodGrad)" strokeWidth={2} dot={false} name="Tasks Completed" />
-                    </AreaChart>
+                      <Bar dataKey="value" fill="url(#barGrad)" radius={[4, 4, 0, 0]} name="Completed" barSize={16} />
+                      <Line type="monotone" dataKey="ma" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} name="3-Day Avg" strokeDasharray="4 2" />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
@@ -658,38 +732,3 @@ function TaskItem({ title, project, priority }) {
     </div>
   )
 }
-
-// --- Custom Renderer for Active Donut Segment ---
-const renderActiveShape = (props) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value } = props;
-
-  return (
-    <g>
-      <text x={cx} y={cy} dy={-10} textAnchor="middle" fill={fill} className="text-sm font-bold">
-        {payload.name}
-      </text>
-      <text x={cx} y={cy} dy={15} textAnchor="middle" fill="hsl(var(--muted-foreground))" className="text-xs">
-        {`${value} Tasks`}
-      </text>
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius + 6}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-      />
-      <Sector
-        cx={cx}
-        cy={cy}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        innerRadius={innerRadius + 6}
-        outerRadius={outerRadius + 10}
-        fill={fill}
-        opacity={0.2}
-      />
-    </g>
-  );
-};
