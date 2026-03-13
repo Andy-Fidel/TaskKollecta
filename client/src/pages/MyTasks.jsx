@@ -6,23 +6,26 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import api from '../api/axios';
 import { Link } from 'react-router-dom';
+import { useDataRefresh } from '../context/useDataRefresh';
 import { ExportMenu } from '../components/ExportMenu';
 import { exportToCSV, exportToPDF, buildTaskExportData } from '../utils/exportUtils';
 
 export default function MyTasks() {
   const [tasks, setTasks] = useState([]);
+  const { refreshKey, triggerRefresh } = useDataRefresh();
 
   useEffect(() => {
     const orgId = localStorage.getItem('activeOrgId');
     const endpoint = orgId ? `/tasks/my-tasks?orgId=${orgId}` : '/tasks/my-tasks';
     api.get(endpoint).then(({ data }) => setTasks(data));
-  }, []);
+  }, [refreshKey]);
 
   const toggleTask = async (id, currentStatus) => {
     // Optimistic update
     const newStatus = currentStatus === 'done' ? 'todo' : 'done';
     setTasks(tasks.map(t => t._id === id ? { ...t, status: newStatus } : t));
     await api.put(`/tasks/${id}`, { status: newStatus });
+    triggerRefresh();
   };
 
   return (

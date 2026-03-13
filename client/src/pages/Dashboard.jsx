@@ -25,6 +25,7 @@ import api from '../api/axios';
 import { useAuth } from '../context/useAuth';
 import { ReminderWidget } from '@/components/ReminderWidget';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useDataRefresh } from '../context/useDataRefresh';
 
 // --- Theme-compatible chart colors ---
 const COLORS = [
@@ -108,6 +109,7 @@ export default function Dashboard() {
   // Modal State
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [orgMembers, setOrgMembers] = useState([]);
+  const { refreshKey, triggerRefresh } = useDataRefresh();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -134,7 +136,7 @@ export default function Dashboard() {
       }
     };
     fetchData();
-  }, [dateRange]);
+  }, [dateRange, refreshKey]);
 
   // Radial gauge data for Task Status
   const radialData = data ? [
@@ -169,6 +171,7 @@ export default function Dashboard() {
   }, [data]);
 
   const handleProjectCreated = (project) => {
+    triggerRefresh();
     navigate(`/project/${project._id}`);
   };
 

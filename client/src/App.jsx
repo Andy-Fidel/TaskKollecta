@@ -25,6 +25,7 @@ import LandingPage from './pages/LandingPage';
 import TermsOfService from './pages/TermsOfService';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import { SocketProvider } from './context/SocketContext';
+import { DataRefreshProvider } from './context/DataRefreshContext';
 
 
 const PublicRoute = ({ children }) => {
@@ -66,49 +67,51 @@ function App() {
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <AuthProvider>
         <SocketProvider>
-          <Router>
-            <Routes>
-              <Route path="/" element={
-                <PublicRoute>
-                  <LandingPage />
-                </PublicRoute>
-              } />
+          <DataRefreshProvider>
+            <Router>
+              <Routes>
+                <Route path="/" element={
+                  <PublicRoute>
+                    <LandingPage />
+                  </PublicRoute>
+                } />
 
-              <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password/:token" element={<ResetPassword />} />
-              <Route path="/forms/:formId" element={<PublicForm />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
+                <Route path="/forms/:formId" element={<PublicForm />} />
 
-              <Route path="/terms" element={<TermsOfService />} />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
 
-              {/* Onboarding - outside AppLayout */}
-              <Route path="/onboarding" element={
-                <PrivateRoute>
-                  <OnboardingWizard />
-                </PrivateRoute>
-              } />
+                {/* Onboarding - outside AppLayout */}
+                <Route path="/onboarding" element={
+                  <PrivateRoute>
+                    <OnboardingWizard />
+                  </PrivateRoute>
+                } />
 
-              {/* Wrap all internal pages with AppLayout */}
-              <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/projects" element={<Workspace />} />
-                <Route path="/workspace/:orgId" element={<Workspace />} />
-                <Route path="/project/:projectId" element={<ProjectBoard />} />
-                <Route path="/team" element={<Team />} />
-                <Route path="/tasks" element={<MyTasks />} />
-                <Route path="/calendar" element={<CalendarView />} />
-                <Route path="/gantt" element={<GanttChart />} />
-                <Route path="/reports" element={<SprintReports />} />
-                <Route path="/workload" element={<WorkloadView />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/project/:projectId/forms/new" element={<FormBuilder />} />
-                <Route path="/admin" element={<AdminRoute><SuperAdminDashboard /></AdminRoute>} />
-              </Route>
+                {/* Wrap all internal pages with AppLayout */}
+                <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/projects" element={<Workspace />} />
+                  <Route path="/workspace/:orgId" element={<Workspace />} />
+                  <Route path="/project/:projectId" element={<ProjectBoard />} />
+                  <Route path="/team" element={<Team />} />
+                  <Route path="/tasks" element={<MyTasks />} />
+                  <Route path="/calendar" element={<CalendarView />} />
+                  <Route path="/gantt" element={<GanttChart />} />
+                  <Route path="/reports" element={<SprintReports />} />
+                  <Route path="/workload" element={<WorkloadView />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/project/:projectId/forms/new" element={<FormBuilder />} />
+                  <Route path="/admin" element={<AdminRoute><SuperAdminDashboard /></AdminRoute>} />
+                </Route>
 
-            </Routes>
-          </Router>
-          <Toaster position="top-center" richColors />
+              </Routes>
+            </Router>
+            <Toaster position="top-center" richColors />
+          </DataRefreshProvider>
         </SocketProvider>
       </AuthProvider>
     </ThemeProvider>

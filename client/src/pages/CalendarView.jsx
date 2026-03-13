@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import api from '../api/axios';
 import { useNavigate } from 'react-router-dom';
+import { useDataRefresh } from '../context/useDataRefresh';
 
 const locales = { 'en-US': enUS };
 
@@ -25,20 +26,21 @@ export default function CalendarView() {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentView, setCurrentView] = useState('month');
+    const { refreshKey } = useDataRefresh();
 
     useEffect(() => {
         const fetchTasks = async () => {
             try {
                 const { data } = await api.get('/tasks/my-tasks');
                 setTasks(data);
-            } catch (error) {
+            } catch {
                 console.error('Failed to load tasks');
             } finally {
                 setLoading(false);
             }
         };
         fetchTasks();
-    }, []);
+    }, [refreshKey]);
 
     // Transform tasks to calendar events
     const events = tasks

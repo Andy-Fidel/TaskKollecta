@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import { useDataRefresh } from '../context/useDataRefresh';
 
 // UI Components
 import { Button } from '@/components/ui/button';
@@ -80,9 +81,10 @@ export default function Workspace() {
   const [viewMode, setViewMode] = useState('card');
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedIds, setPinnedIds] = useState(getPinned);
+  const { refreshKey, triggerRefresh } = useDataRefresh();
 
   // Fetch Data
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [refreshKey]);
 
   const fetchData = async () => {
     try {
@@ -120,7 +122,7 @@ export default function Workspace() {
     }
   };
 
-  const handleProjectCreated = () => fetchData();
+  const handleProjectCreated = () => { triggerRefresh(); fetchData(); };
 
   const handleProjectUpdated = (updatedProject) => {
     setProjects(prev => prev.map(p => p._id === updatedProject._id ? { ...p, ...updatedProject } : p));
@@ -148,6 +150,7 @@ export default function Workspace() {
     try {
       await api.put(`/projects/${projectId}`, { status: newStatus });
       setProjects(prev => prev.map(p => p._id === projectId ? { ...p, status: newStatus } : p));
+      triggerRefresh();
       toast.success(`Project ${STATUS_LABELS[newStatus] || newStatus}`);
     } catch { toast.error('Failed to update status'); }
   };

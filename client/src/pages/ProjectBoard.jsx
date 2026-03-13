@@ -38,6 +38,7 @@ import { ProjectAnalytics } from '../components/ProjectAnalytics';
 import { ProjectUpdates } from '../components/ProjectUpdates';
 import { ProjectList } from '../components/ProjectList';
 import { ProjectCalendar } from '../components/ProjectCalendar';
+import { useDataRefresh } from '../context/useDataRefresh';
 
 const COLUMNS = [
   { id: 'todo', label: 'To Do' },
@@ -51,6 +52,7 @@ export default function ProjectBoard() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const socket = useSocket(projectId);
+  const { triggerRefresh } = useDataRefresh();
 
   // State
   const [tasks, setTasks] = useState([]);
@@ -95,6 +97,7 @@ export default function ProjectBoard() {
         return prev.map(t => updatedMap.get(t._id) || t);
       });
       setSelectedTasks(new Set());
+      triggerRefresh();
     } catch { alert('Bulk update failed'); }
   };
 
@@ -107,6 +110,7 @@ export default function ProjectBoard() {
       // Notify teammates
       if (socket) deletedIds.forEach(id => socket.emit('task_deleted', { _id: id, projectId }));
       setSelectedTasks(new Set());
+      triggerRefresh();
     } catch { alert('Bulk delete failed'); }
   };
 
@@ -313,6 +317,7 @@ export default function ProjectBoard() {
 
       try {
         await api.put(`/tasks/${activeTask._id}`, { status: newStatus });
+        triggerRefresh();
       } catch (error) {
         // Revert on failure
         setTasks((prev) => prev.map(t => t._id === activeTask._id ? { ...t, status: previousStatus } : t));
@@ -358,6 +363,7 @@ export default function ProjectBoard() {
       setTasks([data, ...tasks]);
       if (socket) socket.emit('task_created', { task: data, projectId });
       toast.success('Task created successfully');
+      triggerRefresh();
       setNewTaskTitle('');
       setNewTaskDescription('');
       setNewTaskStartDate(null);

@@ -23,6 +23,7 @@ import {
 import { TaskDetailsModal } from '@/components/TaskDetailsModal';
 
 import api from '../api/axios';
+import { useDataRefresh } from '../context/useDataRefresh';
 
 // Priority colors matching the app's design system
 const PRIORITY_COLORS = {
@@ -58,6 +59,7 @@ export default function GanttChart() {
   // Task Details Modal
   const [selectedTask, setSelectedTask] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const { refreshKey } = useDataRefresh();
 
   // Fetch data
   useEffect(() => {
@@ -79,7 +81,7 @@ export default function GanttChart() {
       }
     };
     fetchData();
-  }, [selectedProject]);
+  }, [selectedProject, refreshKey]);
 
   // Process tasks for the Gantt chart
   const chartData = useMemo(() => {
