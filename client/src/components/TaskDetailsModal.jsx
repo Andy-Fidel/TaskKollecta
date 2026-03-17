@@ -179,6 +179,24 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
         };
     }, [typingTimeout]);
 
+    // --- MOBILE KEYBOARD FIX ---
+    // Keep comment input visible when virtual keyboard opens on mobile
+    useEffect(() => {
+        const handleViewportResize = () => {
+            if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') {
+                requestAnimationFrame(() => {
+                    document.activeElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                });
+            }
+        };
+
+        const vv = window.visualViewport;
+        if (vv) {
+            vv.addEventListener('resize', handleViewportResize);
+            return () => vv.removeEventListener('resize', handleViewportResize);
+        }
+    }, []);
+
     // --- 3. GUARD CLAUSE (After hooks) ---
     if (!task) return null;
 
@@ -853,7 +871,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                             </div>
                                             <label className="cursor-pointer text-xs font-medium px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2 active:scale-95">
                                                 {isUploading ? <span className="animate-pulse">Uploading...</span> : <><Plus className="w-3 h-3" /> Upload File</>}
-                                                <input type="file" className="hidden" onChange={handleFileUpload} multiple disabled={isUploading} />
+                                                <input type="file" className="hidden" onChange={handleFileUpload} multiple disabled={isUploading} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip" />
                                             </label>
                                         </div>
 
@@ -944,7 +962,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                     </div>
                                 </ScrollArea>
 
-                                <div className="p-4 border-t border-border bg-card shrink-0">
+                                <div className="p-3 md:p-4 border-t border-border bg-card shrink-0 sticky bottom-0 z-10" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
                                     {/* Typing Indicator */}
                                     {typingUsers.length > 0 && (
                                         <div className="flex items-center gap-2 mb-2 px-2 text-xs text-muted-foreground animate-in fade-in slide-in-from-bottom-2">
@@ -976,7 +994,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                             onChange={handleCommentChange}
                                             users={Array.isArray(teamMembers) ? teamMembers.map(m => m.user).filter(Boolean) : []}
                                             placeholder="Write a comment... Type @ to mention"
-                                            className="pr-12 bg-background border-border focus-visible:ring-primary/40 shadow-sm transition-all text-sm rounded-xl py-3"
+                                            className="pr-12 bg-background border-border focus-visible:ring-primary/40 shadow-sm transition-all text-sm rounded-xl py-2.5 md:py-3 min-h-[44px] md:min-h-[80px]"
                                             onSubmit={handleSendComment}
                                         />
                                         <Button 
