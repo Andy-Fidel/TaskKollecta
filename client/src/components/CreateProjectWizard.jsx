@@ -5,7 +5,7 @@ import {
   Plus, ArrowRight, ArrowLeft, Check, Sparkles,
   LayoutList, Columns3, GanttChart, CalendarDays,
   Globe, Lock, User as UserIcon, Calendar as CalendarIcon,
-  Users, Loader2
+  Users, Loader2, X, Wand2, Pencil
 } from 'lucide-react';
 
 // UI Components
@@ -38,6 +38,7 @@ const STEPS = [
   { label: 'Basics', number: 1 },
   { label: 'Layout', number: 2 },
   { label: 'Team', number: 3 },
+  { label: 'AI Tasks', number: 4 },
 ];
 
 export default function CreateProjectWizard({ open, onOpenChange, members = [], templates = [], onProjectCreated }) {
@@ -61,6 +62,11 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
   const [dueDate, setDueDate] = useState(null);
   const [selectedMembers, setSelectedMembers] = useState([]);
 
+  // Step 4 — AI Tasks
+  const [aiTasks, setAiTasks] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState(false);
+
   const resetForm = useCallback(() => {
     setStep(1);
     setName('');
@@ -73,11 +79,14 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
     setStartDate(null);
     setDueDate(null);
     setSelectedMembers([]);
+    setAiTasks([]);
+    setIsGenerating(false);
+    setAiGenerated(false);
     setIsSubmitting(false);
   }, []);
 
   const goNext = () => {
-    if (step < 3) {
+    if (step < 4) {
       setStep(s => s + 1);
     }
   };
@@ -92,6 +101,34 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
     setSelectedMembers(prev =>
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     );
+  };
+
+  // --- AI Task Generation ---
+  const handleGenerateTasks = async () => {
+    if (!name.trim()) return;
+    setIsGenerating(true);
+    try {
+      const { data } = await api.post('/ai/breakdown', {
+        name: name.trim(),
+        description: description.trim(),
+      });
+      setAiTasks((data.tasks || []).map((t, i) => ({ ...t, id: i, accepted: true, editing: false })));
+      setAiGenerated(true);
+    } catch {
+      setAiTasks([]);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const toggleAiTask = (id) => {
+    setAiTasks(prev => prev.map(t => t.id === id ? { ...t, accepted: !t.accepted } : t));
+  };
+  const removeAiTask = (id) => {
+    setAiTasks(prev => prev.filter(t => t.id !== id));
+  };
+  const updateAiTaskTitle = (id, title) => {
+    setAiTasks(prev => prev.map(t => t.id === id ? { ...t, title } : t));
   };
 
   const handleCreate = async () => {
@@ -133,6 +170,21 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
         privacy,
       });
 
+      // Batch-create accepted AI tasks
+      const accepted = aiTasks.filter(t => t.accepted);
+      if (accepted.length > 0) {
+        await Promise.all(accepted.map(t =>
+          api.post('/tasks', {
+            title: t.title,
+            description: t.description || '',
+            priority: t.priority || 'medium',
+            projectId: data._id,
+            orgId: targetOrgId,
+            status: 'todo',
+          })
+        ));
+      }
+
       onProjectCreated?.(data);
       onOpenChange(false);
       resetForm();
@@ -170,6 +222,7 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
             {step === 1 && 'Give your project a name and identity.'}
             {step === 2 && 'Choose how your team will view work.'}
             {step === 3 && 'Set up your team and timeline.'}
+            {step === 4 && 'Let AI suggest tasks for your project.'}
           </p>
 
           {/* Step progress bar */}
@@ -478,6 +531,108 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
                   </div>
                 </div>
               </div>
+
+              {/* ---- STEP 4: AI Tasks ---- */}
+              <div className="w-full flex-shrink-0 p-6 space-y-5">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <Wand2 className="w-4 h-4 text-primary" /> AI-Suggested Tasks
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateTasks}
+                      disabled={isGenerating || !name.trim()}
+                      className="gap-1.5 text-xs h-8"
+                    >
+                      {isGenerating ? (
+                        <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
+                      ) : aiGenerated ? (
+                        <><Sparkles className="w-3 h-3" /> Regenerate</>
+                      ) : (
+                        <><Sparkles className="w-3 h-3" /> Generate Tasks</>
+                      )}
+                    </Button>
+                  </div>
+
+                  {!aiGenerated && !isGenerating && (
+                    <div className="flex flex-col items-center justify-center py-10 px-4 text-center border-2 border-dashed border-border/50 rounded-xl bg-muted/10">
+                      <Wand2 className="w-8 h-8 text-muted-foreground/40 mb-3" />
+                      <p className="text-sm font-medium text-muted-foreground">Let AI break down your project</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Click "Generate Tasks" to get started</p>
+                    </div>
+                  )}
+
+                  {isGenerating && (
+                    <div className="flex flex-col items-center justify-center py-10 px-4">
+                      <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
+                      <p className="text-sm font-medium text-muted-foreground">Analyzing your project...</p>
+                    </div>
+                  )}
+
+                  {aiGenerated && !isGenerating && (
+                    <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                      {aiTasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className={cn(
+                            "flex items-start gap-2.5 p-3 rounded-xl border transition-all group",
+                            task.accepted
+                              ? "border-primary/30 bg-primary/5"
+                              : "border-border/40 bg-muted/20 opacity-60"
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleAiTask(task.id)}
+                            className={cn(
+                              "w-5 h-5 rounded border-2 flex items-center justify-center transition-all shrink-0 mt-0.5",
+                              task.accepted ? "bg-primary border-primary" : "border-muted-foreground/30"
+                            )}
+                          >
+                            {task.accepted && <Check className="w-3 h-3 text-primary-foreground" />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <input
+                              value={task.title}
+                              onChange={(e) => updateAiTaskTitle(task.id, e.target.value)}
+                              className="w-full text-sm font-medium bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground"
+                            />
+                            {task.description && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>
+                            )}
+                          </div>
+                          <Badge
+                            variant="secondary"
+                            className={cn("text-[10px] h-5 shrink-0 capitalize", {
+                              'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400': task.priority === 'urgent',
+                              'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400': task.priority === 'high',
+                              'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400': task.priority === 'medium',
+                              'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400': task.priority === 'low',
+                            })}
+                          >
+                            {task.priority}
+                          </Badge>
+                          <button
+                            type="button"
+                            onClick={() => removeAiTask(task.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      {aiTasks.length > 0 && (
+                        <p className="text-[11px] text-muted-foreground text-center pt-1">
+                          {aiTasks.filter(t => t.accepted).length} of {aiTasks.length} tasks selected
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -495,7 +650,7 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
             <Button type="button" variant="ghost" size="sm" onClick={() => handleOpenChange(false)} className="text-muted-foreground">
               Cancel
             </Button>
-            {step < 3 ? (
+            {step < 4 ? (
               <Button
                 type="button"
                 size="sm"

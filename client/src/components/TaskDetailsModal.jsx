@@ -6,7 +6,7 @@ import {
     User as UserIcon, Check, MoreHorizontal, Trash2, Paperclip, FileText,
     Image as ImageIcon, Link2, Link2Off, AlertCircle, X, Plus,
     AlignLeft, Layout, Clock, CheckCircle2, ListChecks, History, Tag, Repeat,
-    Calendar as CalendarIcon, Diamond, GitBranch
+    Calendar as CalendarIcon, Diamond, GitBranch, Sparkles, Loader2, Wand2
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -78,6 +78,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     // Typing indicator state
     const [typingUsers, setTypingUsers] = useState([]);
     const [typingTimeout, setTypingTimeout] = useState(null);
+    const [isAiDescribing, setIsAiDescribing] = useState(false);
 
     // --- 2. EFFECTS ---
     useEffect(() => {
@@ -219,6 +220,26 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setIsEditingDesc(false);
             toast.success("Description updated");
         } catch { toast.error("Failed to update description"); }
+    };
+
+    const handleAiDescribe = async () => {
+        setIsAiDescribing(true);
+        setIsEditingDesc(true);
+        try {
+            const { data } = await api.post('/ai/describe', {
+                title: task.title,
+                projectName: task.project?.name || '',
+            });
+            let generated = data.description || '';
+            if (data.acceptanceCriteria?.length) {
+                generated += '\n\nAcceptance Criteria:\n' + data.acceptanceCriteria.map(c => `• ${c}`).join('\n');
+            }
+            setDescInput(generated);
+        } catch {
+            toast.error('AI generation failed');
+        } finally {
+            setIsAiDescribing(false);
+        }
     };
 
     const initiateAssignment = (memberUser) => {
@@ -720,9 +741,24 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
 
                                     {/* Description */}
                                     <div className="group pt-2">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="bg-muted p-1.5 rounded-md"><AlignLeft className="w-4 h-4 text-primary" /></div>
-                                            <h3 className="text-sm font-semibold text-foreground tracking-wide">Description</h3>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-muted p-1.5 rounded-md"><AlignLeft className="w-4 h-4 text-primary" /></div>
+                                                <h3 className="text-sm font-semibold text-foreground tracking-wide">Description</h3>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={handleAiDescribe}
+                                                disabled={isAiDescribing}
+                                                className="gap-1.5 h-7 text-xs text-muted-foreground hover:text-primary"
+                                            >
+                                                {isAiDescribing ? (
+                                                    <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
+                                                ) : (
+                                                    <><Wand2 className="w-3 h-3" /> AI Describe</>
+                                                )}
+                                            </Button>
                                         </div>
                                         {isEditingDesc ? (
                                             <div className="space-y-3 animate-in fade-in slide-in-from-top-2">

@@ -31,6 +31,7 @@ const inviteRoutes = require("./routes/inviteRoutes");
 const reminderRoutes = require("./routes/reminderRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const announcementRoutes = require("./routes/announcementRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 // Load environment variables
 
@@ -65,6 +66,15 @@ const writeLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30,
   message: { message: "Too many write operations, please slow down." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// AI rate limiter: 10 requests per minute per IP
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { message: "AI rate limit reached. Please wait a moment." },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -343,6 +353,7 @@ app.use("/api/invites", inviteRoutes);
 app.use("/api/reminders", reminderRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/announcements", announcementRoutes);
+app.use("/api/ai", aiLimiter, aiRoutes);
 
 // SECURITY: Global error handler (must be last)
 app.use(errorHandler);
