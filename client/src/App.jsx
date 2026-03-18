@@ -24,6 +24,9 @@ import ResetPassword from './pages/ResetPassword';
 import LandingPage from './pages/LandingPage';
 import TermsOfService from './pages/TermsOfService';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import Documentation from './pages/Documentation';
+import ApiReference from './pages/ApiReference';
+import Community from './pages/Community';
 import { SocketProvider } from './context/SocketContext';
 import { DataRefreshProvider } from './context/DataRefreshContext';
 
@@ -83,6 +86,9 @@ function App() {
 
                 <Route path="/terms" element={<TermsOfService />} />
                 <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/docs" element={<Documentation />} />
+                <Route path="/api-reference" element={<ApiReference />} />
+                <Route path="/community" element={<Community />} />
 
                 {/* Onboarding - outside AppLayout */}
                 <Route path="/onboarding" element={

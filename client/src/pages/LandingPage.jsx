@@ -52,8 +52,9 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
             <a href="#features" className="hover:text-indigo-600 transition-colors">Features</a>
             <a href="#solutions" className="hover:text-indigo-600 transition-colors">Solutions</a>
-            <a href="#customers" className="hover:text-indigo-600 transition-colors">Customers</a>
-            <a href="#pricing" className="hover:text-indigo-600 transition-colors">Pricing</a>
+            <Link to="/docs" className="hover:text-indigo-600 transition-colors">Docs</Link>
+            <Link to="/api-reference" className="hover:text-indigo-600 transition-colors">API</Link>
+            <Link to="/community" className="hover:text-indigo-600 transition-colors">Community</Link>
           </div>
 
           <div className="flex items-center gap-4">
@@ -361,9 +362,9 @@ export default function LandingPage() {
               <div>
                   <h4 className="font-bold text-slate-900 mb-8">Resources</h4>
                   <ul className="space-y-3 text-sm text-slate-500">
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">Documentation</a></li>
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">API Reference</a></li>
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">Community</a></li>
+                      <li><Link to="/docs" className="hover:text-indigo-600 transition-colors">Documentation</Link></li>
+                      <li><Link to="/api-reference" className="hover:text-indigo-600 transition-colors">API Reference</Link></li>
+                      <li><Link to="/community" className="hover:text-indigo-600 transition-colors">Community</Link></li>
                       <li><a href="#" className="hover:text-indigo-600 transition-colors">Blog</a></li>
                   </ul>
               </div>
