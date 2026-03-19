@@ -637,14 +637,14 @@ export default function ProjectBoard() {
       {/* 3. Main Content Area - SWITCH LOGIC */}
       {view === 'board' ? (
         // VIEW: BOARD
-        <div className="flex-1 overflow-x-auto overflow-y-hidden bg-secondary/30 p-4 md:p-8 dark:bg-background">
+        <div className="flex-1 overflow-x-auto overflow-y-auto bg-secondary/30 p-4 md:p-8 dark:bg-background">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex gap-4 md:gap-8 h-full min-w-max">
+            <div className="flex gap-4 md:gap-8 min-w-max items-start">
               {COLUMNS.map(col => (
                 <KanbanColumn
                   key={col.id}

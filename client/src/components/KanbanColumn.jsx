@@ -48,6 +48,7 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
         flex-1 min-w-[280px] max-w-[320px] rounded-2xl 
         bg-muted/50 dark:bg-muted/20 
         transition-all duration-300 ease-out
+        flex flex-col max-h-[calc(100vh-220px)]
         ${isOver 
           ? `ring-2 ${colors.glow} ${colors.dropGlow} scale-[1.01] shadow-lg` 
           : 'ring-0 shadow-none'
@@ -55,7 +56,7 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
       `}
     >
       {/* Column Header */}
-      <div className={`flex justify-between items-center p-3 rounded-t-2xl ${colors.header} transition-colors duration-200`}>
+      <div className={`flex justify-between items-center p-3 rounded-t-2xl ${colors.header} transition-colors duration-200 shrink-0`}>
         <div className="flex items-center gap-2">
           <span className={`w-2.5 h-2.5 rounded-full ${colors.dot} ${isOver ? 'animate-pulse' : ''}`}></span>
           <h3 className="font-bold text-foreground text-sm">{column.label}</h3>
@@ -66,7 +67,7 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
       </div>
 
       {/* Tasks Container */}
-      <div className="p-2.5">
+      <div className="p-2.5 overflow-y-auto flex-1">
         <SortableContext
           id={column.id}
           items={tasks.map((t) => t._id)}
