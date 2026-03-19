@@ -13,11 +13,29 @@ export const AuthProvider = ({ children }) => {
     const checkUser = async () => {
       const token = localStorage.getItem('token');
       if (token) {
+        // Proactively check if JWT has expired before making API call
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          if (payload.exp && payload.exp * 1000 < Date.now()) {
+            // Token expired — clear everything
+            localStorage.removeItem('token');
+            localStorage.removeItem('activeOrgId');
+            localStorage.removeItem('lastActivity');
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // Malformed token — remove it
+          localStorage.removeItem('token');
+          setLoading(false);
+          return;
+        }
+
         try {
           const { data } = await api.get('/users/me');
           setUser(data);
         } catch {
-          localStorage.removeItem('token'); // Invalid token
+          localStorage.removeItem('token');
         }
       }
       setLoading(false);
@@ -40,6 +58,9 @@ export const AuthProvider = ({ children }) => {
     
     // Clear any other cached filters
     localStorage.removeItem('project_filter');
+
+    // Clear idle timeout timestamp
+    localStorage.removeItem('lastActivity');
   };
 
   // Auto-logout after 2 hours of inactivity
