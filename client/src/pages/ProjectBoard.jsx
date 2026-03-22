@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import {
   Search,
