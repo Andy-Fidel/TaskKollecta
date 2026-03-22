@@ -30,11 +30,11 @@ import { useDataRefresh } from '../context/useDataRefresh';
 
 // --- Theme-compatible chart colors ---
 const COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))'
+  '#8b5cf6', // Violet
+  '#3b82f6', // Blue
+  '#f59e0b', // Amber
+  '#10b981', // Emerald
+  '#ec4899', // Pink
 ];
 
 // --- Priority config for Priority Breakdown chart ---
@@ -141,9 +141,9 @@ export default function Dashboard() {
 
   // Radial gauge data for Task Status
   const radialData = data ? [
-    { name: 'Completed', value: data.stats.completionRate || 0, fill: 'hsl(var(--chart-4))' },
-    { name: 'Active', value: Math.min(((data.stats.activeTasks || 0) / Math.max(data.stats.activeTasks + data.stats.completedInPeriod, 1)) * 100, 100), fill: 'hsl(var(--chart-2))' },
-    { name: 'Overdue', value: Math.min(((data.stats.overdue || 0) / Math.max(data.stats.activeTasks + data.stats.completedInPeriod, 1)) * 100, 100), fill: 'hsl(var(--destructive))' },
+    { name: 'Completed', value: data.stats.completionRate || 0, fill: '#10b981' }, // Emerald
+    { name: 'Active', value: Math.min(((data.stats.activeTasks || 0) / Math.max(data.stats.activeTasks + data.stats.completedInPeriod, 1)) * 100, 100), fill: '#3b82f6' }, // Blue
+    { name: 'Overdue', value: Math.min(((data.stats.overdue || 0) / Math.max(data.stats.activeTasks + data.stats.completedInPeriod, 1)) * 100, 100), fill: '#ef4444' }, // Red
   ] : [];
 
   // Compute moving average for Productivity
@@ -497,10 +497,10 @@ export default function Dashboard() {
                       <Tooltip
                         contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: '12px' }}
                       />
-                      <Bar dataKey="todo" stackId="a" fill="hsl(var(--chart-1))" name="To Do" radius={[0, 0, 0, 0]} />
-                      <Bar dataKey="in-progress" stackId="a" fill="hsl(var(--chart-2))" name="In Progress" />
-                      <Bar dataKey="review" stackId="a" fill="hsl(var(--chart-3))" name="Review" />
-                      <Bar dataKey="done" stackId="a" fill="hsl(var(--chart-4))" name="Done" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="todo" stackId="a" fill="#8b5cf6" name="To Do" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="in-progress" stackId="a" fill="#3b82f6" name="In Progress" />
+                      <Bar dataKey="review" stackId="a" fill="#f59e0b" name="Review" />
+                      <Bar dataKey="done" stackId="a" fill="#10b981" name="Done" radius={[0, 4, 4, 0]} />
                       <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                     </BarChart>
                   </ResponsiveContainer>
