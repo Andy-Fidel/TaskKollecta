@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { motion } from 'framer-motion';
+
 import confetti from 'canvas-confetti';
 import {
   Search,
@@ -424,7 +424,7 @@ export default function ProjectBoard() {
     <div className="flex flex-col h-[calc(100vh-100px)] overflow-hidden bg-background">
 
       {/* 1. Board Header */}
-      <div className="border-b border-border bg-card shrink-0">
+      <div className="border-b border-border bg-card shrink-0 shadow-md z-10 relative">
         {/* Top row: Project name + create button */}
         <div className="flex items-center justify-between px-4 md:px-8 py-3 md:py-0 md:h-16">
           <div className="flex items-center gap-3 md:gap-8 min-w-0">
