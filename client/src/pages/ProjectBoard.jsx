@@ -508,16 +508,6 @@ export default function ProjectBoard() {
               </Button>
             )}
 
-            {/* AI Risk Analysis Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden md:flex text-orange-500 border-orange-500/20 hover:bg-orange-500/10 hover:text-orange-600 gap-1.5"
-              onClick={() => setIsRiskPanelOpen(true)}
-            >
-              <Sparkles className="w-4 h-4" /> AI Risk Analysis
-            </Button>
-
             {/* Export */}
             <ExportMenu
               onExportCSV={() => {
@@ -608,6 +598,18 @@ export default function ProjectBoard() {
               </span>
             </button>
           </div>
+
+            {/* AI Risk Analysis Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 text-orange-500 border-orange-500/20 hover:bg-orange-500/10 hover:text-orange-600"
+              onClick={() => setIsRiskPanelOpen(true)}
+            >
+              <Sparkles className="w-4 h-4 mr-1.5 md:mr-2" />
+              <span className="hidden sm:inline">AI Risk Analysis</span>
+              <span className="sm:hidden">AI Risks</span>
+            </Button>
 
           <Button variant="outline" size="sm" onClick={() => setIsAutoOpen(true)} className="shrink-0">
             <Zap className="w-4 h-4 mr-1.5 md:mr-2 text-yellow-500" />
