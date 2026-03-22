@@ -32,8 +32,8 @@ export default function MyTasks() {
     <div className="max-w-5xl mx-auto space-y-10 py-10">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Tasks</h1>
-          <p className="text-slate-500">All your assigned work in one place.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">My Tasks</h1>
+          <p className="text-muted-foreground">All your assigned work in one place.</p>
         </div>
         <ExportMenu
           onExportCSV={() => {
@@ -47,10 +47,10 @@ export default function MyTasks() {
         />
       </div>
 
-      <Card className="border border-white/60 shadow-sm rounded-2xl bg-white min-h-[500px]">
+      <Card className="border-border shadow-sm rounded-2xl bg-card min-h-[500px]">
         {/* Desktop header — hidden on mobile */}
-        <CardHeader className="border-b border-gray-50 bg-slate-50/50 rounded-t-2xl hidden md:block">
-          <div className="grid grid-cols-12 text-xs font-bold text-slate-500 uppercase tracking-wider pl-2">
+        <CardHeader className="border-b border-border bg-muted/30 rounded-t-2xl hidden md:block">
+          <div className="grid grid-cols-12 text-xs font-bold text-muted-foreground uppercase tracking-wider pl-2">
              <div className="col-span-6">Task Name</div>
              <div className="col-span-3">Project</div>
              <div className="col-span-2">Due Date</div>
@@ -70,35 +70,35 @@ export default function MyTasks() {
             </div>
           ) : (
             tasks.map((task) => (
-              <div key={task._id} className="p-4 border-b border-gray-50 hover:bg-slate-50 transition group">
+              <div key={task._id} className="p-4 border-b border-border/50 hover:bg-muted/30 transition group">
 
                 {/* Desktop row */}
                 <div className="hidden md:grid grid-cols-12 items-center">
                   <div className="col-span-6 flex items-center gap-3">
-                     <button onClick={() => toggleTask(task._id, task.status)} className="text-slate-300 hover:text-green-600 transition">
+                     <button onClick={() => toggleTask(task._id, task.status)} className="text-muted-foreground hover:text-green-600 transition">
                         {task.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <Circle className="w-5 h-5" />}
                      </button>
-                     <span className={`text-sm font-medium ${task.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                     <span className={`text-sm font-medium ${task.status === 'done' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
                         {task.title}
                      </span>
                   </div>
                   <div className="col-span-3">
                       {task.project && (
-                          <Link to={`/project/${task.project._id}`} className="flex items-center text-xs text-slate-500 hover:text-blue-600 hover:underline">
+                          <Link to={`/project/${task.project._id}`} className="flex items-center text-xs text-muted-foreground hover:text-primary hover:underline">
                              {task.project.name} <ArrowRight className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100" />
                           </Link>
                       )}
                   </div>
-                  <div className="col-span-2 flex items-center text-xs text-slate-500">
+                  <div className="col-span-2 flex items-center text-xs text-muted-foreground">
                       {task.dueDate && (
-                          <span className={new Date(task.dueDate) < new Date() && task.status !== 'done' ? 'text-red-500 font-bold' : ''}>
+                          <span className={new Date(task.dueDate) < new Date() && task.status !== 'done' ? 'text-destructive font-bold' : ''}>
                              {format(new Date(task.dueDate), 'MMM d')}
                           </span>
                       )}
                   </div>
                   <div className="col-span-1">
                       <Badge variant="outline" className={`text-[10px] capitalize 
-                          ${task.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-500 border-slate-100'}
+                          ${task.priority === 'high' ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-muted/50 text-muted-foreground border-border'}
                       `}>
                           {task.priority}
                       </Badge>
@@ -108,26 +108,26 @@ export default function MyTasks() {
                 {/* Mobile card layout */}
                 <div className="md:hidden space-y-2">
                   <div className="flex items-center gap-3">
-                    <button onClick={() => toggleTask(task._id, task.status)} className="text-slate-300 hover:text-green-600 transition shrink-0">
+                    <button onClick={() => toggleTask(task._id, task.status)} className="text-muted-foreground hover:text-green-600 transition shrink-0">
                       {task.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <Circle className="w-5 h-5" />}
                     </button>
-                    <span className={`text-sm font-medium ${task.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                    <span className={`text-sm font-medium ${task.status === 'done' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
                       {task.title}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 pl-8 flex-wrap">
                     {task.project && (
-                      <Link to={`/project/${task.project._id}`} className="text-xs text-slate-500 hover:text-blue-600 hover:underline">
+                      <Link to={`/project/${task.project._id}`} className="text-xs text-muted-foreground hover:text-primary hover:underline">
                         {task.project.name}
                       </Link>
                     )}
                     {task.dueDate && (
-                      <span className={`text-xs flex items-center gap-1 ${new Date(task.dueDate) < new Date() && task.status !== 'done' ? 'text-red-500 font-bold' : 'text-slate-500'}`}>
+                      <span className={`text-xs flex items-center gap-1 ${new Date(task.dueDate) < new Date() && task.status !== 'done' ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
                         <Calendar className="w-3 h-3" /> {format(new Date(task.dueDate), 'MMM d')}
                       </span>
                     )}
                     <Badge variant="outline" className={`text-[10px] capitalize 
-                        ${task.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-500 border-slate-100'}
+                        ${task.priority === 'high' ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-muted/50 text-muted-foreground border-border'}
                     `}>
                         {task.priority}
                     </Badge>

@@ -27,17 +27,17 @@ import { useDataRefresh } from '../context/useDataRefresh';
 
 // Priority colors matching the app's design system
 const PRIORITY_COLORS = {
-  urgent: 'hsl(var(--destructive))',
+  urgent: 'var(--destructive)',
   high: '#ef4444',
   medium: '#f59e0b',
   low: '#3b82f6'
 };
 
 const STATUS_COLORS = {
-  'todo': 'hsl(var(--muted-foreground))',
-  'in-progress': 'hsl(var(--chart-2))',
-  'review': 'hsl(var(--chart-3))',
-  'done': 'hsl(var(--chart-4))'
+  'todo': 'var(--muted-foreground)',
+  'in-progress': 'var(--chart-2)',
+  'review': 'var(--chart-3)',
+  'done': 'var(--chart-4)'
 };
 
 export default function GanttChart() {
@@ -178,7 +178,7 @@ export default function GanttChart() {
           <text
             x={cx + r + 6}
             y={cy + 4}
-            fill="hsl(var(--foreground))"
+            fill="var(--foreground)"
             fontSize={11}
             fontWeight="600"
             className="pointer-events-none"
@@ -414,15 +414,15 @@ export default function GanttChart() {
                       domain={[0, differenceInDays(dateRange.to, dateRange.from)]}
                       ticks={dateTicks}
                       tickFormatter={formatTick}
-                      tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                      axisLine={{ stroke: 'hsl(var(--border))' }}
-                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                      axisLine={{ stroke: 'var(--border)' }}
+                      tickLine={{ stroke: 'var(--border)' }}
                     />
                     <YAxis
                       type="category"
                       dataKey="name"
                       width={190}
-                      tick={{ fontSize: 12, fill: 'hsl(var(--foreground))' }}
+                      tick={{ fontSize: 12, fill: 'var(--foreground)' }}
                       axisLine={false}
                       tickLine={false}
                     />
@@ -431,16 +431,16 @@ export default function GanttChart() {
                     {/* Today line */}
                     <ReferenceLine
                       x={differenceInDays(new Date(), dateRange.from)}
-                      stroke="hsl(var(--primary))"
+                      stroke="var(--primary)"
                       strokeWidth={2}
                       strokeDasharray="4 4"
-                      label={{ value: 'Today', position: 'top', fontSize: 10, fill: 'hsl(var(--primary))' }}
+                      label={{ value: 'Today', position: 'top', fontSize: 10, fill: 'var(--primary)' }}
                     />
 
                     <Bar
                       dataKey="duration"
                       shape={<GanttBarShape />}
-                      background={{ fill: 'hsl(var(--muted)/0.3)', radius: 4 }}
+                      background={{ fill: 'var(--muted)', opacity: 0.3, radius: 4 }}
                     >
                       {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
