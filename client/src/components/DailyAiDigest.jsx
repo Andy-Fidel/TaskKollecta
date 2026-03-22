@@ -3,7 +3,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Sparkles, RefreshCw, Loader2 } from 'lucide-react';
 import api from '../api/axios';
-import ReactMarkdown from 'react-markdown';
+
+// Lightweight markdown-to-HTML converter (no external dependency)
+function simpleMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')  // escape HTML
+    .replace(/^### (.+)$/gm, '<h4 class="font-semibold text-sm mt-3 mb-1">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 class="font-semibold text-base mt-3 mb-1">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 class="font-bold text-base mt-3 mb-1">$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^[-*] (.+)$/gm, '<li class="ml-4 list-disc text-muted-foreground">$1</li>')
+    .replace(/\n{2,}/g, '<br/><br/>')
+    .replace(/\n/g, '<br/>');
+}
 
 export function DailyAiDigest() {
   const [digest, setDigest] = useState(null);
@@ -11,7 +25,6 @@ export function DailyAiDigest() {
   const [error, setError] = useState(null);
 
   const fetchDigest = useCallback(async (forceRefresh = false) => {
-    // If we already have it and aren't forcing a refresh, just return
     if (digest && !forceRefresh) return;
     
     setLoading(true);
@@ -65,9 +78,10 @@ export function DailyAiDigest() {
         ) : error ? (
           <div className="py-4 text-center text-sm text-destructive">{error}</div>
         ) : digest ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed prose-headings:text-base prose-headings:font-bold prose-headings:mt-0 prose-headings:mb-2 prose-p:mb-2 prose-li:my-0.5">
-            <ReactMarkdown>{digest}</ReactMarkdown>
-          </div>
+          <div
+            className="text-sm leading-relaxed text-foreground/90"
+            dangerouslySetInnerHTML={{ __html: simpleMarkdown(digest) }}
+          />
         ) : (
           <div className="text-center py-6 text-sm text-muted-foreground">No digest available.</div>
         )}
