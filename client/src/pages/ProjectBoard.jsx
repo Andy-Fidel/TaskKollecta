@@ -39,6 +39,8 @@ import { ProjectUpdates } from '../components/ProjectUpdates';
 import { ProjectList } from '../components/ProjectList';
 import { ProjectCalendar } from '../components/ProjectCalendar';
 import { useDataRefresh } from '../context/useDataRefresh';
+import { AiRiskPanel } from '../components/AiRiskPanel';
+import { Sparkles } from 'lucide-react';
 
 const COLUMNS = [
   { id: 'todo', label: 'To Do' },
@@ -73,6 +75,7 @@ export default function ProjectBoard() {
   const [assigneeSearch, setAssigneeSearch] = useState('');
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [isRiskPanelOpen, setIsRiskPanelOpen] = useState(false);
 
   // Bulk selection
   const [selectedTasks, setSelectedTasks] = useState(new Set());
@@ -505,6 +508,16 @@ export default function ProjectBoard() {
               </Button>
             )}
 
+            {/* AI Risk Analysis Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden md:flex text-orange-500 border-orange-500/20 hover:bg-orange-500/10 hover:text-orange-600 gap-1.5"
+              onClick={() => setIsRiskPanelOpen(true)}
+            >
+              <Sparkles className="w-4 h-4" /> AI Risk Analysis
+            </Button>
+
             {/* Export */}
             <ExportMenu
               onExportCSV={() => {
@@ -936,6 +949,20 @@ export default function ProjectBoard() {
           </div>
         </div>
       )}
+
+      {/* AI Risk Panel */}
+      <AiRiskPanel 
+        projectId={projectId} 
+        isOpen={isRiskPanelOpen} 
+        onClose={() => setIsRiskPanelOpen(false)}
+        onTaskClick={(taskId) => {
+          const task = tasks.find(t => t._id === taskId);
+          if (task) {
+            setSelectedTask(task);
+            setIsDetailsOpen(true);
+          }
+        }}
+      />
 
       <TaskDetailsModal
         isOpen={isDetailsOpen}

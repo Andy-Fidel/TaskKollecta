@@ -24,6 +24,7 @@ import { formatActivityAction } from "../utils/formatActivity";
 import api from '../api/axios';
 import { useAuth } from '../context/useAuth';
 import { ReminderWidget } from '@/components/ReminderWidget';
+import { DailyAiDigest } from '@/components/DailyAiDigest';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDataRefresh } from '../context/useDataRefresh';
 
@@ -650,6 +651,10 @@ export default function Dashboard() {
 
         {/* RIGHT COLUMN */}
         <div className="space-y-10">
+          
+          {/* AI Daily Digest */}
+          <DailyAiDigest />
+
           {/* Quick Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <QuickAction icon={Plus} label="New Project" color="text-primary" bg="bg-primary/10" onClick={() => setIsProjectModalOpen(true)} />
