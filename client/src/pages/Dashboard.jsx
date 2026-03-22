@@ -268,7 +268,7 @@ export default function Dashboard() {
 
   if (!data) return <div className="p-8 text-center text-muted-foreground">Unable to load dashboard data.</div>;
 
-  const glassCls = "relative overflow-hidden rounded-2xl border border-white/10 dark:border-white/5 bg-gradient-to-br backdrop-blur-sm shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300";
+  const glassCls = "relative overflow-hidden rounded-2xl border border-white/10 dark:border-white/5 bg-gradient-to-br bg-background/30 backdrop-blur-3xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300";
 
   const statCards = [
     { label: 'Total Projects', value: totalProjects, raw: data.stats.totalProjects, icon: FolderOpen, gradient: 'from-violet-500/20 to-indigo-500/10 dark:from-violet-500/15 dark:to-indigo-900/20', iconColor: 'text-violet-500', ring: 'ring-violet-500/20' },
