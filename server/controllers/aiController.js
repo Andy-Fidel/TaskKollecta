@@ -6,6 +6,7 @@ const {
   suggestTaskPriority,
   suggestTaskEffort,
   generateSubtasks,
+  generateProjectHealthSnapshot,
   analyzeProjectRisks
 } = require('../utils/aiService');
 const Task = require('../models/Task');
@@ -191,6 +192,77 @@ const getGeneratedSubtasks = async (req, res) => {
 };
 
 /**
+ * GET /api/ai/projects/:projectId/health
+ * Generate a quick project health snapshot.
+ */
+const getProjectHealthSnapshot = async (req, res) => {
+  const { projectId } = req.params;
+
+  try {
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Fetch all tasks for the project
+    const allTasks = await Task.find({ project: projectId }).select('status dueDate createdAt').lean();
+    
+    if (allTasks.length === 0) {
+      return res.json({ 
+        healthSnapshot: '🎯 New project! No tasks created yet.',
+        stats: {
+          totalTasks: 0,
+          completedTasks: 0,
+          inProgressTasks: 0,
+          overdueTasks: 0,
+          dueSoonTasks: 0,
+          weeklyCompletionRate: 0
+        }
+      });
+    }
+
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    // Calculate stats
+    const completedTasks = allTasks.filter(t => t.status === 'done').length;
+    const inProgressTasks = allTasks.filter(t => t.status === 'in-progress').length;
+    const overdueTasks = allTasks.filter(t => t.dueDate && t.dueDate < now && t.status !== 'done').length;
+    const dueSoonTasks = allTasks.filter(t => 
+      t.dueDate && 
+      t.dueDate >= now && 
+      t.dueDate <= threeDaysFromNow && 
+      t.status !== 'done'
+    ).length;
+    
+    // Weekly completion rate: tasks completed in last 7 days / tasks completed or created in last 7 days
+    const tasksCompletedThisWeek = allTasks.filter(t => t.status === 'done' && t.updatedAt && new Date(t.updatedAt) >= weekAgo).length;
+    const tasksCreatedThisWeek = allTasks.filter(t => new Date(t.createdAt) >= weekAgo).length;
+    const weeklyCompletionRate = tasksCreatedThisWeek > 0 
+      ? Math.round((tasksCompletedThisWeek / tasksCreatedThisWeek) * 100) 
+      : 0;
+
+    const stats = {
+      totalTasks: allTasks.length,
+      completedTasks,
+      inProgressTasks,
+      overdueTasks,
+      dueSoonTasks,
+      weeklyCompletionRate
+    };
+
+    // Generate AI snapshot
+    const healthSnapshot = await generateProjectHealthSnapshot(stats);
+    
+    res.json({ healthSnapshot, stats });
+  } catch (error) {
+    console.error('AI health snapshot error:', error.message);
+    res.status(500).json({ message: 'Failed to generate health snapshot.' });
+  }
+};
+
+/**
  * GET /api/ai/projects/:projectId/risks
  * Analyze incomplete tasks for a specific project to identify risks.
  */
@@ -239,5 +311,6 @@ module.exports = {
   getSuggestedPriority,
   getSuggestedEffort,
   getGeneratedSubtasks,
+  getProjectHealthSnapshot,
   getProjectRisks
 };

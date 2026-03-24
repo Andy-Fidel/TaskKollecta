@@ -39,6 +39,7 @@ import { ProjectAnalytics } from '../components/ProjectAnalytics';
 import { ProjectUpdates } from '../components/ProjectUpdates';
 import { ProjectList } from '../components/ProjectList';
 import { ProjectCalendar } from '../components/ProjectCalendar';
+import { ProjectHealthSnapshot } from '../components/ProjectHealthSnapshot';
 import { useDataRefresh } from '../context/useDataRefresh';
 import { AiRiskPanel } from '../components/AiRiskPanel';
 import { Sparkles } from 'lucide-react';
@@ -719,37 +720,50 @@ export default function ProjectBoard() {
       {/* 3. Main Content Area - SWITCH LOGIC */}
       {view === 'board' ? (
         // VIEW: BOARD
-        <div className="flex-1 overflow-x-auto overflow-y-auto bg-secondary/30 p-4 md:p-8 dark:bg-background">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="flex gap-4 md:gap-8 min-w-max items-start">
-              {COLUMNS.map(col => (
-                <KanbanColumn
-                  key={col.id}
-                  column={col}
-                  tasks={filteredTasks.filter(t => t.status === col.id)}
-                  onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
-                  selectedTasks={selectedTasks}
-                  onToggleSelect={toggleTaskSelection}
-                  hasMore={hasMoreTasks}
-                  onLoadMore={loadMoreTasks}
-                  isLoadingMore={isLoadingMore}
-                />
-              ))}
-            </div>
+        <div className="flex-1 flex gap-4 md:gap-8 bg-secondary/30 dark:bg-background overflow-hidden">
+          {/* Kanban Section */}
+          <div className="flex-1 overflow-x-auto overflow-y-auto p-4 md:p-8">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="flex gap-4 md:gap-8 min-w-max items-start">
+                {COLUMNS.map(col => (
+                  <KanbanColumn
+                    key={col.id}
+                    column={col}
+                    tasks={filteredTasks.filter(t => t.status === col.id)}
+                    onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
+                    selectedTasks={selectedTasks}
+                    onToggleSelect={toggleTaskSelection}
+                    hasMore={hasMoreTasks}
+                    onLoadMore={loadMoreTasks}
+                    isLoadingMore={isLoadingMore}
+                  />
+                ))}
+              </div>
 
-            <DragOverlay>
-              {activeId ? (
-                <div className="w-72 bg-card p-4 rounded-xl shadow-2xl border border-primary/30 rotate-3 cursor-grabbing opacity-90">
-                  {tasks.find(t => t._id === activeId)?.title}
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+              <DragOverlay>
+                {activeId ? (
+                  <div className="w-72 bg-card p-4 rounded-xl shadow-2xl border border-primary/30 rotate-3 cursor-grabbing opacity-90">
+                    {tasks.find(t => t._id === activeId)?.title}
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
+
+          {/* Right Sidebar - Health Snapshot */}
+          <div className="hidden lg:flex lg:flex-col w-80 border-l border-border overflow-y-auto bg-card/50">
+            <div className="sticky top-0 p-4 border-b border-border bg-card/80 backdrop-blur-sm">
+              <h3 className="font-semibold text-sm">Quick Overview</h3>
+            </div>
+            <div className="p-4 space-y-4">
+              <ProjectHealthSnapshot projectId={projectId} />
+            </div>
+          </div>
         </div>
       ) : view === 'list' ? (
         // VIEW: LIST

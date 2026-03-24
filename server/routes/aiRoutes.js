@@ -9,6 +9,7 @@ const {
   getSuggestedPriority,
   getSuggestedEffort,
   getGeneratedSubtasks,
+  getProjectHealthSnapshot,
   getProjectRisks
 } = require('../controllers/aiController');
 
@@ -20,6 +21,7 @@ router.post('/suggest-effort', protect, getSuggestedEffort);
 router.post('/generate-subtasks', protect, getGeneratedSubtasks);
 router.get('/digest', protect, getDailyDigest);
 router.get('/focus', protect, getSmartFocus);
+router.get('/projects/:projectId/health', protect, getProjectHealthSnapshot);
 router.get('/projects/:projectId/risks', protect, getProjectRisks);
 
 module.exports = router;

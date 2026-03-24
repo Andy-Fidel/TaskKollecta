@@ -229,6 +229,63 @@ Return ONLY the raw JSON array. Do not wrap in code fences.`;
 }
 
 /**
+ * Generate a quick project health snapshot (emoji + 1-sentence assessment).
+ */
+async function generateProjectHealthSnapshot(projectStats) {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    const prompt = `You are a project health analyst. Assess this project's status:
+- Total tasks: ${projectStats.totalTasks}
+- Completed tasks: ${projectStats.completedTasks}
+- Tasks in progress: ${projectStats.inProgressTasks}
+- Overdue tasks: ${projectStats.overdueTasks}
+- Tasks due soon (within 3 days): ${projectStats.dueSoonTasks}
+- Completion rate this week: ${projectStats.weeklyCompletionRate}%
+
+Reply with EXACTLY this format (no extra text):
+[EMOJI] [One sentence status]
+
+Examples:
+🚀 Project is on track with 60% completion this week and no overdue items.
+⚠️ Project needs attention: 3 overdue tasks and only 30% weekly completion rate.
+🔥 Critical issues: 5 overdue tasks blocking progress.
+
+Reply with ONLY the emoji and one sentence. No markdown, no extra explanations.`;
+
+    const result = await model.generateContent(prompt);
+    const response = result.response.text().trim();
+    
+    // Ensure response starts with emoji
+    if (/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/.test(response)) {
+      return response;
+    }
+    
+    // Fallback if emoji parsing fails
+    return generateHealthSnapshotFallback(projectStats);
+  } catch (error) {
+    console.warn('AI health snapshot unavailable, using fallback:', error.message);
+    return generateHealthSnapshotFallback(projectStats);
+  }
+}
+
+function generateHealthSnapshotFallback(stats) {
+  const completionRate = stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0;
+  
+  if (stats.overdueTasks > 0) {
+    return `🔥 ${stats.overdueTasks} overdue task(s) need immediate attention.`;
+  } else if (stats.dueSoonTasks > 0 && completionRate < 50) {
+    return `⚠️ ${stats.dueSoonTasks} task(s) due soon with ${completionRate}% completion rate.`;
+  } else if (stats.weeklyCompletionRate >= 60) {
+    return `🚀 Project is healthy with ${stats.weeklyCompletionRate}% weekly completion rate.`;
+  } else if (completionRate >= 80) {
+    return `✨ Almost done! ${completionRate}% of tasks are complete.`;
+  } else {
+    return `📊 Project at ${completionRate}% completion with ${stats.inProgressTasks} task(s) in progress.`;
+  }
+}
+
+/**
  * Analyze project tasks to identify at-risk items.
  */
 async function analyzeProjectRisks(projectName, tasksJson) {
@@ -272,5 +329,6 @@ module.exports = {
   suggestTaskPriority,
   suggestTaskEffort,
   generateSubtasks,
+  generateProjectHealthSnapshot,
   analyzeProjectRisks
 };
