@@ -24,7 +24,7 @@ import { formatActivityAction } from "../utils/formatActivity";
 import api from '../api/axios';
 import { useAuth } from '../context/useAuth';
 import { ReminderWidget } from '@/components/ReminderWidget';
-import { DailyAiDigest } from '@/components/DailyAiDigest';
+import { SmartFocusMode } from '@/components/SmartFocusMode';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDataRefresh } from '../context/useDataRefresh';
 
@@ -652,8 +652,8 @@ export default function Dashboard() {
         {/* RIGHT COLUMN */}
         <div className="space-y-10">
           
-          {/* AI Daily Digest */}
-          <DailyAiDigest />
+          {/* Smart Focus Mode */}
+          <SmartFocusMode />
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -72,7 +72,10 @@ export default function ProjectBoard() {
   const [newTaskDueDate, setNewTaskDueDate] = useState(null);
   const [newTaskDueTime, setNewTaskDueTime] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
+  const [newTaskEffort, setNewTaskEffort] = useState('');
   const [newTaskAssignee, setNewTaskAssignee] = useState(null);  // { id, name, email } or null
+  const [suggestedSubtasks, setSuggestedSubtasks] = useState([]);
+  const [loadingAiSuggestions, setLoadingAiSuggestions] = useState({});
   const [assigneeSearch, setAssigneeSearch] = useState('');
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
@@ -330,6 +333,66 @@ export default function ProjectBoard() {
     }
   };
 
+  // AI Helper Functions
+  const suggestPriority = async () => {
+    if (!newTaskTitle.trim()) {
+      toast.error('Enter a task title first');
+      return;
+    }
+    setLoadingAiSuggestions(prev => ({ ...prev, priority: true }));
+    try {
+      const { data } = await api.post('/ai/suggest-priority', { title: newTaskTitle });
+      setNewTaskPriority(data.priority);
+      toast.success(`Priority suggested: ${data.priority}`);
+    } catch (error) {
+      toast.error('Failed to suggest priority');
+    } finally {
+      setLoadingAiSuggestions(prev => ({ ...prev, priority: false }));
+    }
+  };
+
+  const suggestEffort = async () => {
+    if (!newTaskTitle.trim()) {
+      toast.error('Enter a task title first');
+      return;
+    }
+    setLoadingAiSuggestions(prev => ({ ...prev, effort: true }));
+    try {
+      const { data } = await api.post('/ai/suggest-effort', { 
+        title: newTaskTitle,
+        description: newTaskDescription
+      });
+      setNewTaskEffort(data.effort);
+      toast.success(`Effort suggested: ${data.effort}`);
+    } catch (error) {
+      toast.error('Failed to suggest effort');
+    } finally {
+      setLoadingAiSuggestions(prev => ({ ...prev, effort: false }));
+    }
+  };
+
+  const generateSubtasks = async () => {
+    if (!newTaskTitle.trim()) {
+      toast.error('Enter a task title first');
+      return;
+    }
+    setLoadingAiSuggestions(prev => ({ ...prev, subtasks: true }));
+    try {
+      const { data } = await api.post('/ai/generate-subtasks', { 
+        title: newTaskTitle,
+        description: newTaskDescription
+      });
+      setSuggestedSubtasks(data.subtasks || []);
+      if (data.subtasks?.length > 0) {
+        toast.success(`${data.subtasks.length} subtasks generated`);
+      }
+    } catch (error) {
+      toast.error('Failed to generate subtasks');
+    } finally {
+      setLoadingAiSuggestions(prev => ({ ...prev, subtasks: false }));
+    }
+  };
+
   const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle) return;
@@ -351,7 +414,8 @@ export default function ProjectBoard() {
         status: 'todo',
         priority: newTaskPriority,
         startDate: newTaskStartDate || undefined,
-        dueDate: dueDate || undefined
+        dueDate: dueDate || undefined,
+        effortEstimate: newTaskEffort || undefined
       };
 
       // Add assignee info
@@ -374,8 +438,10 @@ export default function ProjectBoard() {
       setNewTaskDueDate(null);
       setNewTaskDueTime('');
       setNewTaskPriority('medium');
+      setNewTaskEffort('');
       setNewTaskAssignee(null);
       setAssigneeSearch('');
+      setSuggestedSubtasks([]);
       setIsCreateModalOpen(false);
     } catch { toast.error('Failed to create task'); }
   };
@@ -743,7 +809,19 @@ export default function ProjectBoard() {
               </div>
 
               <div>
-                <Label htmlFor="task-desc">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="task-desc">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs px-2 text-primary hover:bg-primary/10"
+                    onClick={generateSubtasks}
+                    disabled={loadingAiSuggestions.subtasks || !newTaskTitle.trim()}
+                  >
+                    {loadingAiSuggestions.subtasks ? '✨ Generating...' : '✨ Generate subtasks'}
+                  </Button>
+                </div>
                 <Textarea
                   id="task-desc"
                   placeholder="Add details, context, or instructions..."
@@ -752,6 +830,29 @@ export default function ProjectBoard() {
                   onChange={(e) => setNewTaskDescription(e.target.value)}
                 />
               </div>
+
+              {/* Suggested Subtasks */}
+              {suggestedSubtasks.length > 0 && (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <p className="text-xs font-semibold text-primary mb-2">💡 Suggested subtasks:</p>
+                  <ul className="space-y-2">
+                    {suggestedSubtasks.map((subtask, idx) => (
+                      <li key={idx} className="text-xs text-foreground/80">
+                        <div className="flex gap-2">
+                          <span className="font-semibold text-primary flex-shrink-0">{idx + 1}.</span>
+                          <div>
+                            <p className="font-medium">{subtask.title}</p>
+                            <p className="text-muted-foreground text-[11px] mt-0.5">{subtask.description}</p>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    💡 Create subtasks after creating the main task. You can link them on the task detail page.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Start Date */}
@@ -846,7 +947,19 @@ export default function ProjectBoard() {
 
               {/* Priority */}
               <div>
-                <Label>Priority</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Priority</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs px-2 text-primary hover:bg-primary/10"
+                    onClick={suggestPriority}
+                    disabled={loadingAiSuggestions.priority || !newTaskTitle.trim()}
+                  >
+                    {loadingAiSuggestions.priority ? '✨ Suggesting...' : '✨ Suggest'}
+                  </Button>
+                </div>
                 <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
                   <SelectTrigger className="h-9">
                     <SelectValue />
@@ -856,6 +969,35 @@ export default function ProjectBoard() {
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Effort Estimate */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Effort Estimate</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs px-2 text-primary hover:bg-primary/10"
+                    onClick={suggestEffort}
+                    disabled={loadingAiSuggestions.effort || !newTaskTitle.trim()}
+                  >
+                    {loadingAiSuggestions.effort ? '✨ Estimating...' : '✨ Estimate'}
+                  </Button>
+                </div>
+                <Select value={newTaskEffort} onValueChange={setNewTaskEffort}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select effort..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30min">30 minutes</SelectItem>
+                    <SelectItem value="1-2h">1-2 hours</SelectItem>
+                    <SelectItem value="3-8h">3-8 hours</SelectItem>
+                    <SelectItem value="1-3d">1-3 days</SelectItem>
+                    <SelectItem value="3+d">3+ days</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

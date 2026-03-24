@@ -2,6 +2,10 @@ const {
   generateTaskBreakdown, 
   generateTaskDescription,
   generateDailyDigest,
+  generateSmartFocus,
+  suggestTaskPriority,
+  suggestTaskEffort,
+  generateSubtasks,
   analyzeProjectRisks
 } = require('../utils/aiService');
 const Task = require('../models/Task');
@@ -80,6 +84,113 @@ const getDailyDigest = async (req, res) => {
 };
 
 /**
+ * GET /api/ai/focus
+ * Generate smart focus recommendations (3-5 most important tasks for today/tomorrow).
+ */
+const getSmartFocus = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayAfterTomorrow = new Date(today);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+    
+    // Fetch user's incomplete tasks due within the next 2 days
+    const tasks = await Task.find({ 
+      assignee: req.user._id,
+      status: { $ne: 'done' },
+      dueDate: { $gte: today, $lt: dayAfterTomorrow }
+    }).select('_id title priority dueDate').lean();
+
+    // If no tasks due soon, get the next incomplete tasks
+    if (tasks.length === 0) {
+      const upcoming = await Task.find({
+        assignee: req.user._id,
+        status: { $ne: 'done' }
+      }).select('_id title priority dueDate').sort({ dueDate: 1 }).limit(5).lean();
+      
+      if (upcoming.length === 0) {
+        return res.json({ focusTasks: [] });
+      }
+      
+      const upcomingJson = JSON.stringify(upcoming);
+      const focus = await generateSmartFocus(upcomingJson);
+      return res.json({ focusTasks: focus });
+    }
+
+    const tasksJson = JSON.stringify(tasks);
+    const focusTasks = await generateSmartFocus(tasksJson);
+    
+    res.json({ focusTasks });
+  } catch (error) {
+    console.error('AI smart focus error:', error.message);
+    res.status(500).json({ message: 'Failed to generate focus recommendations.' });
+  }
+};
+
+/**
+ * POST /api/ai/suggest-priority
+ * Suggest priority level for a task based on title.
+ * Body: { title: string }
+ */
+const getSuggestedPriority = async (req, res) => {
+  const { title } = req.body;
+
+  if (!title || !title.trim()) {
+    return res.status(400).json({ message: 'Task title is required' });
+  }
+
+  try {
+    const priority = await suggestTaskPriority(title.trim());
+    res.json({ priority });
+  } catch (error) {
+    console.error('AI priority suggestion error:', error.message);
+    res.status(500).json({ message: 'Failed to suggest priority.' });
+  }
+};
+
+/**
+ * POST /api/ai/suggest-effort
+ * Suggest effort estimate for a task.
+ * Body: { title: string, description?: string }
+ */
+const getSuggestedEffort = async (req, res) => {
+  const { title, description } = req.body;
+
+  if (!title || !title.trim()) {
+    return res.status(400).json({ message: 'Task title is required' });
+  }
+
+  try {
+    const effort = await suggestTaskEffort(title.trim(), description?.trim());
+    res.json({ effort });
+  } catch (error) {
+    console.error('AI effort suggestion error:', error.message);
+    res.status(500).json({ message: 'Failed to suggest effort.' });
+  }
+};
+
+/**
+ * POST /api/ai/generate-subtasks
+ * Generate subtasks for a task.
+ * Body: { title: string, description?: string }
+ */
+const getGeneratedSubtasks = async (req, res) => {
+  const { title, description } = req.body;
+
+  if (!title || !title.trim()) {
+    return res.status(400).json({ message: 'Task title is required' });
+  }
+
+  try {
+    const subtasks = await generateSubtasks(title.trim(), description?.trim());
+    res.json({ subtasks });
+  } catch (error) {
+    console.error('AI subtask generation error:', error.message);
+    res.status(500).json({ message: 'Failed to generate subtasks.' });
+  }
+};
+
+/**
  * GET /api/ai/projects/:projectId/risks
  * Analyze incomplete tasks for a specific project to identify risks.
  */
@@ -124,5 +235,9 @@ module.exports = {
   getTaskBreakdown, 
   getTaskDescription,
   getDailyDigest,
+  getSmartFocus,
+  getSuggestedPriority,
+  getSuggestedEffort,
+  getGeneratedSubtasks,
   getProjectRisks
 };

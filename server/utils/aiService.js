@@ -111,6 +111,124 @@ Keep it friendly, use appropriate emojis, and do NOT make up any tasks that aren
 }
 
 /**
+ * Suggest priority level for a task based on its title.
+ */
+async function suggestTaskPriority(taskTitle) {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    const prompt = `Based on this task title, suggest a priority level.
+Task: "${taskTitle}"
+
+Reply with ONLY one word: urgent, high, medium, or low.
+Do NOT include any explanation or punctuation.`;
+
+    const result = await model.generateContent(prompt);
+    const priority = result.response.text().trim().toLowerCase();
+    
+    if (['urgent', 'high', 'medium', 'low'].includes(priority)) {
+      return priority;
+    }
+    return 'medium'; // Safe default
+  } catch (error) {
+    console.warn('AI priority suggestion unavailable:', error.message);
+    return 'medium';
+  }
+}
+
+/**
+ * Suggest effort estimate for a task based on title and description.
+ */
+async function suggestTaskEffort(taskTitle, taskDescription = '') {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    const prompt = `Estimate effort for this task.
+Task: "${taskTitle}"
+${taskDescription ? `Description: "${taskDescription}"` : ''}
+
+Reply with ONLY one bucket: 30min, 1-2h, 3-8h, 1-3d, or 3+d.
+Do NOT include any explanation.`;
+
+    const result = await model.generateContent(prompt);
+    const effort = result.response.text().trim();
+    
+    const validEfforts = ['30min', '1-2h', '3-8h', '1-3d', '3+d'];
+    if (validEfforts.includes(effort)) {
+      return effort;
+    }
+    return '1-2h'; // Safe default
+  } catch (error) {
+    console.warn('AI effort suggestion unavailable:', error.message);
+    return '1-2h';
+  }
+}
+
+/**
+ * Generate subtasks for a main task.
+ */
+async function generateSubtasks(taskTitle, taskDescription = '') {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    const prompt = `Break this task into 3-5 actionable subtasks.
+Task: "${taskTitle}"
+${taskDescription ? `Description: "${taskDescription}"` : ''}
+
+Return ONLY a JSON array with 3-5 items. Each item MUST have:
+- "title": a concise, actionable subtask title
+- "description": a 1-sentence explanation of what needs to be done
+
+Order subtasks by logical sequence. Return ONLY the raw JSON array. Do NOT wrap in code fences.`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+    const cleaned = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+    return JSON.parse(cleaned);
+  } catch (error) {
+    console.warn('AI subtask generation unavailable:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Generate smart focus recommendations (3-5 most important tasks for today/tomorrow).
+ * Much lighter on tokens than daily digest.
+ */
+async function generateSmartFocus(tasksJson) {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    const prompt = `You are a focused task prioritization assistant.
+Given a list of incomplete tasks due today or tomorrow, identify the 3-5 most important ones to focus on.
+
+Tasks:
+${tasksJson}
+
+Consider:
+- Due date (today/tomorrow = highest priority)
+- Priority level (urgent/high > medium > low)
+- Task complexity (shorter tasks might be quick wins)
+
+Return ONLY a JSON array with 3-5 items. Each item MUST have:
+- "taskId": the exact _id of the task
+- "title": the task title
+- "priority": the priority level
+- "focusReason": a brief 1-sentence explanation of why this task matters now (e.g., "Due today", "Blocking other work", "High-impact quick win")
+
+Return ONLY the raw JSON array. Do not wrap in code fences.`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+    const cleaned = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+    return JSON.parse(cleaned);
+  } catch (error) {
+    console.warn('AI smart focus unavailable, using fallback:', error.message);
+    return [];
+  }
+}
+
+/**
  * Analyze project tasks to identify at-risk items.
  */
 async function analyzeProjectRisks(projectName, tasksJson) {
@@ -150,5 +268,9 @@ module.exports = {
   generateTaskBreakdown, 
   generateTaskDescription,
   generateDailyDigest,
+  generateSmartFocus,
+  suggestTaskPriority,
+  suggestTaskEffort,
+  generateSubtasks,
   analyzeProjectRisks
 };

@@ -13,6 +13,11 @@ const taskSchema = new mongoose.Schema({
     enum: ['low', 'medium', 'high', 'urgent'],
     default: 'medium'
   },
+  effortEstimate: {
+    type: String,
+    enum: ['30min', '1-2h', '3-8h', '1-3d', '3+d'],
+    default: null
+  },
   dueDate: { type: Date },
   startDate: { type: Date },
 
