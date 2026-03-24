@@ -286,6 +286,41 @@ function generateHealthSnapshotFallback(stats) {
 }
 
 /**
+ * Real-time risk detection - lightweight version identifying immediate concerns.
+ * Focuses on user's tasks due today/tomorrow only.
+ */
+async function detectRealtimeRisks(tasksJson) {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    const prompt = `You are a project risk analyst. Identify immediate concerns for these tasks due very soon:
+${tasksJson}
+
+Look for:
+- Incomplete tasks due TODAY (highest priority)
+- Tasks due today that are still "todo" (not started)
+- Any blocked or at-risk indicators
+
+Return ONLY a JSON array (max 3-5 items). Each item MUST have:
+- "taskId": the exact _id
+- "title": the task title
+- "risklevel": "CRITICAL" or "WARNING"
+- "reason": 1 sentence explanation (e.g., "Due TODAY but not started", "Overdue by 2 days")
+
+If no critical issues, return an empty array [].
+Do NOT wrap in code fences.`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+    const cleaned = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+    return JSON.parse(cleaned);
+  } catch (error) {
+    console.warn('AI real-time risk detection unavailable:', error.message);
+    return [];
+  }
+}
+
+/**
  * Analyze project tasks to identify at-risk items.
  */
 async function analyzeProjectRisks(projectName, tasksJson) {
@@ -330,5 +365,6 @@ module.exports = {
   suggestTaskEffort,
   generateSubtasks,
   generateProjectHealthSnapshot,
+  detectRealtimeRisks,
   analyzeProjectRisks
 };

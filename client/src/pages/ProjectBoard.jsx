@@ -10,7 +10,8 @@ import {
   LayoutGrid, List as ListIcon,
   Activity, CheckCircle2,
   Circle, ArrowLeft, Settings, FileText,
-  Columns, Calendar as CalendarIcon, Zap, Archive, X, Clock, Trash2
+  Columns, Calendar as CalendarIcon, Zap, Archive, X, Clock, Trash2,
+  TrendingUp, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,9 +40,10 @@ import { ProjectAnalytics } from '../components/ProjectAnalytics';
 import { ProjectUpdates } from '../components/ProjectUpdates';
 import { ProjectList } from '../components/ProjectList';
 import { ProjectCalendar } from '../components/ProjectCalendar';
-import { ProjectHealthSnapshot } from '../components/ProjectHealthSnapshot';
+import { ProjectHealthModal } from '../components/ProjectHealthModal';
+import { RealtimeRisksSheet } from '../components/RealtimeRisksSheet';
 import { useDataRefresh } from '../context/useDataRefresh';
-import { AiRiskPanel } from '../components/AiRiskPanel';
+
 import { Sparkles } from 'lucide-react';
 
 const COLUMNS = [
@@ -81,6 +83,7 @@ export default function ProjectBoard() {
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isRiskPanelOpen, setIsRiskPanelOpen] = useState(false);
+  const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
 
   // Bulk selection
   const [selectedTasks, setSelectedTasks] = useState(new Set());
@@ -667,15 +670,28 @@ export default function ProjectBoard() {
             </button>
           </div>
 
-            {/* AI Risk Analysis Button */}
+            {/* Project Health Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 text-green-600 dark:text-green-400 border-green-500/20 hover:bg-green-500/10 hover:text-green-700 dark:hover:text-green-300"
+              onClick={() => setIsHealthModalOpen(true)}
+              title="Project health snapshot"
+            >
+              <TrendingUp className="w-4 h-4 mr-1.5 md:mr-2" />
+              <span className="hidden sm:inline text-xs">Health</span>
+            </Button>
+
+            {/* Real-Time Risk Detection Button */}
             <Button
               variant="outline"
               size="sm"
               className="shrink-0 text-orange-500 border-orange-500/20 hover:bg-orange-500/10 hover:text-orange-600"
               onClick={() => setIsRiskPanelOpen(true)}
+              title="Detect real-time risks"
             >
-              <Sparkles className="w-4 h-4 mr-1.5 md:mr-2" />
-              <span className="hidden sm:inline">AI Risk Analysis</span>
+              <AlertTriangle className="w-4 h-4 mr-1.5 md:mr-2" />
+              <span className="hidden sm:inline text-xs">Risks</span>
               <span className="sm:hidden">AI Risks</span>
             </Button>
 
@@ -753,16 +769,6 @@ export default function ProjectBoard() {
                 ) : null}
               </DragOverlay>
             </DndContext>
-          </div>
-
-          {/* Right Sidebar - Health Snapshot */}
-          <div className="hidden lg:flex lg:flex-col w-80 border-l border-border overflow-y-auto bg-card/50">
-            <div className="sticky top-0 p-4 border-b border-border bg-card/80 backdrop-blur-sm">
-              <h3 className="font-semibold text-sm">Quick Overview</h3>
-            </div>
-            <div className="p-4 space-y-4">
-              <ProjectHealthSnapshot projectId={projectId} />
-            </div>
           </div>
         </div>
       ) : view === 'list' ? (
@@ -1109,18 +1115,18 @@ export default function ProjectBoard() {
         </div>
       )}
 
-      {/* AI Risk Panel */}
-      <AiRiskPanel 
+      {/* Project Health Modal */}
+      <ProjectHealthModal 
+        projectId={projectId} 
+        isOpen={isHealthModalOpen} 
+        onClose={() => setIsHealthModalOpen(false)}
+      />
+
+      {/* Real-Time Risks Sheet */}
+      <RealtimeRisksSheet 
         projectId={projectId} 
         isOpen={isRiskPanelOpen} 
         onClose={() => setIsRiskPanelOpen(false)}
-        onTaskClick={(taskId) => {
-          const task = tasks.find(t => t._id === taskId);
-          if (task) {
-            setSelectedTask(task);
-            setIsDetailsOpen(true);
-          }
-        }}
       />
 
       <TaskDetailsModal

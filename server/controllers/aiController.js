@@ -7,6 +7,7 @@ const {
   suggestTaskEffort,
   generateSubtasks,
   generateProjectHealthSnapshot,
+  detectRealtimeRisks,
   analyzeProjectRisks
 } = require('../utils/aiService');
 const Task = require('../models/Task');
@@ -263,6 +264,55 @@ const getProjectHealthSnapshot = async (req, res) => {
 };
 
 /**
+ * GET /api/ai/projects/:projectId/realtime-risks
+ * Detect real-time risks for user's tasks due today/tomorrow.
+ */
+const getRealtimeRisks = async (req, res) => {
+  const { projectId } = req.params;
+
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(23, 59, 59, 999);
+
+    // Fetch user's tasks due today or tomorrow for this project
+    const tasks = await Task.find({
+      project: projectId,
+      assignee: req.user._id,
+      status: { $ne: 'done' },
+      $or: [
+        { dueDate: { $gte: today, $lte: tomorrow } },
+        { dueDate: { $lt: today } } // Also include overdue
+      ]
+    }).select('_id title status priority dueDate').lean();
+
+    if (tasks.length === 0) {
+      return res.json({ risks: [] });
+    }
+
+    const tasksJson = JSON.stringify(
+      tasks.map(t => ({
+        _id: t._id,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        dueDate: t.dueDate,
+        isOverdue: t.dueDate < today,
+        isDueToday: t.dueDate >= today && t.dueDate <= tomorrow
+      }))
+    );
+
+    const risks = await detectRealtimeRisks(tasksJson);
+    res.json({ risks });
+  } catch (error) {
+    console.error('AI real-time risk detection error:', error.message);
+    res.status(500).json({ message: 'Failed to detect real-time risks.' });
+  }
+};
+
+/**
  * GET /api/ai/projects/:projectId/risks
  * Analyze incomplete tasks for a specific project to identify risks.
  */
@@ -312,5 +362,6 @@ module.exports = {
   getSuggestedEffort,
   getGeneratedSubtasks,
   getProjectHealthSnapshot,
+  getRealtimeRisks,
   getProjectRisks
 };

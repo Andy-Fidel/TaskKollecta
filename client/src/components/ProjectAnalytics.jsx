@@ -48,40 +48,44 @@ export function ProjectAnalytics({ projectId }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* Pie Chart: Status */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border h-80">
+        <div className="bg-white p-6 rounded-lg shadow-sm border flex flex-col" style={{ minHeight: '350px' }}>
           <h3 className="font-bold text-lg mb-4 text-slate-700">Task Status</h3>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={statusData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={statusData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         {/* Bar Chart: Priority */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border h-80">
+        <div className="bg-white p-6 rounded-lg shadow-sm border flex flex-col" style={{ minHeight: '350px' }}>
           <h3 className="font-bold text-lg mb-4 text-slate-700">Tasks by Priority</h3>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={priorityData}>
-              <XAxis dataKey="name" />
-              <YAxis allowDecimals={false} />
-              <Tooltip cursor={{ fill: '#f3f4f6' }} />
-              <Bar dataKey="count" fill="#8884d8" barSize={50} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={priorityData}>
+                <XAxis dataKey="name" />
+                <YAxis allowDecimals={false} />
+                <Tooltip cursor={{ fill: '#f3f4f6' }} />
+                <Bar dataKey="count" fill="#8884d8" barSize={50} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
       </div>
