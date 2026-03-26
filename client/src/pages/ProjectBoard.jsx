@@ -348,7 +348,7 @@ export default function ProjectBoard() {
       const { data } = await api.post('/ai/suggest-priority', { title: newTaskTitle });
       setNewTaskPriority(data.priority);
       toast.success(`Priority suggested: ${data.priority}`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to suggest priority');
     } finally {
       setLoadingAiSuggestions(prev => ({ ...prev, priority: false }));
@@ -368,7 +368,7 @@ export default function ProjectBoard() {
       });
       setNewTaskEffort(data.effort);
       toast.success(`Effort suggested: ${data.effort}`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to suggest effort');
     } finally {
       setLoadingAiSuggestions(prev => ({ ...prev, effort: false }));
@@ -390,7 +390,7 @@ export default function ProjectBoard() {
       if (data.subtasks?.length > 0) {
         toast.success(`${data.subtasks.length} subtasks generated`);
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to generate subtasks');
     } finally {
       setLoadingAiSuggestions(prev => ({ ...prev, subtasks: false }));

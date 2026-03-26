@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -79,6 +80,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     const [typingUsers, setTypingUsers] = useState([]);
     const [typingTimeout, setTypingTimeout] = useState(null);
     const [isAiDescribing, setIsAiDescribing] = useState(false);
+    const [isAiSubtasks, setIsAiSubtasks] = useState(false);
+    const [suggestedSubtasks, setSuggestedSubtasks] = useState([]);
 
     // --- 2. EFFECTS ---
     useEffect(() => {
@@ -318,6 +321,45 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setSubtasks(originalSubtasks);
             toast.error("Delete error");
         }
+    };
+
+    const handleAiSubtasks = async () => {
+        setIsAiSubtasks(true);
+        setSuggestedSubtasks([]);
+        try {
+            const { data } = await api.post('/ai/generate-subtasks', {
+                title: task.title,
+                description: task.description || descInput || '',
+            });
+            setSuggestedSubtasks(data.subtasks || []);
+            if (data.subtasks?.length > 0) {
+                toast.success(`${data.subtasks.length} subtasks suggested`);
+            }
+        } catch {
+            toast.error('Failed to generate subtasks');
+        } finally {
+            setIsAiSubtasks(false);
+        }
+    };
+
+    const handleAddSuggestedSubtask = async (title) => {
+        try {
+            const { data } = await api.post(`/tasks/${task._id}/subtasks`, { title });
+            setSubtasks(data.subtasks);
+            setSuggestedSubtasks(prev => prev.filter(s => s.title !== title));
+            toast.success('Subtask added');
+        } catch { toast.error('Failed to add subtask'); }
+    };
+
+    const handleAddAllSuggested = async () => {
+        for (const s of suggestedSubtasks) {
+            try {
+                const { data } = await api.post(`/tasks/${task._id}/subtasks`, { title: s.title });
+                setSubtasks(data.subtasks);
+            } catch { /* skip failures */ }
+        }
+        setSuggestedSubtasks([]);
+        toast.success('All subtasks added');
     };
 
     const handleToggleMilestone = async () => {
@@ -792,15 +834,66 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                                 <div className="bg-muted p-1.5 rounded-md"><CheckCircle2 className="w-4 h-4 text-primary" /></div>
                                                 <h3 className="text-sm font-semibold text-foreground tracking-wide">Subtasks</h3>
                                             </div>
-                                            {subtasks.length > 0 && (
-                                                <span className="text-xs text-primary font-bold bg-primary/10 px-2 py-1 rounded-full">
-                                                    {Math.round((subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100)}%
-                                                </span>
-                                            )}
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={handleAiSubtasks}
+                                                    disabled={isAiSubtasks}
+                                                    className="gap-1.5 h-7 text-xs text-muted-foreground hover:text-primary"
+                                                >
+                                                    {isAiSubtasks ? (
+                                                        <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
+                                                    ) : (
+                                                        <><Sparkles className="w-3 h-3" /> AI Generate</>
+                                                    )}
+                                                </Button>
+                                                {subtasks.length > 0 && (
+                                                    <span className="text-xs text-primary font-bold bg-primary/10 px-2 py-1 rounded-full">
+                                                        {Math.round((subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100)}%
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {Array.isArray(subtasks) && subtasks.length > 0 && (
                                             <Progress value={(subtasks.filter(s => s.isCompleted).length / subtasks.length) * 100} className="h-2 mb-6 bg-muted border border-border/40 rounded-full overflow-hidden" />
+                                        )}
+
+                                        {/* AI Suggested Subtasks */}
+                                        {suggestedSubtasks.length > 0 && (
+                                            <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 mb-4 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                                                        <Sparkles className="w-3.5 h-3.5" /> AI Suggestions
+                                                    </p>
+                                                    <div className="flex gap-2">
+                                                        <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-muted-foreground" onClick={() => setSuggestedSubtasks([])}>
+                                                            Dismiss
+                                                        </Button>
+                                                        <Button size="sm" className="h-6 text-[10px] px-2.5 gap-1" onClick={handleAddAllSuggested}>
+                                                            <Plus className="w-3 h-3" /> Add All
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {suggestedSubtasks.map((s, idx) => (
+                                                        <div key={idx} className="flex items-start gap-2.5 group">
+                                                            <button
+                                                                onClick={() => handleAddSuggestedSubtask(s.title)}
+                                                                className="mt-0.5 shrink-0 h-5 w-5 rounded-full border-[1.5px] border-primary/40 flex items-center justify-center hover:bg-primary hover:border-primary transition-all group/btn"
+                                                                title="Add this subtask"
+                                                            >
+                                                                <Plus className="w-3 h-3 text-primary group-hover/btn:text-primary-foreground" />
+                                                            </button>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium text-foreground">{s.title}</p>
+                                                                {s.description && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{s.description}</p>}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         )}
 
                                         {!Array.isArray(subtasks) || subtasks.length === 0 ? (
