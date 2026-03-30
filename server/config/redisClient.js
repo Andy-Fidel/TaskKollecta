@@ -33,9 +33,11 @@ redisClient.on('close', () => {
 });
 
 // Attempt initial connection
-redisClient.connect().catch((err) => {
-  console.warn('⚠️ Redis not available, caching disabled:', err.message);
-});
+if (process.env.NODE_ENV !== "test") {
+  redisClient.connect().catch((err) => {
+    console.warn("⚠️ Redis not available, caching disabled:", err.message);
+  });
+}
 
 // Export both client and connection status checker
 module.exports = {

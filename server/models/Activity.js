@@ -28,4 +28,4 @@ const activitySchema = new mongoose.Schema({
 activitySchema.index({ task: 1, createdAt: -1 }); // Task history (newest first)
 activitySchema.index({ project: 1, createdAt: -1 }); // Project feed (newest first)
 
-module.exports = mongoose.model('Activity', activitySchema);
+module.exports = mongoose.models.Activity || mongoose.model('Activity', activitySchema);

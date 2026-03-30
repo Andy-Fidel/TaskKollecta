@@ -32,4 +32,4 @@ const reminderSchema = mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('Reminder', reminderSchema);
+module.exports = mongoose.models.Reminder || mongoose.model('Reminder', reminderSchema);

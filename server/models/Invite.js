@@ -61,4 +61,4 @@ inviteSchema.methods.isValid = function () {
 inviteSchema.index({ email: 1, organization: 1 });
 inviteSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-module.exports = mongoose.model('Invite', inviteSchema);
+module.exports = mongoose.models.Invite || mongoose.model('Invite', inviteSchema);

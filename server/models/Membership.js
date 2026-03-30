@@ -21,4 +21,4 @@ const membershipSchema = new mongoose.Schema({
 // Prevent a user from being added to the same Org twice
 membershipSchema.index({ user: 1, organization: 1 }, { unique: true });
 
-module.exports = mongoose.model('Membership', membershipSchema);
+module.exports = mongoose.models.Membership || mongoose.model('Membership', membershipSchema);

@@ -36,7 +36,9 @@ const aiRoutes = require("./routes/aiRoutes");
 // Load environment variables
 
 dotenv.config();
-connectDB();
+if (process.env.NODE_ENV !== "test") {
+  connectDB();
+}
 
 const app = express();
 
@@ -361,11 +363,13 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 // IMPORTANT: Change app.listen to server.listen
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+if (process.env.NODE_ENV !== "test") {
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 
-  // Start the overdue task automation scheduler (runs hourly)
-  const { startOverdueScheduler } = require('./utils/overdueScheduler');
-  startOverdueScheduler(io);
-});
+    // Start the overdue task automation scheduler (runs hourly)
+    const { startOverdueScheduler } = require("./utils/overdueScheduler");
+    startOverdueScheduler(io);
+  });
+}
 module.exports = { app, server, io };

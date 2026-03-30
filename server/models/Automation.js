@@ -22,4 +22,4 @@ const automationSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Automation', automationSchema);
+module.exports = mongoose.models.Automation || mongoose.model('Automation', automationSchema);

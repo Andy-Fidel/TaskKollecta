@@ -39,4 +39,4 @@ const filterPresetSchema = new mongoose.Schema({
 // Compound index for efficient querying
 filterPresetSchema.index({ user: 1, project: 1 });
 
-module.exports = mongoose.model('FilterPreset', filterPresetSchema);
+module.exports = mongoose.models.FilterPreset || mongoose.model('FilterPreset', filterPresetSchema);

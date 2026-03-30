@@ -9,4 +9,4 @@ const joinRequestSchema = new mongoose.Schema({
 // Prevent duplicate requests
 joinRequestSchema.index({ user: 1, organization: 1 }, { unique: true });
 
-module.exports = mongoose.model('JoinRequest', joinRequestSchema);
+module.exports = mongoose.models.JoinRequest || mongoose.model('JoinRequest', joinRequestSchema);

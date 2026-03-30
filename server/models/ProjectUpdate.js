@@ -7,4 +7,4 @@ const projectUpdateSchema = new mongoose.Schema({
   message: { type: String, required: true },
 }, { timestamps: true });
 
-module.exports = mongoose.model('ProjectUpdate', projectUpdateSchema);
+module.exports = mongoose.models.ProjectUpdate || mongoose.model('ProjectUpdate', projectUpdateSchema);

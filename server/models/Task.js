@@ -85,4 +85,4 @@ taskSchema.index({ project: 1, createdAt: -1 }); // Project tasks sorted by date
 taskSchema.index({ dueDate: 1 }); // Calendar view / overdue queries
 taskSchema.index({ organization: 1 }); // Org-scoped queries
 
-module.exports = mongoose.model('Task', taskSchema);
+module.exports = mongoose.models.Task || mongoose.model('Task', taskSchema);
