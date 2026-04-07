@@ -18,6 +18,9 @@ const protect = async (req, res, next) => {
 
       // matches 'userId' from your generateToken.js
       req.user = await User.findById(decoded.userId).select('-password');
+      if (!req.user) {
+        return res.status(401).json({ message: 'Not authorized, user not found' });
+      }
 
       // Check if user account is active
       if (req.user && req.user.status && req.user.status !== 'active') {

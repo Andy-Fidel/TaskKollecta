@@ -6,7 +6,7 @@ import { format, isPast, isToday } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
   const {
@@ -32,7 +32,7 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
   };
 
   return (
-    <motion.div
+    <Motion.div
       ref={setNodeRef}
       style={style}
       layout
@@ -149,6 +149,6 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
           </div>
         )}
       </div>
-    </motion.div>
+    </Motion.div>
   );
 }

@@ -11,14 +11,15 @@ const {
   deleteProject,
   getAllProjects,
   duplicateProject
-} = require('../controllers/projectController');
+} = require('./controller');
 
-const { protect } = require('../middleware/authMiddleware');
-const { checkRole } = require('../middleware/roleMiddleware');
-const { cacheResponse } = require('../middleware/cacheMiddleware');
+const { protect } = require('../../middleware/authMiddleware');
+const { checkRole } = require('../../middleware/roleMiddleware');
+const { validateCreateProject } = require('../../middleware/validators');
+const { cacheResponse } = require('../../middleware/cacheMiddleware');
 
 // Create Project
-router.post('/', protect, checkRole('owner', 'admin', 'member'), createProject);
+router.post('/', protect, checkRole('owner', 'admin', 'member'), validateCreateProject, createProject);
 
 // Duplicate Project
 router.post('/:id/duplicate', protect, checkRole('owner', 'admin', 'member'), duplicateProject);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Search, User, Settings, LogOut, Shield } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 
 // UI Components
 import { Button } from '@/components/ui/button';
@@ -142,7 +142,7 @@ export default function AppLayout() {
         {/* PAGE CONTENT WITH ANIMATIONS */}
         <main className="flex-1 overflow-y-auto scroll-smooth w-full relative">
           <AnimatePresence mode="wait">
-            <motion.div
+            <Motion.div
               key={location.pathname}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -151,7 +151,7 @@ export default function AppLayout() {
               className="p-4 md:p-8 min-h-full"
             >
               <Outlet />
-            </motion.div>
+            </Motion.div>
           </AnimatePresence>
         </main>
 

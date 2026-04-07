@@ -21,10 +21,10 @@ const { createTask,
     bulkUpdateTasks,
     bulkDeleteTasks,
     createChildTask,
-    getChildTasks } = require('../controllers/taskController');
-const { protect } = require('../middleware/authMiddleware');
-const { validateCreateTask, validateUpdateTask, validateIdParam } = require('../middleware/validators');
-const { cacheResponse } = require('../middleware/cacheMiddleware');
+    getChildTasks } = require('./controller');
+const { protect } = require('../../middleware/authMiddleware');
+const { validateCreateTask, validateUpdateTask, validateIdParam } = require('../../middleware/validators');
+const { cacheResponse } = require('../../middleware/cacheMiddleware');
 
 
 router.post('/', protect, validateCreateTask, createTask);

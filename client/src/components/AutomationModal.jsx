@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Zap, Plus, Trash2, ArrowRight } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -84,26 +84,30 @@ export function AutomationModal({ isOpen, onClose, projectId }) {
   const [actionType, setActionType] = useState('change_status');
   const [actionValue, setActionValue] = useState('review');
 
-  useEffect(() => {
-    if (isOpen) fetchAutomations();
-  }, [isOpen]);
-
-  // Reset dependent dropdowns when parent changes
-  useEffect(() => {
-    const firstVal = TRIGGER_VALUES[triggerType]?.[0]?.value || '';
-    setTriggerValue(firstVal);
-  }, [triggerType]);
-
-  useEffect(() => {
-    const firstVal = ACTION_VALUES[actionType]?.[0]?.value || '';
-    setActionValue(firstVal);
-  }, [actionType]);
-
   const fetchAutomations = async () => {
     try {
-        const { data } = await api.get(`/automations/${projectId}`);
-        setAutomations(data);
-    } catch (e) { console.error(e); }
+      const { data } = await api.get(`/automations/${projectId}`);
+      setAutomations(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleOpenChange = (open) => {
+    onClose(open);
+    if (open) {
+      void fetchAutomations();
+    }
+  };
+
+  const handleTriggerTypeChange = (nextType) => {
+    setTriggerType(nextType);
+    setTriggerValue(TRIGGER_VALUES[nextType]?.[0]?.value || '');
+  };
+
+  const handleActionTypeChange = (nextType) => {
+    setActionType(nextType);
+    setActionValue(ACTION_VALUES[nextType]?.[0]?.value || '');
   };
 
   const handleCreate = async () => {
@@ -117,7 +121,9 @@ export function AutomationModal({ isOpen, onClose, projectId }) {
         });
         setAutomations([...automations, data]);
         toast.success("Automation created!");
-    } catch (e) { toast.error("Failed to create rule"); }
+    } catch {
+      toast.error("Failed to create rule");
+    }
   };
 
   const handleDelete = async (id) => {
@@ -125,13 +131,15 @@ export function AutomationModal({ isOpen, onClose, projectId }) {
           await api.delete(`/automations/${id}`);
           setAutomations(automations.filter(a => a._id !== id));
           toast.success("Automation removed");
-      } catch (e) { toast.error("Failed to delete"); }
+      } catch {
+        toast.error("Failed to delete");
+      }
   };
 
   const actionNeedsValue = ACTION_VALUES[actionType]?.length > 0;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -151,7 +159,7 @@ export function AutomationModal({ isOpen, onClose, projectId }) {
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                     {/* TRIGGER TYPE */}
                     <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md font-bold">WHEN</span>
-                    <Select value={triggerType} onValueChange={setTriggerType}>
+                    <Select value={triggerType} onValueChange={handleTriggerTypeChange}>
                         <SelectTrigger className="w-[180px] h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             {TRIGGER_OPTIONS.map(t => (
@@ -176,7 +184,7 @@ export function AutomationModal({ isOpen, onClose, projectId }) {
 
                     {/* ACTION TYPE */}
                     <span className="font-mono text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-md font-bold">THEN</span>
-                    <Select value={actionType} onValueChange={setActionType}>
+                    <Select value={actionType} onValueChange={handleActionTypeChange}>
                         <SelectTrigger className="w-[180px] h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             {ACTION_OPTIONS.map(a => (

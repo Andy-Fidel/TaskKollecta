@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/authMiddleware');
+const { protect } = require('../../middleware/authMiddleware');
 const {
     createInvite,
     createBulkInvites,
@@ -8,7 +8,7 @@ const {
     acceptInvite,
     getOrgInvites,
     cancelInvite
-} = require('../controllers/inviteController');
+} = require('./controller');
 
 // Protected routes (specific paths first)
 router.post('/', protect, createInvite);

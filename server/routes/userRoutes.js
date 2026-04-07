@@ -4,6 +4,7 @@ const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const { registerUser,
   loginUser,
+  logoutUser,
   getMe,
   updateUserProfile,
   updateUserPassword,
@@ -21,6 +22,7 @@ const { validateRegister, validateLogin } = require('../middleware/validators');
 // When someone POSTs to /, run the registerUser function
 router.post('/', validateRegister, registerUser);
 router.post('/login', validateLogin, loginUser);
+router.post('/logout', logoutUser);
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateUserProfile);
 router.put('/password', protect, updateUserPassword);

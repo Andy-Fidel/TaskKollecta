@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ export function ProjectHealthSnapshot({ projectId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchHealth = async () => {
+  const fetchHealth = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -23,11 +23,11 @@ export function ProjectHealthSnapshot({ projectId }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
-    fetchHealth();
-  }, [projectId]);
+    void fetchHealth();
+  }, [fetchHealth]);
 
   const getHealthColor = (snapshot) => {
     if (!snapshot) return 'text-gray-500';

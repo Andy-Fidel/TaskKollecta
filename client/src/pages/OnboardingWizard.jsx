@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
     User, Users, Building2, FolderKanban, Mail,
     ChevronRight, ChevronLeft, Check, Loader2, Sparkles, PartyPopper, Shield
@@ -33,7 +32,6 @@ const ROLES = [
 ];
 
 export default function OnboardingWizard() {
-    const navigate = useNavigate();
     const { user } = useAuth();
     const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);

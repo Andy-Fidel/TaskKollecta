@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { format, isToday, isTomorrow } from 'date-fns';
-import { Plus, Check, Clock, Calendar as CalendarIcon, Tag, AlertCircle } from 'lucide-react';
+import { Plus, Check, Clock, Calendar as CalendarIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -79,15 +78,6 @@ export function ReminderWidget() {
         if (isToday(d)) prefix = 'Today';
         if (isTomorrow(d)) prefix = 'Tomorrow';
         return `${prefix}, ${format(d, 'HH:mm')}`;
-    };
-
-    const getPriorityColor = (p) => {
-        switch (p) {
-            case 'high': return 'text-red-500 bg-red-500/10 border-red-500/20';
-            case 'medium': return 'text-orange-500 bg-orange-500/10 border-orange-500/20';
-            case 'low': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
-            default: return 'text-slate-500 bg-slate-500/10 border-slate-500/20';
-        }
     };
 
     const getPriorityDot = (p) => {

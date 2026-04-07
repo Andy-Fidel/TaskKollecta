@@ -1,136 +1,19 @@
-const Task = require('../models/Task');
-const User = require('../models/User');
-const Membership = require('../models/Membership');
-const Invite = require('../models/Invite');
-const {
-  sendNotification,
-  sendTaskAssignmentEmail,
-  sendExternalTaskAssignmentEmail,
-  sendStatusChangeEmail
-} = require('../utils/notificationService');
-const { logActivity } = require('../utils/activityLogger');
-const runAutomations = require('../utils/automationEngine');
-const { invalidateTaskCache } = require('../utils/cacheUtils');
+const Task = require('../../models/Task');
+const taskService = require('./taskService');
+const { handleDomainError } = require('../shared/errors');
 
 // @desc    Create new task
 // @route   POST /api/tasks
 const createTask = async (req, res) => {
-  const { title, description, status, priority, startDate, dueDate, projectId, orgId, assignee, assigneeEmail } = req.body;
-
   try {
-    let resolvedAssignee = assignee || null;
-    let storedAssigneeEmail = null;
-    let externalInviteUrl = null;
-
-    // If assigneeEmail is provided (typed email), resolve it
-    if (assigneeEmail && !assignee) {
-      const existingUser = await User.findOne({ email: assigneeEmail.toLowerCase() });
-
-      if (existingUser) {
-        // User exists - check if already a member of this org
-        const isMember = await Membership.findOne({
-          user: existingUser._id,
-          organization: orgId
-        });
-
-        resolvedAssignee = existingUser._id;
-
-        if (!isMember) {
-          // User exists but not a member - auto-invite them
-          const existingInvite = await Invite.findOne({
-            email: assigneeEmail.toLowerCase(),
-            organization: orgId,
-            status: 'pending'
-          });
-          if (!existingInvite) {
-            await Invite.create({
-              email: assigneeEmail.toLowerCase(),
-              organization: orgId,
-              invitedBy: req.user._id,
-              role: 'member'
-            });
-          }
-        }
-      } else {
-        // User doesn't exist - store email, create invite, send external email
-        storedAssigneeEmail = assigneeEmail.toLowerCase();
-
-        // Check for existing pending invite
-        let invite = await Invite.findOne({
-          email: storedAssigneeEmail,
-          organization: orgId,
-          status: 'pending'
-        });
-        if (!invite) {
-          invite = await Invite.create({
-            email: storedAssigneeEmail,
-            organization: orgId,
-            invitedBy: req.user._id,
-            role: 'member'
-          });
-        }
-        externalInviteUrl = `${process.env.CLIENT_URL}/login?invite=${invite.token}`;
-      }
-    }
-
-    const task = await Task.create({
-      title,
-      description,
-      status: status || 'todo',
-      priority: priority || 'medium',
-      startDate,
-      dueDate,
-      project: projectId,
-      organization: orgId,
-      assignee: resolvedAssignee,
-      assigneeEmail: storedAssigneeEmail,
-      reporter: req.user._id
+    const task = await taskService.createTask({
+      body: req.body,
+      user: req.user,
+      io: req.io,
     });
-
-    const populatedTask = await Task.findById(task._id)
-      .populate('assignee', 'name email avatar')
-      .populate('project', 'name');
-
-    // ✅ LOG ACTIVITY HERE
-    await logActivity(req, {
-      task: task,
-      action: 'created',
-      details: `created the task "${task.title}"`
-    });
-
-    // Send in-app + email notification for assignment
-    if (resolvedAssignee && resolvedAssignee.toString() !== req.user._id.toString()) {
-      await sendNotification(req.io, {
-        recipientId: resolvedAssignee,
-        senderId: req.user._id,
-        type: 'task_assigned',
-        relatedId: populatedTask._id,
-        relatedModel: 'Task',
-        message: `assigned you to task: ${populatedTask.title}`
-      });
-
-      await sendTaskAssignmentEmail(resolvedAssignee, {
-        assignerName: req.user.name,
-        task: populatedTask,
-        projectName: populatedTask.project?.name,
-        projectId
-      });
-    } else if (storedAssigneeEmail && externalInviteUrl) {
-      // Send external email to non-registered user
-      await sendExternalTaskAssignmentEmail(storedAssigneeEmail, {
-        assignerName: req.user.name,
-        task: populatedTask,
-        projectName: populatedTask.project?.name,
-        inviteUrl: externalInviteUrl
-      });
-    }
-
-    // Invalidate task cache
-    await invalidateTaskCache(projectId);
-
-    res.status(201).json(populatedTask);
+    res.status(201).json(task);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -138,50 +21,14 @@ const createTask = async (req, res) => {
 // @route   GET /api/tasks/project/:projectId
 const getProjectTasks = async (req, res) => {
   try {
-    // Check if client specifically asked for archived tasks
-    const showArchived = req.query.archived === 'true';
-
-    const query = {
-      project: req.params.projectId,
-
-      archived: showArchived ? true : { $ne: true }
-    };
-
-    // Optional pagination
-    const page = parseInt(req.query.page) || 0;
-    const limit = parseInt(req.query.limit) || 50;
-
-    if (req.query.page !== undefined) {
-      // Paginated response
-      const total = await Task.countDocuments(query);
-      const tasks = await Task.find(query)
-        .populate('assignee', 'name avatar')
-        .populate('dependencies', 'title status')
-        .sort({ index: 1 })
-        .skip(page * limit)
-        .limit(limit);
-
-      return res.json({
-        tasks,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
-          hasMore: (page + 1) * limit < total
-        }
-      });
-    }
-
-    // Non-paginated (backward compatible)
-    const tasks = await Task.find(query)
-      .populate('assignee', 'name avatar')
-      .populate('dependencies', 'title status')
-      .sort({ index: 1 });
-
+    const tasks = await taskService.getProjectTasks({
+      projectId: req.params.projectId,
+      userId: req.user._id,
+      query: req.query,
+    });
     res.json(tasks);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -214,24 +61,10 @@ const getMyTasks = async (req, res) => {
 // @route   GET /api/tasks/single/:id
 const getTask = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id)
-      .populate('assignee', 'name avatar')
-      .populate('dependencies', 'title status');
-
-    if (!task) return res.status(404).json({ message: 'Task not found' });
-
-    // SECURITY: Verify user is a member of the task's organization
-    const membership = await Membership.findOne({
-      user: req.user._id,
-      organization: task.organization
-    });
-    if (!membership) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
+    const task = await taskService.getTask({ taskId: req.params.id, userId: req.user._id });
     res.json(task);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -239,24 +72,15 @@ const getTask = async (req, res) => {
 // @route   DELETE /api/tasks/:id
 const deleteTask = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
-
-    if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
-    }
-
-    // Log deletion 
-    await logActivity(req, { task, action: 'deleted', details: 'Task removed permanently' });
-
-    await Task.deleteOne({ _id: req.params.id });
-
-    // Invalidate task cache
-    await invalidateTaskCache(task.project);
-
-    res.json({ id: req.params.id, message: 'Task removed' });
+    const result = await taskService.deleteTask({
+      taskId: req.params.id,
+      user: req.user,
+      io: req.io,
+    });
+    res.json(result);
   } catch (error) {
     console.error("Delete Error:", error);
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -369,102 +193,16 @@ const removeDependency = async (req, res) => {
 
 const updateTask = async (req, res) => {
   try {
-    const oldTask = await Task.findById(req.params.id).populate('dependencies');
-
-    if (!oldTask) {
-      return res.status(404).json({ message: 'Task not found' });
-    }
-
-    // BLOCKING LOGIC: Check dependencies if marking as done
-    if (req.body.status === 'done' && oldTask.dependencies.length > 0) {
-      const incompleteDependencies = oldTask.dependencies.filter(dep => dep.status !== 'done');
-
-      if (incompleteDependencies.length > 0) {
-        const titles = incompleteDependencies.map(t => t.title).join(', ');
-        return res.status(400).json({
-          message: `Cannot complete task. It is waiting on: ${titles}`
-        });
-      }
-    }
-
-    // Whitelist allowed update fields to prevent overwriting organization/reporter/project
-    const allowedFields = ['title', 'description', 'status', 'priority', 'startDate', 'dueDate', 'assignee', 'index'];
-    const updateData = {};
-    for (const field of allowedFields) {
-      if (req.body[field] !== undefined) {
-        updateData[field] = req.body[field];
-      }
-    }
-
-    const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    )
-      .populate('dependencies', 'title status')
-      .populate('assignee', 'name avatar');
-
-    // ✅ LOG ACTIVITY: Check if status changed
-    if (req.body.status && oldTask.status !== req.body.status) {
-      await logActivity(req, {
-        task: updatedTask,
-        action: 'moved',
-        details: `moved "${updatedTask.title}" to ${req.body.status}`
-      });
-    }
-
-    // --- AUTOMATION TRIGGER ---
-    if (req.body.status) {
-      runAutomations(updatedTask.project, 'status_change', req.body.status, updatedTask);
-    }
-
-    if (req.body.priority) {
-      runAutomations(updatedTask.project, 'priority_change', req.body.priority, updatedTask);
-    }
-
-    // NOTIFICATIONS (Socket + Email)
-    if (req.body.assignee && req.body.assignee !== oldTask.assignee?.toString()) {
-      if (req.body.assignee !== req.user._id.toString()) {
-        await sendNotification(req.io, {
-          recipientId: req.body.assignee,
-          senderId: req.user._id,
-          type: 'task_assigned',
-          relatedId: updatedTask._id,
-          relatedModel: 'Task',
-          message: `assigned you to task: ${updatedTask.title}`
-        });
-
-        // Send email using new template system
-        await sendTaskAssignmentEmail(req.body.assignee, {
-          assignerName: req.user.name,
-          task: updatedTask,
-          projectName: updatedTask.project?.name || 'General',
-          projectId: updatedTask.project
-        });
-      }
-    }
-
-    // Send status change email to assignee
-    if (req.body.status && oldTask.status !== req.body.status && updatedTask.assignee) {
-      const assigneeId = updatedTask.assignee._id || updatedTask.assignee;
-      if (assigneeId.toString() !== req.user._id.toString()) {
-        await sendStatusChangeEmail(assigneeId, {
-          changerName: req.user.name,
-          task: updatedTask,
-          projectId: updatedTask.project,
-          oldStatus: oldTask.status,
-          newStatus: req.body.status
-        });
-      }
-    }
-
-    // Invalidate task cache
-    await invalidateTaskCache(updatedTask.project);
-
+    const updatedTask = await taskService.updateTask({
+      taskId: req.params.id,
+      body: req.body,
+      user: req.user,
+      io: req.io,
+    });
     res.status(200).json(updatedTask);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 

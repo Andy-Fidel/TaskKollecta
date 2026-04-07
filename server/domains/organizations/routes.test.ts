@@ -1,16 +1,30 @@
 import { it, expect, describe, beforeEach } from 'vitest';
 import request from 'supertest';
-import { app, getTestToken } from './setup';
-import User from '../models/User';
-import Organization from '../models/Organization';
-import Membership from '../models/Membership';
+import { app, getTestToken } from '../../tests/setup';
+import User from '../../models/User';
+import Organization from '../../models/Organization';
+import Membership from '../../models/Membership';
 
 describe('Organizations API — CRUD, membership, and RBAC', () => {
   let userToken: string;
   let userId: string;
 
+  const createOwnedOrganization = async () => {
+    const org = await Organization.create({
+      name: 'Seed Org',
+      createdBy: userId,
+    });
+
+    await Membership.create({
+      user: userId,
+      organization: org._id,
+      role: 'owner',
+    });
+
+    return org;
+  };
+
   beforeEach(async () => {
-    // Setup initial user
     const user = await User.create({
       name: 'Org User',
       email: 'owner@test.com',
@@ -31,14 +45,15 @@ describe('Organizations API — CRUD, membership, and RBAC', () => {
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('Test Org');
     expect(res.body.createdBy).toBe(userId);
-    
-    // Check membership was created as owner
+
     const membership = await Membership.findOne({ user: userId, organization: res.body._id });
     expect(membership).toBeTruthy();
     expect(membership?.role).toBe('owner');
   });
 
   it('should get all organizations for a user', async () => {
+    await createOwnedOrganization();
+
     const res = await request(app)
       .get('/api/organizations')
       .set('Cookie', [`jwt=${userToken}`]);
@@ -49,14 +64,13 @@ describe('Organizations API — CRUD, membership, and RBAC', () => {
   });
 
   it('should add a member to the organization (RBAC: owner only)', async () => {
-    // Create new user to add
     const newUser = await User.create({
       name: 'New Member',
       email: 'member@test.com',
       password: 'password123',
     });
 
-    const org = await Organization.findOne({ createdBy: userId });
+    const org = await createOwnedOrganization();
 
     const res = await request(app)
       .post(`/api/organizations/${org!._id}/members`)
@@ -66,29 +80,26 @@ describe('Organizations API — CRUD, membership, and RBAC', () => {
         role: 'member',
       });
 
-    expect(res.status).toBe(200);
-    expect(res.body.members.length).toBeGreaterThan(1);
-    
-    // Ensure membership was created
+    expect(res.status).toBe(201);
+    expect(res.body.user.email).toBe('member@test.com');
+
     const membership = await Membership.findOne({ user: newUser._id, organization: org!._id });
     expect(membership).toBeTruthy();
     expect(membership?.role).toBe('member');
   });
 
   it('should fail adding member if not owner/admin (RBAC: regular member)', async () => {
-    // Create a regular member
     const memberUser = await User.create({
       name: 'Regular Member',
       email: 'regular@test.com',
       password: 'password123',
     });
-    const org = await Organization.findOne({ createdBy: userId });
-    
-    // Join then as a regular member
+    const org = await createOwnedOrganization();
+
     await Membership.create({ user: memberUser._id, organization: org!._id, role: 'member' });
-    
+
     const memberToken = getTestToken(memberUser._id.toString());
-    
+
     const res = await request(app)
       .post(`/api/organizations/${org!._id}/members`)
       .set('Cookie', [`jwt=${memberToken}`])
@@ -97,13 +108,13 @@ describe('Organizations API — CRUD, membership, and RBAC', () => {
         role: 'member',
       });
 
-    expect(res.status).toBe(403); // Forbidden
+    expect(res.status).toBe(403);
     expect(res.body.message).toMatch(/denied/i);
   });
 
   it('should update organization details (RBAC: owner only)', async () => {
-    const org = await Organization.findOne({ createdBy: userId });
-    
+    const org = await createOwnedOrganization();
+
     const res = await request(app)
       .put(`/api/organizations/${org!._id}`)
       .set('Cookie', [`jwt=${userToken}`])
@@ -116,10 +127,21 @@ describe('Organizations API — CRUD, membership, and RBAC', () => {
   });
 
   it('should fail update organization if not authorized', async () => {
-    const memberUser = await User.findOne({ email: 'regular@test.com' });
-    const memberToken = getTestToken(memberUser!._id.toString());
-    const org = await Organization.findOne({ createdBy: userId });
-    
+    const org = await createOwnedOrganization();
+    const memberUser = await User.create({
+      name: 'Regular Member',
+      email: 'regular@test.com',
+      password: 'password123',
+    });
+
+    await Membership.create({
+      user: memberUser._id,
+      organization: org._id,
+      role: 'member',
+    });
+
+    const memberToken = getTestToken(memberUser._id.toString());
+
     const res = await request(app)
       .put(`/api/organizations/${org!._id}`)
       .set('Cookie', [`jwt=${memberToken}`])

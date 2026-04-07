@@ -1,9 +1,10 @@
 import { it, expect, describe, beforeEach } from 'vitest';
 import request from 'supertest';
-import { app, getTestToken } from './setup';
-import User from '../models/User';
-import Organization from '../models/Organization';
-import Project from '../models/Project';
+import { app, getTestToken } from '../../tests/setup';
+import User from '../../models/User';
+import Organization from '../../models/Organization';
+import Membership from '../../models/Membership';
+import Project from '../../models/Project';
 
 describe('Projects API — CRUD and management', () => {
   let userToken: string;
@@ -11,7 +12,6 @@ describe('Projects API — CRUD and management', () => {
   let orgId: string;
 
   beforeEach(async () => {
-    // Setup initial user and organization
     const user = await User.create({
       name: 'Project User',
       email: 'project@test.com',
@@ -25,6 +25,12 @@ describe('Projects API — CRUD and management', () => {
       createdBy: userId,
     });
     orgId = org._id.toString();
+
+    await Membership.create({
+      user: userId,
+      organization: orgId,
+      role: 'owner',
+    });
   });
 
   it('should create a new project successfully', async () => {

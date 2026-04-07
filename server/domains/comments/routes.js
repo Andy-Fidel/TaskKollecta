@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { addComment, getTaskComments } = require('../controllers/commentController');
-const { protect } = require('../middleware/authMiddleware');
-const { validateComment } = require('../middleware/validators');
+const { addComment, getTaskComments } = require('./controller');
+const { protect } = require('../../middleware/authMiddleware');
+const { validateComment } = require('../../middleware/validators');
 const { param } = require('express-validator');
 
 // Custom validator for taskId param

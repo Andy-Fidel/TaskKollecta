@@ -5,7 +5,6 @@ import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import enUS from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const locales = {

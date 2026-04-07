@@ -1,10 +1,11 @@
 import { it, expect, describe, beforeEach } from 'vitest';
 import request from 'supertest';
-import { app, getTestToken } from './setup';
-import User from '../models/User';
-import Organization from '../models/Organization';
-import Project from '../models/Project';
-import Task from '../models/Task';
+import { app, getTestToken } from '../../tests/setup';
+import User from '../../models/User';
+import Organization from '../../models/Organization';
+import Membership from '../../models/Membership';
+import Project from '../../models/Project';
+import Task from '../../models/Task';
 
 describe('Tasks API — CRUD, subtasks, and board management', () => {
   let userToken: string;
@@ -13,7 +14,6 @@ describe('Tasks API — CRUD, subtasks, and board management', () => {
   let projectId: string;
 
   beforeEach(async () => {
-    // Setup initial data for all task tests
     const user = await User.create({
       name: 'Task User',
       email: 'task@test.com',
@@ -27,6 +27,12 @@ describe('Tasks API — CRUD, subtasks, and board management', () => {
       createdBy: userId,
     });
     orgId = org._id.toString();
+
+    await Membership.create({
+      user: userId,
+      organization: orgId,
+      role: 'owner',
+    });
 
     const project = await Project.create({
       name: 'Test Project',
@@ -127,7 +133,7 @@ describe('Tasks API — CRUD, subtasks, and board management', () => {
       organization: orgId,
       reporter: userId,
       createdBy: userId,
-      subtasks: [{ title: 'Finish me' }]
+      subtasks: [{ title: 'Finish me' }],
     });
     const subtaskId = task.subtasks[0]._id;
 

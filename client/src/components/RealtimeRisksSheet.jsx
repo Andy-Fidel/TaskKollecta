@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, X, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -9,7 +9,7 @@ export function RealtimeRisksSheet({ projectId, isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchRisks = async () => {
+  const fetchRisks = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -21,13 +21,13 @@ export function RealtimeRisksSheet({ projectId, isOpen, onClose }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     if (isOpen) {
-      fetchRisks();
+      void fetchRisks();
     }
-  }, [isOpen, projectId]);
+  }, [isOpen, fetchRisks]);
 
   if (!isOpen) return null;
 

@@ -12,32 +12,29 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkUser = async () => {
       const token = localStorage.getItem('token');
+
       if (token) {
-        // Proactively check if JWT has expired before making API call
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
           if (payload.exp && payload.exp * 1000 < Date.now()) {
-            // Token expired — clear everything
             localStorage.removeItem('token');
             localStorage.removeItem('activeOrgId');
             localStorage.removeItem('lastActivity');
-            setLoading(false);
-            return;
           }
-        } catch {
-          // Malformed token — remove it
-          localStorage.removeItem('token');
-          setLoading(false);
-          return;
-        }
-
-        try {
-          const { data } = await api.get('/users/me');
-          setUser(data);
         } catch {
           localStorage.removeItem('token');
         }
       }
+
+      try {
+        const { data } = await api.get('/users/me', {
+          headers: { 'x-skip-auth-redirect': 'true' },
+        });
+        setUser(data);
+      } catch {
+        localStorage.removeItem('token');
+      }
+
       setLoading(false);
     };
     checkUser();
@@ -49,18 +46,20 @@ export const AuthProvider = ({ children }) => {
     setUser(data);
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('token');
-    
-    // Clear the active organization
-    localStorage.removeItem('activeOrgId'); 
-    
-    // Clear any other cached filters
-    localStorage.removeItem('project_filter');
-
-    // Clear idle timeout timestamp
-    localStorage.removeItem('lastActivity');
+  const logout = async () => {
+    try {
+      await api.post('/users/logout', null, {
+        headers: { 'x-skip-auth-redirect': 'true' },
+      });
+    } catch {
+      // Always clear the local session state even if the server cookie is already gone.
+    } finally {
+      setUser(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('activeOrgId');
+      localStorage.removeItem('project_filter');
+      localStorage.removeItem('lastActivity');
+    }
   };
 
   // Auto-logout after 2 hours of inactivity

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Archive, RefreshCcw, Trash2, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,7 @@ export function ArchivedTasksModal({ isOpen, onClose, projectId, onRestore }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) fetchArchived();
-  }, [isOpen]);
-
-  const fetchArchived = async () => {
+  const fetchArchived = useCallback(async () => {
     setLoading(true);
     try {
         // Fetch ONLY archived tasks
@@ -23,7 +19,13 @@ export function ArchivedTasksModal({ isOpen, onClose, projectId, onRestore }) {
         setTasks(data);
     } catch (e) { console.error(e); } 
     finally { setLoading(false); }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      void fetchArchived();
+    }
+  }, [isOpen, fetchArchived]);
 
   const handleRestore = async (taskId) => {
       try {

@@ -117,6 +117,20 @@ const loginUser = async (req, res) => {
   }
 };
 
+// @desc    Clear current session
+// @route   POST /api/users/logout
+// @access  Public
+const logoutUser = async (_req, res) => {
+  res.cookie('jwt', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV !== 'development',
+    sameSite: process.env.NODE_ENV !== 'development' ? 'None' : 'Lax',
+    expires: new Date(0),
+  });
+
+  res.status(200).json({ message: 'Logged out' });
+};
+
 // @desc    Get user data
 // @route   GET /api/users/me
 // @access  Private
@@ -451,6 +465,7 @@ const updateReminderPreferences = async (req, res) => {
 module.exports = {
   registerUser,
   loginUser,
+  logoutUser,
   getMe,
   updateUserProfile,
   updateUserPassword,

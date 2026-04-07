@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { searchOrganizations, requestToJoin, getJoinRequests, resolveJoinRequest, createOrganization, getUserOrganizations, getOrganizationById, updateOrganization, getOrgMembers, addMember, updateMemberRole } = require('../controllers/organizationController');
-const { protect } = require('../middleware/authMiddleware');
-const { checkRole } = require('../middleware/roleMiddleware');
+const { searchOrganizations, requestToJoin, getJoinRequests, resolveJoinRequest, createOrganization, getUserOrganizations, getOrganizationById, updateOrganization, getOrgMembers, addMember, updateMemberRole } = require('./controller');
+const { protect } = require('../../middleware/authMiddleware');
+const { checkRole } = require('../../middleware/roleMiddleware');
 
 router.get('/search', protect, searchOrganizations);
 router.post('/:id/join', protect, requestToJoin);

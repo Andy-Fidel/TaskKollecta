@@ -30,6 +30,10 @@ let isRedirecting = false;
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.config?.headers?.['x-skip-auth-redirect']) {
+      return Promise.reject(error);
+    }
+
     if (
       error.response?.status === 401 &&
       !isRedirecting &&

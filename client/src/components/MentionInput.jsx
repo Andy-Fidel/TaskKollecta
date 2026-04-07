@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -29,7 +29,6 @@ export function MentionInput({
     const [mentionQuery, setMentionQuery] = useState('');
     const [mentionIndex, setMentionIndex] = useState(0);
     const [cursorPosition, setCursorPosition] = useState(0);
-    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
 
     // Filter users based on mention query
     const filteredUsers = users.filter(user =>
@@ -37,7 +36,7 @@ export function MentionInput({
     ).slice(0, 5);
 
     // Detect @ trigger and extract query
-    const detectMention = useCallback((text, cursorPos) => {
+    const detectMention = (text, cursorPos) => {
         const textBeforeCursor = text.substring(0, cursorPos);
         const atMatch = textBeforeCursor.match(/@(\w*)$/);
 
@@ -45,24 +44,11 @@ export function MentionInput({
             setMentionQuery(atMatch[1]);
             setShowMentions(true);
             setMentionIndex(0);
-
-            // Calculate dropdown position
-            if (textareaRef.current) {
-                const textarea = textareaRef.current;
-                const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
-                const lines = textBeforeCursor.split('\n');
-                const currentLineIndex = lines.length - 1;
-
-                setDropdownPosition({
-                    top: (currentLineIndex + 1) * lineHeight + 8,
-                    left: 0
-                });
-            }
         } else {
             setShowMentions(false);
             setMentionQuery('');
         }
-    }, []);
+    };
 
     // Handle text change
     const handleChange = (e) => {

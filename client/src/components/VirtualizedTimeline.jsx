@@ -72,13 +72,6 @@ export function VirtualizedTimeline({
         }
     }, [hasMore, isLoading, onLoadMore]);
 
-    // Scroll to bottom (newest items)
-    const scrollToBottom = useCallback(() => {
-        if (listRef.current && items.length > 0) {
-            listRef.current.scrollToItem(items.length - 1, 'end');
-        }
-    }, [items.length]);
-
     // Empty state
     if (items.length === 0) {
         return (
@@ -87,18 +80,6 @@ export function VirtualizedTimeline({
             </div>
         );
     }
-
-    // Calculate dynamic item size (comments are taller than activities)
-    const getItemSize = (index) => {
-        const item = items[index];
-        if (item?.type === 'comment') {
-            // Estimate based on content length
-            const contentLength = item.content?.length || 0;
-            const lines = Math.ceil(contentLength / 50);
-            return Math.max(80, 60 + (lines * 20));
-        }
-        return 50; // Activity items are smaller
-    };
 
     // Use VariableSizeList for dynamic heights
     const itemData = { items, formatActivityAction };
