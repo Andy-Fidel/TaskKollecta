@@ -5,15 +5,7 @@ const Invite = require('../../models/Invite');
 const Membership = require('../../models/Membership');
 const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');
-const {
-  invalidateProjectTasks,
-  notifyTaskCreationAssignment,
-  notifyTaskUpdate,
-  recordTaskCreated,
-  recordTaskDeleted,
-  recordTaskMoved,
-  runTaskUpdateAutomations,
-} = require('./taskSideEffects');
+const { emitDomainEvent } = require('../shared/domainEvents');
 
 const TASK_UPDATE_FIELDS = ['title', 'description', 'status', 'priority', 'startDate', 'dueDate', 'assignee', 'index'];
 
@@ -102,17 +94,16 @@ const createTask = async ({ body, user, io }) => {
     .populate('assignee', 'name email avatar')
     .populate('project', 'name');
 
-  await recordTaskCreated({ io, user, task });
-  await notifyTaskCreationAssignment({
+  await emitDomainEvent('task.created', {
     io,
     user,
     task: populatedTask,
+    populatedTask,
     projectId,
     resolvedAssignee,
     storedAssigneeEmail,
     externalInviteUrl,
   });
-  await invalidateProjectTasks(projectId);
   return populatedTask;
 };
 
@@ -173,10 +164,8 @@ const deleteTask = async ({ taskId, user, io }) => {
   const task = await Task.findById(taskId);
   await requireTaskAccess(user._id, task);
 
-  await recordTaskDeleted({ io, user, task });
-
   await Task.deleteOne({ _id: taskId });
-  await invalidateProjectTasks(task.project);
+  await emitDomainEvent('task.deleted', { io, user, task });
 
   return { id: taskId, message: 'Task removed' };
 };
@@ -206,13 +195,7 @@ const updateTask = async ({ taskId, body, user, io }) => {
     .populate('assignee', 'name avatar')
     .populate('project', 'name');
 
-  if (body.status && oldTask.status !== body.status) {
-    await recordTaskMoved({ io, user, task: updatedTask, status: body.status });
-  }
-
-  runTaskUpdateAutomations({ task: updatedTask, body });
-  await notifyTaskUpdate({ io, user, oldTask, updatedTask, body });
-  await invalidateProjectTasks(updatedTask.project);
+  await emitDomainEvent('task.updated', { io, user, oldTask, updatedTask, body });
   return updatedTask;
 };
 

@@ -93,14 +93,18 @@ export default function Workspace() {
         api.get('/projects'),
         api.get('/organizations')
       ]);
-      setProjects(projRes.data);
+
+      const projectList = Array.isArray(projRes.data) ? projRes.data : [];
+      const organizationList = Array.isArray(orgRes.data) ? orgRes.data : [];
+
+      setProjects(projectList);
 
       let activeOrgId = localStorage.getItem('activeOrgId');
-      const userBelongsToStoredOrg = orgRes.data.find(o => o._id === activeOrgId);
+      const userBelongsToStoredOrg = organizationList.find(o => o._id === activeOrgId);
 
       if (!activeOrgId || !userBelongsToStoredOrg) {
-        if (orgRes.data.length > 0) {
-          activeOrgId = orgRes.data[0]._id;
+        if (organizationList.length > 0) {
+          activeOrgId = organizationList[0]._id;
           localStorage.setItem('activeOrgId', activeOrgId);
         } else {
           activeOrgId = null;
@@ -112,10 +116,12 @@ export default function Workspace() {
 
       if (activeOrgId) {
         const memRes = await api.get(`/organizations/${activeOrgId}/members`);
-        setMembers(memRes.data);
+        setMembers(Array.isArray(memRes.data) ? memRes.data : []);
       }
     } catch (error) {
       console.error("Failed to load workspace", error);
+      setProjects([]);
+      setMembers([]);
       if (error.response?.status === 403) localStorage.removeItem('activeOrgId');
     } finally {
       setLoading(false);

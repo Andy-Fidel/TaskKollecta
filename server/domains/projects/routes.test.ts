@@ -62,6 +62,30 @@ describe('Projects API — CRUD and management', () => {
     expect(res.body.length).toBeGreaterThan(0);
   });
 
+  it('should get all projects for the active workspace', async () => {
+    await Project.create([
+      {
+        name: 'Workspace Project A',
+        organization: orgId,
+        createdBy: userId,
+      },
+      {
+        name: 'Workspace Project B',
+        organization: orgId,
+        createdBy: userId,
+      },
+    ]);
+
+    const res = await request(app)
+      .get('/api/projects')
+      .set('Cookie', [`jwt=${userToken}`])
+      .set('x-active-org', orgId);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(2);
+  });
+
   it('should get project details', async () => {
     const project = await Project.create({
       name: 'Details Project',

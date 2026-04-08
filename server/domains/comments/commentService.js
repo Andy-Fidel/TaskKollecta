@@ -2,7 +2,7 @@ const Comment = require('../../models/Comment');
 const Task = require('../../models/Task');
 const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');
-const { notifyCommentCreated } = require('./commentSideEffects');
+const { emitDomainEvent } = require('../shared/domainEvents');
 
 const addComment = async ({ content, taskId, user, io }) => {
   const task = await Task.findById(taskId);
@@ -21,7 +21,7 @@ const addComment = async ({ content, taskId, user, io }) => {
   const fullComment = await Comment.findById(comment._id).populate('user', 'name avatar');
 
   const notify = async () => {
-    await notifyCommentCreated({ io, task, taskId, user, content });
+    await emitDomainEvent('comment.created', { io, task, taskId, user, content });
   };
 
   return { comment: fullComment, notify };

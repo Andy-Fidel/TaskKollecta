@@ -67,14 +67,18 @@ const notifyTaskCreationAssignment = async ({
   }
 };
 
-const runTaskUpdateAutomations = ({ task, body }) => {
+const runTaskUpdateAutomations = async ({ task, body }) => {
+  const runs = [];
+
   if (body.status) {
-    runAutomations(task.project, 'status_change', body.status, task);
+    runs.push(runAutomations(task.project, 'status_change', body.status, task));
   }
 
   if (body.priority) {
-    runAutomations(task.project, 'priority_change', body.priority, task);
+    runs.push(runAutomations(task.project, 'priority_change', body.priority, task));
   }
+
+  await Promise.all(runs);
 };
 
 const notifyTaskUpdate = async ({ io, user, oldTask, updatedTask, body }) => {

@@ -4,7 +4,7 @@ const Organization = require('../../models/Organization');
 const User = require('../../models/User');
 const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');
-const { sendInviteEmail } = require('./inviteSideEffects');
+const { emitDomainEvent } = require('../shared/domainEvents');
 
 const ensureInvitePermission = async (userId, organizationId, message = 'Not authorized to invite') => {
   const membership = await ensureMembership(userId, organizationId, message);
@@ -61,7 +61,7 @@ const createInvite = async ({ body, user }) => {
     role,
   });
 
-  await sendInviteEmail({
+  await emitDomainEvent('invite.created', {
     email,
     orgName: organization.name,
     inviterName: user.name,
@@ -205,7 +205,7 @@ const createBulkInvites = async ({ body, user }) => {
         role,
       });
 
-      await sendInviteEmail({
+      await emitDomainEvent('invite.created', {
         email,
         orgName: organization.name,
         inviterName: user.name,

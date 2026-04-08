@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Project = require('../../models/Project');
 const Task = require('../../models/Task');
 const ProjectUpdate = require('../../models/ProjectUpdate');
+const Membership = require('../../models/Membership');
 const { invalidateProjectCache } = require('../../utils/cacheUtils');
 const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');

@@ -32,10 +32,15 @@ export function SmartFocusMode() {
     setError(null);
     try {
       const res = await api.get('/ai/focus');
-      setFocusTasks(res.data.focusTasks || []);
+      setFocusTasks(Array.isArray(res.data?.focusTasks) ? res.data.focusTasks : []);
     } catch (err) {
       console.error('Failed to fetch focus:', err);
-      setError('Unable to load focus recommendations right now.');
+      setFocusTasks([]);
+      setError(
+        err.response?.status === 429
+          ? 'Focus recommendations are temporarily rate-limited.'
+          : 'Unable to load focus recommendations right now.',
+      );
     } finally {
       setLoading(false);
     }
