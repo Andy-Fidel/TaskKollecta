@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useAuth } from '../context/useAuth';
 import api from '../api/axios';
+import { trackProductEvent } from '../utils/productAnalytics';
 
 // Steps for CREATOR path (full wizard)
 const CREATOR_STEPS = [
@@ -30,6 +31,27 @@ const ROLES = [
     { id: 'team_lead', label: 'Team Lead', description: 'Leading a small team (2-10 people)', icon: Users },
     { id: 'manager', label: 'Manager', description: 'Managing multiple teams or projects', icon: Building2 }
 ];
+
+const ROLE_BLUEPRINTS = {
+    personal: {
+        workspaceSuffix: 'Personal Workspace',
+        projectName: 'Personal Planner',
+        projectSummary: 'You will start with a private planner, lightweight defaults, and personal planning tasks.',
+        starterItems: ['Weekly priorities', 'Recurring routines', 'Upcoming deadlines'],
+    },
+    team_lead: {
+        workspaceSuffix: 'Team Workspace',
+        projectName: 'Team Sprint Board',
+        projectSummary: 'You will start with a board-first project, starter sprint tasks, and an overdue escalation automation.',
+        starterItems: ['Sprint goal', 'Backlog prioritization', 'Blocker review'],
+    },
+    manager: {
+        workspaceSuffix: 'Operations Workspace',
+        projectName: 'Portfolio Review',
+        projectSummary: 'You will start with a portfolio-style workspace, reporting tasks, and leadership-focused automation defaults.',
+        starterItems: ['Portfolio review cadence', 'Reporting checklist', 'Risk tracking'],
+    },
+};
 
 export default function OnboardingWizard() {
     const { user } = useAuth();
@@ -58,6 +80,11 @@ export default function OnboardingWizard() {
         setFormData(prev => ({ ...prev, inviteEmails: newEmails }));
     };
 
+    const selectedRole = formData.role || 'personal';
+    const roleBlueprint = ROLE_BLUEPRINTS[selectedRole] || ROLE_BLUEPRINTS.personal;
+    const defaultWorkspaceName = `${user?.name?.split(' ')?.[0] || user?.name || 'My'}'s ${roleBlueprint.workspaceSuffix}`;
+    const defaultProjectName = roleBlueprint.projectName;
+
     const handleNext = () => {
         if (step < STEPS.length - 1) setStep(step + 1);
     };
@@ -73,13 +100,20 @@ export default function OnboardingWizard() {
                 role: formData.role || 'personal',
                 // Invitees don't create org/project
                 ...(isInvitee ? {} : {
-                    organizationName: formData.organizationName || `${user?.name}'s Workspace`,
-                    projectName: formData.projectName || 'My First Project',
+                    organizationName: formData.organizationName || defaultWorkspaceName,
+                    projectName: formData.projectName || defaultProjectName,
                     inviteEmails: formData.inviteEmails.filter(e => e.trim())
                 })
             };
 
             await api.post('/users/onboarding', payload);
+            trackProductEvent('onboarding_completed', {
+                organizationId: localStorage.getItem('activeOrgId'),
+                metadata: {
+                    role: formData.role || 'personal',
+                    isInvitee,
+                },
+            });
             toast.success(isInvitee ? 'You\'re all set!' : 'Welcome to TaskKollecta!');
 
             // Force reload to update user state
@@ -195,11 +229,23 @@ export default function OnboardingWizard() {
                                             </div>
                                             <div>
                                                 <p className="font-medium text-foreground">{role.label}</p>
-                                                <p className="text-sm text-muted-foreground">{role.description}</p>
+                                        <p className="text-sm text-muted-foreground">{role.description}</p>
                                             </div>
                                         </button>
                                     ))}
                                 </div>
+
+                                {formData.role && (
+                                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                                        <p className="text-sm font-medium text-foreground mb-1">Starter setup preview</p>
+                                        <p className="text-sm text-muted-foreground">{roleBlueprint.projectSummary}</p>
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                            {roleBlueprint.starterItems.map((item) => (
+                                                <Badge key={item} variant="secondary">{item}</Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -231,13 +277,13 @@ export default function OnboardingWizard() {
                                     <div className="space-y-2">
                                         <Label className="text-foreground">Workspace Name</Label>
                                         <Input
-                                            placeholder={`${user?.name}'s Workspace`}
+                                            placeholder={defaultWorkspaceName}
                                             value={formData.organizationName}
                                             onChange={(e) => updateFormData('organizationName', e.target.value)}
                                             className="h-12"
                                         />
                                         <p className="text-xs text-muted-foreground">
-                                            You can change this later in settings
+                                            Suggested for {ROLES.find(role => role.id === selectedRole)?.label?.toLowerCase() || 'your setup'}. You can change this later.
                                         </p>
                                     </div>
                                 </div>
@@ -261,11 +307,14 @@ export default function OnboardingWizard() {
                                     <div className="space-y-2">
                                         <Label className="text-foreground">Project Name</Label>
                                         <Input
-                                            placeholder="My First Project"
+                                            placeholder={defaultProjectName}
                                             value={formData.projectName}
                                             onChange={(e) => updateFormData('projectName', e.target.value)}
                                             className="h-12"
                                         />
+                                        <p className="text-xs text-muted-foreground">
+                                            This role starts with: {roleBlueprint.starterItems.join(', ')}.
+                                        </p>
                                     </div>
                                 </div>
                             </div>

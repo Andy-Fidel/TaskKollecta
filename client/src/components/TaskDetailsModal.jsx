@@ -36,6 +36,7 @@ import { PriorityBadge } from './PriorityBadge';
 import { TagPicker } from './TagPicker';
 import { RecurrencePicker } from './RecurrencePicker';
 import { MentionInput, renderMentions } from './MentionInput';
+import { getIncompleteDependencies, isTaskBlocked } from '../utils/taskState';
 
 export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, socket }) {
     const { user } = useAuth();
@@ -208,6 +209,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
         ...(Array.isArray(comments) ? comments : []).map(c => ({ ...c, type: 'comment' })),
         ...(Array.isArray(activities) ? activities : []).map(a => ({ ...a, type: 'activity' }))
     ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const incompleteDependencies = getIncompleteDependencies({ ...task, dependencies });
+    const blocked = isTaskBlocked({ ...task, status: currentStatus, dependencies });
 
     // Permission Check
     const currentMember = teamMembers.find(m => m.user?._id === user?._id);
@@ -779,6 +782,19 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Description */}
+                                    {blocked && (
+                                        <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                                            <div className="flex items-center gap-2 font-semibold">
+                                                <AlertCircle className="w-4 h-4" />
+                                                This task is blocked
+                                            </div>
+                                            <p className="mt-1 text-xs leading-relaxed">
+                                                Finish these dependencies before marking this task done: {incompleteDependencies.map(dep => dep.title).join(', ')}.
+                                            </p>
+                                        </div>
+                                    )}
 
                                     {/* Description */}
                                     <div className="group pt-2">

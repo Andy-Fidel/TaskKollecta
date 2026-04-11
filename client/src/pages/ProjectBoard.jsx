@@ -42,6 +42,7 @@ import { ProjectCalendar } from '../components/ProjectCalendar';
 import { ProjectHealthModal } from '../components/ProjectHealthModal';
 import { RealtimeRisksSheet } from '../components/RealtimeRisksSheet';
 import { useDataRefresh } from '../context/useDataRefresh';
+import { isTaskBlocked } from '../utils/taskState';
 
 import { Sparkles } from 'lucide-react';
 
@@ -145,6 +146,7 @@ export default function ProjectBoard() {
   });
   const [filterPresets, setFilterPresets] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showBlockedOnly, setShowBlockedOnly] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -283,8 +285,17 @@ export default function ProjectBoard() {
       );
     }
 
+    if (showBlockedOnly) {
+      result = result.filter((task) => isTaskBlocked(task));
+    }
+
     return result;
-  }, [tasks, filters, searchQuery]);
+  }, [tasks, filters, searchQuery, showBlockedOnly]);
+
+  const blockedTaskCount = useMemo(
+    () => tasks.filter((task) => isTaskBlocked(task)).length,
+    [tasks],
+  );
 
   // Handlers
   const handleDragStart = (event) => setActiveId(event.active.id);
@@ -305,6 +316,15 @@ export default function ProjectBoard() {
 
     if (activeTask && activeTask.status !== newStatus) {
       const previousStatus = activeTask.status;
+
+      if (newStatus === 'done' && isTaskBlocked(activeTask)) {
+        const blockers = activeTask.dependencies
+          ?.filter((dependency) => dependency?.status !== 'done')
+          .map((dependency) => dependency.title)
+          .join(', ');
+        toast.error(`Task is blocked by: ${blockers || 'unfinished dependencies'}`);
+        return;
+      }
 
       // Optimistic update
       setTasks((prev) => prev.map(t => t._id === activeTask._id ? { ...t, status: newStatus } : t));
@@ -716,6 +736,18 @@ export default function ProjectBoard() {
           </div>
           <div className="hidden md:block h-6 w-[1px] bg-border"></div>
           <div className="flex items-center gap-3 overflow-x-auto">
+            <Button
+              variant={showBlockedOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowBlockedOnly((current) => !current)}
+              className="shrink-0"
+            >
+              <AlertTriangle className="w-4 h-4 mr-1.5 text-amber-500" />
+              Blocked
+              <span className="ml-2 rounded-full bg-background/80 px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                {blockedTaskCount}
+              </span>
+            </Button>
             <AdvancedFilters
               projectId={projectId}
               filters={filters}

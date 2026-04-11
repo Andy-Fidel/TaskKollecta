@@ -5,6 +5,65 @@ const generateToken = require('../utils/generateToken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
 
+const ROLE_BLUEPRINTS = {
+  personal: {
+    organizationSuffix: 'Personal Workspace',
+    projectName: 'Personal Planner',
+    projectDescription: 'A lightweight place to track your priorities, errands, and next actions.',
+    projectColor: '#0f766e',
+    defaultView: 'list',
+    privacy: 'private',
+    tasks: [
+      { title: 'Capture this week\'s priorities', priority: 'high', description: 'List the 3-5 things you want to finish first.' },
+      { title: 'Set up recurring personal check-ins', priority: 'medium', description: 'Add routines you revisit every week.' },
+      { title: 'Review upcoming deadlines', priority: 'medium', description: 'Make sure important dates are visible and realistic.' },
+    ],
+    automations: [],
+  },
+  team_lead: {
+    organizationSuffix: 'Team Workspace',
+    projectName: 'Team Sprint Board',
+    projectDescription: 'Plan active work, assign owners, and keep delivery moving with a clear weekly cadence.',
+    projectColor: '#1d4ed8',
+    defaultView: 'board',
+    privacy: 'private',
+    tasks: [
+      { title: 'Define sprint goal', priority: 'high', description: 'Write the outcome the team should achieve this cycle.' },
+      { title: 'Prioritize team backlog', priority: 'high', description: 'Pull the next set of tasks into active planning.' },
+      { title: 'Assign owners for current work', priority: 'medium', description: 'Make sure every active task has a clear owner.' },
+      { title: 'Review blockers and dependencies', priority: 'medium', description: 'Identify work that could stall the team this week.' },
+    ],
+    automations: [
+      { triggerType: 'task_overdue', triggerValue: 'any', actionType: 'change_priority', actionValue: 'urgent' },
+    ],
+  },
+  manager: {
+    organizationSuffix: 'Operations Workspace',
+    projectName: 'Portfolio Review',
+    projectDescription: 'Track cross-team delivery, risk, and reporting in one operating workspace.',
+    projectColor: '#7c3aed',
+    defaultView: 'board',
+    privacy: 'private',
+    tasks: [
+      { title: 'Set portfolio review cadence', priority: 'high', description: 'Decide when to review status, risks, and capacity.' },
+      { title: 'Create leadership reporting checklist', priority: 'high', description: 'Capture the updates stakeholders expect every cycle.' },
+      { title: 'Map active initiatives and owners', priority: 'medium', description: 'Make ownership and current status visible across teams.' },
+      { title: 'Identify high-risk deliverables', priority: 'medium', description: 'Flag work that needs early escalation or support.' },
+    ],
+    automations: [
+      { triggerType: 'task_overdue', triggerValue: 'any', actionType: 'send_notification', actionValue: 'project_lead' },
+    ],
+  },
+};
+
+function getRoleBlueprint(role, userName) {
+  const blueprint = ROLE_BLUEPRINTS[role] || ROLE_BLUEPRINTS.personal;
+  return {
+    ...blueprint,
+    organizationName: `${userName.split(' ')[0]}'s ${blueprint.organizationSuffix}`,
+  };
+}
+
 // @desc    Register new user
 // @route   POST /api/users
 // @access  Public
@@ -360,14 +419,17 @@ const completeOnboarding = async (req, res) => {
     user.onboardingCompleted = true;
     await user.save();
 
+    const selectedRole = role || 'personal';
+    const blueprint = getRoleBlueprint(selectedRole, user.name);
+
     let organization = null;
     let project = null;
 
     // Create organization if name provided (Creator path only)
-    if (organizationName && !user.isInvitee) {
+    if (!user.isInvitee) {
       const Organization = require('../models/Organization');
       organization = await Organization.create({
-        name: organizationName,
+        name: organizationName || blueprint.organizationName,
         createdBy: user._id
       });
 
@@ -380,13 +442,44 @@ const completeOnboarding = async (req, res) => {
       });
 
       // Create project if name provided
-      if (projectName) {
+      {
         const Project = require('../models/Project');
         project = await Project.create({
-          name: projectName,
+          name: projectName || blueprint.projectName,
+          description: blueprint.projectDescription,
           organization: organization._id,
-          createdBy: user._id
+          createdBy: user._id,
+          lead: user._id,
+          color: blueprint.projectColor,
+          defaultView: blueprint.defaultView,
+          privacy: blueprint.privacy,
         });
+
+        if (blueprint.tasks.length > 0) {
+          const Task = require('../models/Task');
+          await Task.insertMany(
+            blueprint.tasks.map((task, index) => ({
+              title: task.title,
+              description: task.description,
+              priority: task.priority,
+              status: index === 0 && selectedRole !== 'personal' ? 'in-progress' : 'todo',
+              organization: organization._id,
+              project: project._id,
+              assignee: user._id,
+              reporter: user._id,
+            })),
+          );
+        }
+
+        if (blueprint.automations.length > 0) {
+          const Automation = require('../models/Automation');
+          await Automation.insertMany(
+            blueprint.automations.map((automation) => ({
+              project: project._id,
+              ...automation,
+            })),
+          );
+        }
       }
     }
 

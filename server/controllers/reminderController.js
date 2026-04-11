@@ -4,9 +4,18 @@ const Reminder = require('../models/Reminder');
 // @route   GET /api/reminders
 const getReminders = async (req, res) => {
     try {
-        const reminders = await Reminder.find({ user: req.user._id, completed: false })
-            .sort({ dueDate: 1 }) // Soonest first
-            .limit(10);
+        const scope = req.query.scope === 'all' ? 'all' : 'open';
+        const includeCompleted = scope === 'all';
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
+
+        const query = { user: req.user._id };
+        if (!includeCompleted) {
+            query.completed = false;
+        }
+
+        const reminders = await Reminder.find(query)
+            .sort({ completed: 1, dueDate: 1 })
+            .limit(limit);
         res.json(reminders);
     } catch (error) {
         res.status(500).json({ message: error.message });

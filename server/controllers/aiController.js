@@ -101,14 +101,14 @@ const getSmartFocus = async (req, res) => {
       assignee: req.user._id,
       status: { $ne: 'done' },
       dueDate: { $gte: today, $lt: dayAfterTomorrow }
-    }).select('_id title priority dueDate').lean();
+    }).select('_id title priority dueDate status project description').populate('project', 'name').lean();
 
     // If no tasks due soon, get the next incomplete tasks
     if (tasks.length === 0) {
       const upcoming = await Task.find({
         assignee: req.user._id,
         status: { $ne: 'done' }
-      }).select('_id title priority dueDate').sort({ dueDate: 1 }).limit(5).lean();
+      }).select('_id title priority dueDate status project description').populate('project', 'name').sort({ dueDate: 1 }).limit(5).lean();
       
       if (upcoming.length === 0) {
         return res.json({ focusTasks: [] });
@@ -116,11 +116,40 @@ const getSmartFocus = async (req, res) => {
       
       const upcomingJson = JSON.stringify(upcoming);
       const focus = await generateSmartFocus(upcomingJson);
-      return res.json({ focusTasks: focus });
+      const taskMap = new Map(upcoming.map(task => [String(task._id), task]));
+      const focusTasks = focus
+        .map(item => {
+          const sourceTask = taskMap.get(String(item.taskId));
+          if (!sourceTask) return null;
+          return {
+            ...item,
+            dueDate: sourceTask.dueDate,
+            status: sourceTask.status,
+            project: sourceTask.project,
+            description: sourceTask.description || '',
+          };
+        })
+        .filter(Boolean);
+
+      return res.json({ focusTasks });
     }
 
     const tasksJson = JSON.stringify(tasks);
-    const focusTasks = await generateSmartFocus(tasksJson);
+    const focus = await generateSmartFocus(tasksJson);
+    const taskMap = new Map(tasks.map(task => [String(task._id), task]));
+    const focusTasks = focus
+      .map(item => {
+        const sourceTask = taskMap.get(String(item.taskId));
+        if (!sourceTask) return null;
+        return {
+          ...item,
+          dueDate: sourceTask.dueDate,
+          status: sourceTask.status,
+          project: sourceTask.project,
+          description: sourceTask.description || '',
+        };
+      })
+      .filter(Boolean);
     
     res.json({ focusTasks });
   } catch (error) {

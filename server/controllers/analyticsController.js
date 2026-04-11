@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const Project = require('../models/Project');
 const Membership = require('../models/Membership');
+const ProductEvent = require('../models/ProductEvent');
 
 // @desc    Get sprint/burndown analytics for a project
 // @route   GET /api/analytics/sprint/:projectId?start=...&end=...
@@ -248,4 +249,102 @@ const getWorkloadAnalytics = async (req, res) => {
   }
 };
 
-module.exports = { getSprintAnalytics, getWorkloadAnalytics };
+// @desc    Record a product usage event
+// @route   POST /api/analytics/events
+const recordProductEvent = async (req, res) => {
+  try {
+    const { eventName, organizationId, projectId, source = 'web', metadata = {} } = req.body;
+
+    if (!eventName || typeof eventName !== 'string') {
+      return res.status(400).json({ message: 'eventName is required' });
+    }
+
+    let orgId = organizationId || null;
+
+    if (projectId) {
+      const project = await Project.findById(projectId).select('organization');
+      if (!project) return res.status(404).json({ message: 'Project not found' });
+
+      const membership = await Membership.findOne({
+        user: req.user._id,
+        organization: project.organization,
+      });
+      if (!membership) return res.status(403).json({ message: 'Access denied' });
+
+      orgId = project.organization;
+    }
+
+    if (orgId) {
+      const membership = await Membership.findOne({
+        user: req.user._id,
+        organization: orgId,
+      });
+      if (!membership) return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const event = await ProductEvent.create({
+      user: req.user._id,
+      organization: orgId,
+      project: projectId || null,
+      eventName,
+      source,
+      metadata,
+    });
+
+    res.status(201).json({ id: event._id });
+  } catch (error) {
+    console.error('Product event error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get product adoption summary for the active workspace
+// @route   GET /api/analytics/product-adoption?orgId=...
+const getProductAdoptionAnalytics = async (req, res) => {
+  try {
+    const { orgId } = req.query;
+    if (!orgId) {
+      return res.status(400).json({ message: 'orgId is required' });
+    }
+
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      organization: orgId,
+    });
+    if (!membership) return res.status(403).json({ message: 'Access denied' });
+
+    const eventCounts = await ProductEvent.aggregate([
+      {
+        $match: {
+          organization: new mongoose.Types.ObjectId(orgId),
+        },
+      },
+      {
+        $group: {
+          _id: '$eventName',
+          count: { $sum: 1 },
+          lastSeenAt: { $max: '$createdAt' },
+        },
+      },
+      { $sort: { count: -1 } },
+    ]);
+
+    res.json({
+      events: eventCounts.map((item) => ({
+        eventName: item._id,
+        count: item.count,
+        lastSeenAt: item.lastSeenAt,
+      })),
+    });
+  } catch (error) {
+    console.error('Product adoption analytics error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  getSprintAnalytics,
+  getWorkloadAnalytics,
+  recordProductEvent,
+  getProductAdoptionAnalytics,
+};

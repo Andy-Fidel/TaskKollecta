@@ -1,10 +1,11 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, MoreHorizontal, User as UserIcon, Repeat, Check, Diamond, Link2 } from 'lucide-react';
+import { AlertTriangle, Calendar, MoreHorizontal, User as UserIcon, Repeat, Check, Diamond, Link2 } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getIncompleteDependencies, isTaskBlocked } from '../utils/taskState';
 
 import { motion as Motion } from 'framer-motion';
 
@@ -31,6 +32,9 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
     urgent: 'bg-rose-100 text-rose-800 hover:bg-rose-100 border-rose-200 dark:bg-rose-950 dark:text-rose-400 dark:border-rose-900'
   };
 
+  const incompleteDependencies = getIncompleteDependencies(task);
+  const blocked = isTaskBlocked(task);
+
   return (
     <Motion.div
       ref={setNodeRef}
@@ -53,7 +57,7 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
           ? 'ring-2 ring-primary/20 z-50 opacity-90' 
           : 'hover:shadow-md hover:-translate-y-0.5'
         }
-        ${isSelected ? 'border-primary ring-1 ring-primary/30' : 'border-border'}
+        ${isSelected ? 'border-primary ring-1 ring-primary/30' : blocked ? 'border-amber-300/80 dark:border-amber-700/70' : 'border-border'}
       `}
     >
       {/* Selection checkbox */}
@@ -79,6 +83,11 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
         <Badge variant="outline" className={`text-[10px] uppercase tracking-wider font-bold border ${priorityColors[task.priority] || priorityColors.medium}`}>
           {task.priority}
         </Badge>
+        {blocked && (
+          <Badge variant="outline" className="text-[10px] uppercase tracking-wider font-bold border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+            Blocked
+          </Badge>
+        )}
         {task.isMilestone && (
           <Diamond className="h-3.5 w-3.5 text-amber-500 fill-amber-500" title="Milestone" />
         )}
@@ -94,6 +103,18 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
       <h4 className="font-semibold text-foreground text-sm leading-snug mb-2">
         {task.title}
       </h4>
+
+      {blocked && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-2 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+          <div className="flex items-center gap-1.5 font-semibold">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Waiting on {incompleteDependencies.length} blocker{incompleteDependencies.length === 1 ? '' : 's'}
+          </div>
+          <p className="mt-1 line-clamp-2">
+            {incompleteDependencies.map((dependency) => dependency.title).join(', ')}
+          </p>
+        </div>
+      )}
 
       {/* Tags */}
       {task.tags && task.tags.length > 0 && (
