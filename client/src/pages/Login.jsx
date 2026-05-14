@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Eye, EyeOff, HelpCircle, Shield } from 'lucide-react';
+import { Loader2, Eye, EyeOff, HelpCircle } from 'lucide-react';
+import tkLogo from '../assets/taskkollecta-logo.png';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
@@ -148,8 +149,8 @@ export default function Login() {
       <div className="w-full max-w-[450px] space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Logo and Branding */}
         <div className="flex flex-col items-center space-y-2 text-center">
-          <div className="h-12 w-12 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-lg shadow-slate-900/20 mb-2">
-            <Shield className="h-6 w-6" />
+          <div className="h-12 w-12 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-2 overflow-hidden">
+            <img src={tkLogo} alt="TaskKollecta" className="h-12 w-12 object-contain" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             TaskKollecta

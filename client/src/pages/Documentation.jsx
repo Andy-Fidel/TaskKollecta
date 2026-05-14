@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import tkLogo from '../assets/taskkollecta-logo.png';
 
 const SECTIONS = [
   { id: 'getting-started', label: 'Getting Started', icon: Rocket },
@@ -37,7 +38,7 @@ export default function Documentation() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-2">
-              <div className="h-8 w-8 bg-slate-900 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-md">TK</div>
+              <img src={tkLogo} alt="TaskKollecta" className="h-8 w-8 rounded-xl shadow-md object-contain" />
               <span className="font-bold text-lg text-slate-900">TaskKollecta</span>
             </Link>
             <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100 font-mono text-xs">Docs</Badge>
