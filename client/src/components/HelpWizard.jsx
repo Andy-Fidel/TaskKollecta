@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { trackProductEvent } from '../utils/productAnalytics';
 
 const HELP_PATHS = [
   {
@@ -166,9 +167,23 @@ export function HelpWizard({ open, onOpenChange }) {
   const selectPath = (pathId) => {
     setSelectedPathId(pathId);
     setStepIndex(0);
+    trackProductEvent('help_wizard_path_selected', {
+      organizationId: localStorage.getItem('activeOrgId'),
+      source: 'help_wizard',
+      metadata: { pathId },
+    });
   };
 
   const closeAndNavigate = (route) => {
+    trackProductEvent('help_wizard_workflow_opened', {
+      organizationId: localStorage.getItem('activeOrgId'),
+      source: 'help_wizard',
+      metadata: {
+        pathId: selectedPath.id,
+        route,
+        stepIndex,
+      },
+    });
     onOpenChange(false);
     navigate(route);
   };

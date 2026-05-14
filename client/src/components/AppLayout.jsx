@@ -21,6 +21,7 @@ import { CommandMenu } from './CommandMenu';
 import { HelpWizard } from './HelpWizard';
 import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '../hooks/useKeyboardShortcuts';
 import { AnnouncementBanner } from './AnnouncementBanner';
+import { trackProductEvent } from '../utils/productAnalytics';
 
 // Context
 import { useAuth } from '../context/useAuth';
@@ -95,7 +96,14 @@ export default function AppLayout() {
               variant="ghost"
               size="icon"
               className="text-muted-foreground hover:text-foreground"
-              onClick={() => setIsHelpWizardOpen(true)}
+              onClick={() => {
+                setIsHelpWizardOpen(true);
+                trackProductEvent('help_wizard_opened', {
+                  organizationId: localStorage.getItem('activeOrgId'),
+                  source: 'app_header',
+                  metadata: { path: location.pathname },
+                });
+              }}
               title="Open help wizard"
             >
               <HelpCircle className="h-5 w-5" />

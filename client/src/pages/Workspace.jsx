@@ -23,10 +23,13 @@ import {
 // Project Wizard & Settings
 import CreateProjectWizard from '@/components/CreateProjectWizard';
 import { ProjectSettingsDialog } from '@/components/ProjectSettingsDialog';
+import { SetupChecklist } from '@/components/SetupChecklist';
 
 import api from '../api/axios';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
+import { trackProductEvent } from '../utils/productAnalytics';
+import { markOnboardingMilestone } from '../utils/onboardingProgress';
 
 // Pinned projects storage key
 const PINNED_KEY = 'taskkollecta_pinned_projects';
@@ -82,6 +85,7 @@ export default function Workspace() {
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedIds, setPinnedIds] = useState(getPinned);
   const { refreshKey, triggerRefresh } = useDataRefresh();
+  const activeOrgId = localStorage.getItem('activeOrgId');
 
   // Fetch Data
   useEffect(() => { fetchData(); }, [refreshKey]);
@@ -129,6 +133,17 @@ export default function Workspace() {
   };
 
   const handleProjectCreated = () => { triggerRefresh(); fetchData(); };
+
+  useEffect(() => {
+    if (!activeOrgId || projects.length === 0) return;
+    if (markOnboardingMilestone(activeOrgId, 'first_project_created')) {
+      trackProductEvent('onboarding_milestone_completed', {
+        organizationId: activeOrgId,
+        source: 'workspace',
+        metadata: { milestone: 'first_project_created', projectCount: projects.length },
+      });
+    }
+  }, [activeOrgId, projects.length]);
 
   const handleProjectUpdated = (updatedProject) => {
     setProjects(prev => prev.map(p => p._id === updatedProject._id ? { ...p, ...updatedProject } : p));
@@ -201,6 +216,33 @@ export default function Workspace() {
     return result;
   }, [projects, activeTab, searchQuery, pinnedIds]);
 
+  const setupItems = useMemo(() => [
+    {
+      id: 'create-project',
+      title: 'Create your first project',
+      description: 'Start with one active workflow so your team has a place to plan and deliver.',
+      completed: projects.length > 0,
+      actionLabel: 'New project',
+      onAction: () => setIsModalOpen(true),
+    },
+    {
+      id: 'invite-team',
+      title: 'Invite team members',
+      description: 'Add collaborators so ownership, assignments, and updates are visible.',
+      completed: members.length > 1,
+      actionLabel: 'Open team',
+      onAction: () => navigate('/team'),
+    },
+    {
+      id: 'open-project',
+      title: 'Open a project board',
+      description: 'Customize workflow statuses, create tasks, and save reusable operating views.',
+      completed: projects.length > 0,
+      actionLabel: 'Open first',
+      onAction: () => projects[0] && navigate(`/project/${projects[0]._id}`),
+    },
+  ], [members.length, navigate, projects]);
+
   // Progress bar color
   const progressColor = (pct) => {
     if (pct >= 80) return 'bg-green-500';
@@ -238,6 +280,13 @@ export default function Workspace() {
   // --- RENDER ---
   return (
     <div className="space-y-6 py-8 px-2 md:px-0">
+      <SetupChecklist
+        title="Workspace setup"
+        description="Turn this workspace into a usable operating system for your team."
+        items={setupItems}
+        organizationId={activeOrgId}
+        source="workspace"
+      />
 
       {/* ── HEADER ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

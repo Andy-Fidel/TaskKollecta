@@ -29,10 +29,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ExportMenu } from '../components/ExportMenu';
+import { SetupChecklist } from '../components/SetupChecklist';
 import api from '../api/axios';
 import { useDataRefresh } from '../context/useDataRefresh';
 import { exportToCSV, exportToPDF, buildTaskExportData } from '../utils/exportUtils';
 import { trackProductEvent } from '../utils/productAnalytics';
+import { markOnboardingMilestone } from '../utils/onboardingProgress';
 import { toast } from 'sonner';
 
 const VIEWS = [
@@ -332,6 +334,7 @@ export default function MyTasks() {
   const [savedViewName, setSavedViewName] = useState('');
   const [savedViewVisibility, setSavedViewVisibility] = useState('private');
   const { refreshKey, triggerRefresh } = useDataRefresh();
+  const activeOrgId = localStorage.getItem('activeOrgId');
 
   useEffect(() => {
     setView(searchParams.get('view') || 'today');
@@ -358,10 +361,9 @@ export default function MyTasks() {
 
   useEffect(() => {
     const fetchSavedViews = async () => {
-      const orgId = localStorage.getItem('activeOrgId');
-      if (!orgId) return;
+      if (!activeOrgId) return;
       try {
-        const { data } = await api.get(`/filter-presets/my-tasks?orgId=${orgId}`);
+        const { data } = await api.get(`/filter-presets/my-tasks?orgId=${activeOrgId}`);
         setSavedViews(Array.isArray(data) ? data : []);
       } catch {
         toast.error('Failed to load saved views');
@@ -369,7 +371,18 @@ export default function MyTasks() {
     };
 
     fetchSavedViews();
-  }, []);
+  }, [activeOrgId]);
+
+  useEffect(() => {
+    if (!activeOrgId || savedViews.length === 0) return;
+    if (markOnboardingMilestone(activeOrgId, 'first_saved_view_created')) {
+      trackProductEvent('onboarding_milestone_completed', {
+        organizationId: activeOrgId,
+        source: 'my_tasks',
+        metadata: { milestone: 'first_saved_view_created', savedViewCount: savedViews.length },
+      });
+    }
+  }, [activeOrgId, savedViews.length]);
 
   const projectOptions = useMemo(() => {
     const seen = new Map();
@@ -393,6 +406,33 @@ export default function MyTasks() {
 
   const groupedTasks = useMemo(() => groupTasks(filteredTasks), [filteredTasks]);
   const counts = useMemo(() => summarizeCounts(filteredTasks), [filteredTasks]);
+
+  const setupItems = useMemo(() => [
+    {
+      id: 'triage-attention',
+      title: 'Review work that needs attention',
+      description: 'Use the Needs Attention view to find blocked, overdue, urgent, and high-priority tasks.',
+      completed: view === 'attention',
+      actionLabel: 'Open view',
+      onAction: () => setView('attention'),
+    },
+    {
+      id: 'filter-work',
+      title: 'Narrow your work',
+      description: 'Use search, priority, or project filters to focus on a specific delivery lane.',
+      completed: Boolean(searchQuery || priorityFilter !== 'all' || projectFilter !== 'all'),
+      actionLabel: 'Focus high',
+      onAction: () => setPriorityFilter('high'),
+    },
+    {
+      id: 'save-my-view',
+      title: 'Save a triage view',
+      description: 'Save your filter combination so you can return to it every day.',
+      completed: savedViews.length > 0,
+      actionLabel: 'Save view',
+      onAction: () => setIsSaveDialogOpen(true),
+    },
+  ], [priorityFilter, projectFilter, savedViews.length, searchQuery, view]);
 
   const loadSavedView = (savedView) => {
     setView(savedView.filters?.view || 'all');
@@ -506,6 +546,14 @@ export default function MyTasks() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 py-10">
+      <SetupChecklist
+        title="My Tasks setup"
+        description="Build a repeatable personal triage routine."
+        items={setupItems}
+        organizationId={activeOrgId}
+        source="my_tasks"
+      />
+
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-3">
           <div>

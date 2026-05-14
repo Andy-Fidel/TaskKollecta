@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Target, Plus, Save, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { SetupChecklist } from '@/components/SetupChecklist';
 import api from '../api/axios';
 import { toast } from 'sonner';
 
 export default function Goals() {
+  const navigate = useNavigate();
   const [goals, setGoals] = useState([]);
   const [projects, setProjects] = useState([]);
   const [title, setTitle] = useState('');
@@ -18,6 +20,32 @@ export default function Goals() {
   const [linkedProjects, setLinkedProjects] = useState([]);
   const [savingId, setSavingId] = useState(null);
   const orgId = localStorage.getItem('activeOrgId');
+  const setupItems = [
+    {
+      id: 'have-projects',
+      title: 'Create projects to connect',
+      description: 'Goals are most useful when progress can sync from linked project work.',
+      completed: projects.length > 0,
+      actionLabel: 'Open projects',
+      onAction: () => navigate('/projects'),
+    },
+    {
+      id: 'create-goal',
+      title: 'Create a goal',
+      description: 'Define the outcome the team is trying to move, not just the tasks.',
+      completed: goals.length > 0,
+      actionLabel: 'Use form',
+      onAction: () => document.querySelector('input[placeholder="Goal title"]')?.focus(),
+    },
+    {
+      id: 'link-goal-project',
+      title: 'Link work to the goal',
+      description: 'Connect at least one project so progress can reflect delivery activity.',
+      completed: goals.some((goal) => (goal.linkedProjects || []).length > 0),
+      actionLabel: 'Select project',
+      onAction: () => document.querySelector('input[placeholder="Goal title"]')?.focus(),
+    },
+  ];
 
   const fetchData = async () => {
     if (!orgId) return;
@@ -94,6 +122,14 @@ export default function Goals() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      <SetupChecklist
+        title="Goal setup"
+        description="Connect outcomes to the work that moves them forward."
+        items={setupItems}
+        organizationId={orgId}
+        source="goals"
+      />
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Goals</h1>
         <p className="text-sm text-muted-foreground">Connect team goals to the projects that move them forward.</p>

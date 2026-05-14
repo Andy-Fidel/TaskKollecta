@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Briefcase, Plus, Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { SetupChecklist } from '@/components/SetupChecklist';
 import api from '../api/axios';
 import { toast } from 'sonner';
 
 export default function Portfolios() {
+  const navigate = useNavigate();
   const [portfolios, setPortfolios] = useState([]);
   const [projects, setProjects] = useState([]);
   const [name, setName] = useState('');
@@ -19,6 +21,32 @@ export default function Portfolios() {
   const orgId = localStorage.getItem('activeOrgId');
 
   const selectedProjectSet = useMemo(() => new Set(selectedProjects), [selectedProjects]);
+  const setupItems = useMemo(() => [
+    {
+      id: 'have-projects',
+      title: 'Create projects to group',
+      description: 'Portfolios become useful once there are active projects to summarize.',
+      completed: projects.length > 0,
+      actionLabel: 'Open projects',
+      onAction: () => navigate('/projects'),
+    },
+    {
+      id: 'create-portfolio',
+      title: 'Create a portfolio',
+      description: 'Group related projects so progress and delivery health are visible together.',
+      completed: portfolios.length > 0,
+      actionLabel: 'Use form',
+      onAction: () => document.querySelector('input[placeholder="Portfolio name"]')?.focus(),
+    },
+    {
+      id: 'link-projects',
+      title: 'Link multiple projects',
+      description: 'Add at least two projects to make portfolio health meaningful.',
+      completed: portfolios.some((portfolio) => (portfolio.projects || []).length >= 2),
+      actionLabel: 'Select projects',
+      onAction: () => document.querySelector('input[placeholder="Portfolio name"]')?.focus(),
+    },
+  ], [navigate, portfolios, projects.length]);
 
   const fetchData = async () => {
     if (!orgId) return;
@@ -88,6 +116,14 @@ export default function Portfolios() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      <SetupChecklist
+        title="Portfolio setup"
+        description="Create an executive view across related delivery streams."
+        items={setupItems}
+        organizationId={orgId}
+        source="portfolios"
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Portfolios</h1>

@@ -41,8 +41,11 @@ import { ProjectList } from '../components/ProjectList';
 import { ProjectCalendar } from '../components/ProjectCalendar';
 import { ProjectHealthModal } from '../components/ProjectHealthModal';
 import { RealtimeRisksSheet } from '../components/RealtimeRisksSheet';
+import { SetupChecklist } from '../components/SetupChecklist';
 import { useDataRefresh } from '../context/useDataRefresh';
 import { isTaskBlocked } from '../utils/taskState';
+import { trackProductEvent } from '../utils/productAnalytics';
+import { markOnboardingMilestone } from '../utils/onboardingProgress';
 
 import { Sparkles } from 'lucide-react';
 
@@ -85,6 +88,7 @@ export default function ProjectBoard() {
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isRiskPanelOpen, setIsRiskPanelOpen] = useState(false);
   const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
+  const [hasOpenedHealth, setHasOpenedHealth] = useState(false);
 
   // Bulk selection
   const [selectedTasks, setSelectedTasks] = useState(new Set());
@@ -311,6 +315,49 @@ export default function ProjectBoard() {
   );
 
   const pinnedSavedViews = useMemo(() => filterPresets.slice(0, 5), [filterPresets]);
+
+  useEffect(() => {
+    const organizationId = projectDetails?.organization || localStorage.getItem('activeOrgId');
+    if (!organizationId || filterPresets.length === 0) return;
+    if (markOnboardingMilestone(organizationId, 'first_saved_view_created')) {
+      trackProductEvent('onboarding_milestone_completed', {
+        organizationId,
+        projectId,
+        source: 'project_board',
+        metadata: { milestone: 'first_saved_view_created', savedViewCount: filterPresets.length },
+      });
+    }
+  }, [filterPresets.length, projectDetails?.organization, projectId]);
+
+  const setupItems = useMemo(() => [
+    {
+      id: 'create-task',
+      title: 'Create the first task',
+      description: 'Add real work to the board so the workflow has something to organize.',
+      completed: tasks.length > 0,
+      actionLabel: 'Create first',
+      onAction: () => setIsCreateModalOpen(true),
+    },
+    {
+      id: 'save-view',
+      title: 'Save a project view',
+      description: 'Filter by owner, priority, blocker, or custom field, then save the view for reuse.',
+      completed: filterPresets.length > 0,
+      actionLabel: 'Open filters',
+      onAction: () => toast.info('Use Filters, then Save View after choosing your criteria.'),
+    },
+    {
+      id: 'review-health',
+      title: 'Review delivery health',
+      description: 'Open the project health snapshot to understand progress and risk signals.',
+      completed: hasOpenedHealth,
+      actionLabel: 'Health',
+      onAction: () => {
+        setHasOpenedHealth(true);
+        setIsHealthModalOpen(true);
+      },
+    },
+  ], [filterPresets.length, hasOpenedHealth, tasks.length]);
 
   const loadProjectSavedView = (savedView) => {
     setFilters({
@@ -823,6 +870,18 @@ export default function ProjectBoard() {
               <Archive className="w-4 h-4 text-muted-foreground" /> <span className="hidden sm:inline ml-1">Archived</span>
             </Button>
           </div>
+        </div>
+      )}
+
+      {(view === 'board' || view === 'list') && (
+        <div className="border-b border-border bg-background/80 px-4 py-3 md:px-8">
+          <SetupChecklist
+            title="Project setup"
+            description="Complete the basics that turn this board into a repeatable delivery workflow."
+            items={setupItems}
+            organizationId={projectDetails?.organization || localStorage.getItem('activeOrgId')}
+            source="project_board"
+          />
         </div>
       )}
 
