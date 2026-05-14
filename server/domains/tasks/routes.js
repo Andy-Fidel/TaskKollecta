@@ -21,7 +21,9 @@ const { createTask,
     bulkUpdateTasks,
     bulkDeleteTasks,
     createChildTask,
-    getChildTasks } = require('./controller');
+    getChildTasks,
+    addTaskToProject,
+    removeTaskFromProject } = require('./controller');
 const { protect } = require('../../middleware/authMiddleware');
 const { validateCreateTask, validateUpdateTask, validateIdParam } = require('../../middleware/validators');
 const { cacheResponse } = require('../../middleware/cacheMiddleware');
@@ -38,6 +40,8 @@ router.post('/:id/attachments', protect, addAttachment);
 router.delete('/:id/attachments/:attachmentId', protect, deleteAttachment);
 router.get('/single/:id', protect, cacheResponse(30), getTask);
 router.put('/:id/archive', protect, toggleArchiveTask);
+router.post('/:id/projects', protect, addTaskToProject);
+router.delete('/:id/projects/:projectId', protect, removeTaskFromProject);
 
 // Subtasks (checklist)
 router.post('/:id/subtasks', protect, addSubtask);

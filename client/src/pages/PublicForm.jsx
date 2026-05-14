@@ -38,6 +38,16 @@ export default function PublicForm() {
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
+  const handleCheckboxChange = (id, option, checked) => {
+    setFormData((prev) => {
+      const current = Array.isArray(prev[id]) ? prev[id] : [];
+      return {
+        ...prev,
+        [id]: checked ? [...current, option] : current.filter((item) => item !== option),
+      };
+    });
+  };
+
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
   if (!form) return <div className="flex h-screen items-center justify-center text-muted-foreground">Form not found or inactive.</div>;
 
@@ -89,7 +99,7 @@ export default function PublicForm() {
                                 />
                             )}
                             {field.type === 'select' && (
-                                <Select onValueChange={val => handleInputChange(field.id, val)}>
+                                <Select required={field.required} onValueChange={val => handleInputChange(field.id, val)}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select an option" />
                                     </SelectTrigger>
@@ -99,6 +109,36 @@ export default function PublicForm() {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            )}
+                            {field.type === 'radio' && (
+                                <div className="space-y-2">
+                                    {field.options.map(opt => (
+                                        <label key={opt} className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="radio"
+                                                name={field.id}
+                                                required={field.required}
+                                                value={opt}
+                                                onChange={e => handleInputChange(field.id, e.target.value)}
+                                            />
+                                            {opt}
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                            {field.type === 'checkbox' && (
+                                <div className="space-y-2">
+                                    {field.options.map(opt => (
+                                        <label key={opt} className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                value={opt}
+                                                onChange={e => handleCheckboxChange(field.id, opt, e.target.checked)}
+                                            />
+                                            {opt}
+                                        </label>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     ))}

@@ -19,8 +19,7 @@ const filterPresetSchema = new mongoose.Schema({
     },
     filters: {
         statuses: [{
-            type: String,
-            enum: ['todo', 'in-progress', 'review', 'done']
+            type: String
         }],
         priorities: [{
             type: String,
@@ -31,6 +30,7 @@ const filterPresetSchema = new mongoose.Schema({
             ref: 'User'
         }],
         tags: [String],
+        customFields: { type: Map, of: mongoose.Schema.Types.Mixed },
         dateFrom: { type: Date },
         dateTo: { type: Date }
     }

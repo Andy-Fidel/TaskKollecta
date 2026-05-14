@@ -8,6 +8,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "db:backfill-asana-fields": "node scripts/backfillAsanaFields.js",
     "dev": "nodemon server.js"
   },
   "keywords": [],

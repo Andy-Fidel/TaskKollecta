@@ -7,7 +7,7 @@ const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');
 const { emitDomainEvent } = require('../shared/domainEvents');
 
-const TASK_UPDATE_FIELDS = ['title', 'description', 'status', 'priority', 'startDate', 'dueDate', 'assignee', 'index'];
+const TASK_UPDATE_FIELDS = ['title', 'description', 'status', 'priority', 'startDate', 'dueDate', 'assignee', 'index', 'isMilestone', 'customFieldValues'];
 
 const requireTaskAccess = async (userId, task) => {
   if (!task) {
@@ -18,7 +18,7 @@ const requireTaskAccess = async (userId, task) => {
 };
 
 const createTask = async ({ body, user, io }) => {
-  const { title, description, status, priority, startDate, dueDate, projectId, orgId, assignee, assigneeEmail } = body;
+  const { title, description, status, priority, startDate, dueDate, projectId, orgId, assignee, assigneeEmail, customFieldValues } = body;
 
   await ensureMembership(user._id, orgId);
 
@@ -84,15 +84,18 @@ const createTask = async ({ body, user, io }) => {
     startDate,
     dueDate,
     project: projectId,
+    projectMemberships: [{ project: projectId }],
     organization: orgId,
     assignee: resolvedAssignee,
     assigneeEmail: storedAssigneeEmail,
     reporter: user._id,
+    customFieldValues: Array.isArray(customFieldValues) ? customFieldValues : [],
   });
 
   const populatedTask = await Task.findById(task._id)
     .populate('assignee', 'name email avatar')
-    .populate('project', 'name');
+    .populate('project', 'name')
+    .populate('projectMemberships.project', 'name color');
 
   await emitDomainEvent('task.created', {
     io,
@@ -117,7 +120,7 @@ const getProjectTasks = async ({ projectId, userId, query }) => {
 
   const showArchived = query.archived === 'true';
   const filters = {
-    project: projectId,
+    $or: [{ project: projectId }, { 'projectMemberships.project': projectId }],
     archived: showArchived ? true : { $ne: true },
   };
 
@@ -129,6 +132,7 @@ const getProjectTasks = async ({ projectId, userId, query }) => {
     const tasks = await Task.find(filters)
       .populate('assignee', 'name avatar')
       .populate('dependencies', 'title status')
+      .populate('projectMemberships.project', 'name color')
       .sort({ index: 1 })
       .skip(page * limit)
       .limit(limit);
@@ -148,13 +152,15 @@ const getProjectTasks = async ({ projectId, userId, query }) => {
   return Task.find(filters)
     .populate('assignee', 'name avatar')
     .populate('dependencies', 'title status')
+    .populate('projectMemberships.project', 'name color')
     .sort({ index: 1 });
 };
 
 const getTask = async ({ taskId, userId }) => {
   const task = await Task.findById(taskId)
     .populate('assignee', 'name avatar')
-    .populate('dependencies', 'title status');
+    .populate('dependencies', 'title status')
+    .populate('projectMemberships.project', 'name color');
 
   await requireTaskAccess(userId, task);
   return task;
@@ -193,7 +199,8 @@ const updateTask = async ({ taskId, body, user, io }) => {
   const updatedTask = await Task.findByIdAndUpdate(taskId, updateData, { new: true })
     .populate('dependencies', 'title status')
     .populate('assignee', 'name avatar')
-    .populate('project', 'name');
+    .populate('project', 'name')
+    .populate('projectMemberships.project', 'name color');
 
   await emitDomainEvent('task.updated', { io, user, oldTask, updatedTask, body });
   return updatedTask;

@@ -4,7 +4,7 @@ import {
     LayoutDashboard, CheckSquare, Users, Settings, LogOut,
     ChevronsUpDown, Plus, Check, Building2, FolderKanban,
     ChevronLeft, ChevronRight, Loader2, Calendar, GanttChartSquare,
-    BarChart3, Users2
+    BarChart3, Users2, Briefcase, Target
 } from 'lucide-react';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -97,6 +97,8 @@ export default function Sidebar({ onClose }) {
         { icon: GanttChartSquare, label: 'Timeline', path: '/gantt' },
         { icon: BarChart3, label: 'Reports', path: '/reports' },
         { icon: Users2, label: 'Workload', path: '/workload' },
+        { icon: Briefcase, label: 'Portfolios', path: '/portfolios' },
+        { icon: Target, label: 'Goals', path: '/goals' },
         { icon: Users, label: 'Team', path: '/team' },
         { icon: Settings, label: 'Settings', path: '/settings' },
     ];

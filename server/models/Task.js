@@ -5,7 +5,6 @@ const taskSchema = new mongoose.Schema({
   description: { type: String },
   status: {
     type: String,
-    enum: ['todo', 'in-progress', 'review', 'done'],
     default: 'todo'
   },
   priority: {
@@ -32,6 +31,14 @@ const taskSchema = new mongoose.Schema({
     ref: 'Project',
     required: true
   },
+  projectMemberships: [{
+    project: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Project',
+      required: true
+    },
+    addedAt: { type: Date, default: Date.now }
+  }],
   assignee: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -45,6 +52,10 @@ const taskSchema = new mongoose.Schema({
   tags: [{
     name: String,
     color: String
+  }],
+  customFieldValues: [{
+    key: { type: String, required: true },
+    value: mongoose.Schema.Types.Mixed
   }],
   attachments: [{
     url: String,
@@ -80,6 +91,7 @@ const taskSchema = new mongoose.Schema({
 
 // Indexes for common queries
 taskSchema.index({ project: 1, status: 1 }); // Tasks by project and status (kanban)
+taskSchema.index({ 'projectMemberships.project': 1, status: 1 }); // Multi-homed tasks by project
 taskSchema.index({ assignee: 1, status: 1 }); // My tasks
 taskSchema.index({ project: 1, createdAt: -1 }); // Project tasks sorted by date
 taskSchema.index({ dueDate: 1 }); // Calendar view / overdue queries

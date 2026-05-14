@@ -7,7 +7,46 @@ const { invalidateProjectCache } = require('../../utils/cacheUtils');
 const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');
 
-const PROJECT_UPDATE_FIELDS = ['name', 'description', 'color', 'dueDate', 'lead', 'status', 'defaultView', 'privacy', 'isTemplate'];
+const DEFAULT_WORKFLOW_STATUSES = [
+  { id: 'todo', label: 'To Do', color: '#64748b', order: 0, isDone: false },
+  { id: 'in-progress', label: 'In Progress', color: '#3b82f6', order: 1, isDone: false },
+  { id: 'review', label: 'Review', color: '#f59e0b', order: 2, isDone: false },
+  { id: 'done', label: 'Done', color: '#22c55e', order: 3, isDone: true },
+];
+
+const normalizeKey = (value, separator = '-') =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, separator)
+    .replace(new RegExp(`^\\${separator}|\\${separator}$`, 'g'), '');
+
+const normalizeWorkflowStatuses = (statuses) =>
+  (Array.isArray(statuses) && statuses.length ? statuses : DEFAULT_WORKFLOW_STATUSES)
+    .filter((status) => status?.id || status?.label)
+    .map((status, index) => ({
+      id: normalizeKey(status.id || status.label),
+      label: String(status.label || status.id).trim(),
+      color: status.color || '#64748b',
+      order: Number.isFinite(Number(status.order)) ? Number(status.order) : index,
+      isDone: Boolean(status.isDone),
+    }))
+    .filter((status) => status.id && status.label);
+
+const normalizeCustomFields = (fields) =>
+  (Array.isArray(fields) ? fields : [])
+    .filter((field) => field?.key || field?.name)
+    .map((field, index) => ({
+      key: normalizeKey(field.key || field.name, '_'),
+      name: String(field.name || field.key).trim(),
+      type: field.type || 'text',
+      options: Array.isArray(field.options) ? field.options.filter(Boolean).map(String) : [],
+      required: Boolean(field.required),
+      order: Number.isFinite(Number(field.order)) ? Number(field.order) : index,
+    }))
+    .filter((field) => field.key && field.name);
+
+const PROJECT_UPDATE_FIELDS = ['name', 'description', 'color', 'dueDate', 'lead', 'status', 'defaultView', 'privacy', 'isTemplate', 'workflowStatuses', 'customFields'];
 
 const ensureProjectAccess = async (userId, projectId, message = 'Project not found') => {
   const project = await Project.findById(projectId);
@@ -31,6 +70,8 @@ const createProject = async ({ body, userId }) => {
     color,
     defaultView,
     privacy,
+    workflowStatuses: normalizeWorkflowStatuses(body.workflowStatuses),
+    customFields: normalizeCustomFields(body.customFields),
   });
 
   const populatedProject = await Project.findById(project._id).populate('lead', 'name avatar');
@@ -54,18 +95,21 @@ const getProjectAnalytics = async ({ projectId, userId }) => {
   const objectId = new mongoose.Types.ObjectId(projectId);
   const { project } = await ensureProjectAccess(userId, objectId);
 
+  const projectTaskMatch = { $or: [{ project: objectId }, { 'projectMemberships.project': objectId }] };
+
   const statusStats = await Task.aggregate([
-    { $match: { project: objectId } },
+    { $match: projectTaskMatch },
     { $group: { _id: '$status', count: { $sum: 1 } } },
   ]);
 
   const priorityStats = await Task.aggregate([
-    { $match: { project: objectId } },
+    { $match: projectTaskMatch },
     { $group: { _id: '$priority', count: { $sum: 1 } } },
   ]);
 
-  const totalTasks = await Task.countDocuments({ project: objectId });
-  const completedTasks = await Task.countDocuments({ project: objectId, status: 'done' });
+  const doneStatuses = project.workflowStatuses?.filter((status) => status.isDone).map((status) => status.id) || ['done'];
+  const totalTasks = await Task.countDocuments(projectTaskMatch);
+  const completedTasks = await Task.countDocuments({ ...projectTaskMatch, status: { $in: doneStatuses.length ? doneStatuses : ['done'] } });
 
   return {
     project,
@@ -113,6 +157,14 @@ const updateProject = async ({ projectId, userId, body }) => {
     }
   }
 
+  if (updateData.workflowStatuses !== undefined) {
+    updateData.workflowStatuses = normalizeWorkflowStatuses(updateData.workflowStatuses);
+  }
+
+  if (updateData.customFields !== undefined) {
+    updateData.customFields = normalizeCustomFields(updateData.customFields);
+  }
+
   const updatedProject = await Project.findByIdAndUpdate(projectId, updateData, { new: true });
   await invalidateProjectCache(project.organization);
 
@@ -148,8 +200,19 @@ const getAllProjects = async ({ userId, activeOrgId }) => {
     {
       $lookup: {
         from: 'tasks',
-        localField: '_id',
-        foreignField: 'project',
+        let: { projectId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $or: [
+                  { $eq: ['$project', '$$projectId'] },
+                  { $in: ['$$projectId', { $ifNull: ['$projectMemberships.project', []] }] },
+                ],
+              },
+            },
+          },
+        ],
         as: 'projectTasks',
       },
     },
@@ -224,6 +287,8 @@ const duplicateProject = async ({ projectId, userId, body }) => {
     privacy: sourceProject.privacy,
     tags: sourceProject.tags,
     isTemplate: body.isTemplate || false,
+    workflowStatuses: sourceProject.workflowStatuses,
+    customFields: sourceProject.customFields,
   });
 
   const sourceTasks = await Task.find({ project: sourceProject._id });
@@ -236,9 +301,11 @@ const duplicateProject = async ({ projectId, userId, body }) => {
       priority: task.priority,
       organization: task.organization,
       project: newProject._id,
+      projectMemberships: [{ project: newProject._id }],
       reporter: userId,
       assignee: task.assignee,
       tags: task.tags,
+      customFieldValues: task.customFieldValues,
     }));
 
     await Task.insertMany(newTasksData);

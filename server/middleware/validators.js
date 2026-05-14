@@ -31,7 +31,7 @@ const validateCreateTask = [
     body('title').trim().isLength({ min: 1, max: 200 }).withMessage('Title must be 1-200 characters'),
     body('description').optional().trim().isLength({ max: 5000 }).withMessage('Description too long'),
     body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid priority'),
-    body('status').optional().isIn(['todo', 'in-progress', 'review', 'done']).withMessage('Invalid status'),
+    body('status').optional().trim().isLength({ min: 1, max: 80 }).withMessage('Invalid status'),
     body('projectId').isMongoId().withMessage('Invalid project ID'),
     body('orgId').isMongoId().withMessage('Invalid organization ID'),
     handleValidation
@@ -42,7 +42,7 @@ const validateUpdateTask = [
     body('title').optional().trim().isLength({ min: 1, max: 200 }),
     body('description').optional().trim().isLength({ max: 5000 }),
     body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
-    body('status').optional().isIn(['todo', 'in-progress', 'review', 'done']),
+    body('status').optional().trim().isLength({ min: 1, max: 80 }),
     handleValidation
 ];
 

@@ -1,5 +1,12 @@
 const mongoose = require('mongoose');
 
+const DEFAULT_WORKFLOW_STATUSES = [
+  { id: 'todo', label: 'To Do', color: '#64748b', order: 0, isDone: false },
+  { id: 'in-progress', label: 'In Progress', color: '#3b82f6', order: 1, isDone: false },
+  { id: 'review', label: 'Review', color: '#f59e0b', order: 2, isDone: false },
+  { id: 'done', label: 'Done', color: '#22c55e', order: 3, isDone: true },
+];
+
 const projectSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -34,6 +41,28 @@ const projectSchema = new mongoose.Schema({
     enum: ['list', 'board', 'timeline', 'calendar'],
     default: 'board'
   },
+  workflowStatuses: {
+    type: [{
+      id: { type: String, required: true },
+      label: { type: String, required: true },
+      color: { type: String, default: '#64748b' },
+      order: { type: Number, default: 0 },
+      isDone: { type: Boolean, default: false }
+    }],
+    default: () => DEFAULT_WORKFLOW_STATUSES
+  },
+  customFields: [{
+    key: { type: String, required: true },
+    name: { type: String, required: true },
+    type: {
+      type: String,
+      enum: ['text', 'number', 'date', 'select', 'multi-select', 'people', 'checkbox'],
+      default: 'text'
+    },
+    options: [String],
+    required: { type: Boolean, default: false },
+    order: { type: Number, default: 0 }
+  }],
   privacy: {
     type: String,
     enum: ['public', 'private'],

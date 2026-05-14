@@ -76,6 +76,7 @@ export default function ProjectBoard() {
   const [newTaskDueTime, setNewTaskDueTime] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
   const [newTaskEffort, setNewTaskEffort] = useState('');
+  const [newTaskCustomFields, setNewTaskCustomFields] = useState({});
   const [newTaskAssignee, setNewTaskAssignee] = useState(null);  // { id, name, email } or null
   const [suggestedSubtasks, setSuggestedSubtasks] = useState([]);
   const [loadingAiSuggestions, setLoadingAiSuggestions] = useState({});
@@ -141,6 +142,7 @@ export default function ProjectBoard() {
     priorities: [],
     assignees: [],
     tags: [],
+    customFields: {},
     dateFrom: null,
     dateTo: null
   });
@@ -151,6 +153,17 @@ export default function ProjectBoard() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
+
+  const workflowColumns = useMemo(() => {
+    const statuses = projectDetails?.workflowStatuses?.length ? projectDetails.workflowStatuses : COLUMNS;
+    return [...statuses]
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((status) => ({ id: status.id, label: status.label, color: status.color, isDone: status.isDone }));
+  }, [projectDetails]);
+
+  const sortedCustomFields = useMemo(() => (
+    [...(projectDetails?.customFields || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  ), [projectDetails]);
 
   // Effects
   useEffect(() => {
@@ -309,7 +322,7 @@ export default function ProjectBoard() {
     const overId = over.id;
     let newStatus = overId;
 
-    if (!COLUMNS.some(col => col.id === overId)) {
+    if (!workflowColumns.some(col => col.id === overId)) {
       const overTask = tasks.find(t => t._id === overId);
       newStatus = overTask ? overTask.status : activeTask.status;
     }
@@ -317,7 +330,8 @@ export default function ProjectBoard() {
     if (activeTask && activeTask.status !== newStatus) {
       const previousStatus = activeTask.status;
 
-      if (newStatus === 'done' && isTaskBlocked(activeTask)) {
+      const targetColumn = workflowColumns.find((col) => col.id === newStatus);
+      if ((newStatus === 'done' || targetColumn?.isDone) && isTaskBlocked(activeTask)) {
         const blockers = activeTask.dependencies
           ?.filter((dependency) => dependency?.status !== 'done')
           .map((dependency) => dependency.title)
@@ -331,7 +345,7 @@ export default function ProjectBoard() {
       if (socket) socket.emit("task_moved", { _id: activeTask._id, status: newStatus, projectId });
 
       // Milestone Celebration!
-      if (newStatus === 'done' && activeTask.isMilestone) {
+      if ((newStatus === 'done' || targetColumn?.isDone) && activeTask.isMilestone) {
         confetti({
           particleCount: 150,
           spread: 70,
@@ -434,11 +448,14 @@ export default function ProjectBoard() {
         description: newTaskDescription || undefined,
         projectId,
         orgId: projectDetails.organization,
-        status: 'todo',
+        status: workflowColumns[0]?.id || 'todo',
         priority: newTaskPriority,
         startDate: newTaskStartDate || undefined,
         dueDate: dueDate || undefined,
-        effortEstimate: newTaskEffort || undefined
+        effortEstimate: newTaskEffort || undefined,
+        customFieldValues: Object.entries(newTaskCustomFields)
+          .filter(([, value]) => value !== undefined && value !== null && value !== '')
+          .map(([key, value]) => ({ key, value }))
       };
 
       // Add assignee info
@@ -462,6 +479,7 @@ export default function ProjectBoard() {
       setNewTaskDueTime('');
       setNewTaskPriority('medium');
       setNewTaskEffort('');
+      setNewTaskCustomFields({});
       setNewTaskAssignee(null);
       setAssigneeSearch('');
       setSuggestedSubtasks([]);
@@ -601,11 +619,11 @@ export default function ProjectBoard() {
             {/* Export */}
             <ExportMenu
               onExportCSV={() => {
-                const { headers, rows } = buildTaskExportData(tasks);
+                const { headers, rows } = buildTaskExportData(tasks, sortedCustomFields, workflowColumns);
                 exportToCSV({ headers, rows, filename: `${projectDetails?.name || 'project'}-tasks.csv` });
               }}
               onExportPDF={() => {
-                const { headers, rows } = buildTaskExportData(tasks);
+                const { headers, rows } = buildTaskExportData(tasks, sortedCustomFields, workflowColumns);
                 exportToPDF({ title: `${projectDetails?.name || 'Project'} – Task List`, headers, rows, filename: `${projectDetails?.name || 'project'}-tasks.pdf` });
               }}
             />
@@ -754,6 +772,8 @@ export default function ProjectBoard() {
               onFiltersChange={setFilters}
               members={projectMembers}
               availableTags={availableTags}
+              statusOptions={workflowColumns}
+              customFields={sortedCustomFields}
               presets={filterPresets}
               onPresetsChange={setFilterPresets}
             />
@@ -777,7 +797,7 @@ export default function ProjectBoard() {
               onDragEnd={handleDragEnd}
             >
               <div className="flex gap-4 md:gap-8 min-w-max items-start">
-                {COLUMNS.map(col => (
+                {workflowColumns.map(col => (
                   <KanbanColumn
                     key={col.id}
                     column={col}
@@ -810,6 +830,8 @@ export default function ProjectBoard() {
             onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
             selectedTasks={selectedTasks}
             onToggleSelect={toggleTaskSelection}
+            statusOptions={workflowColumns}
+            customFields={sortedCustomFields}
           />
         </div>
       ) : view === 'calendar' ? (
@@ -844,7 +866,7 @@ export default function ProjectBoard() {
       {/* Modals */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-card text-card-foreground p-4 md:p-6 rounded-2xl w-[calc(100%-2rem)] sm:w-[420px] shadow-2xl border border-border mx-4 sm:mx-0">
+          <div className="bg-card text-card-foreground p-4 md:p-6 rounded-2xl w-[calc(100%-2rem)] sm:w-[420px] max-h-[90vh] overflow-y-auto shadow-2xl border border-border mx-4 sm:mx-0">
             <h3 className="font-bold text-lg mb-1">Add New Task</h3>
             <p className="text-muted-foreground text-sm mb-4">Create a card for your team.</p>
             <form onSubmit={handleCreateTask} className="space-y-4">
@@ -1137,6 +1159,50 @@ export default function ProjectBoard() {
                 )}
               </div>
 
+              {/* Custom Fields */}
+              {sortedCustomFields.length > 0 && (
+                <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Custom Fields</p>
+                  {sortedCustomFields.map((field) => (
+                    <div key={field.key}>
+                      <Label>{field.name}</Label>
+                      {field.type === 'select' ? (
+                        <select
+                          className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                          value={newTaskCustomFields[field.key] || ''}
+                          onChange={(e) => setNewTaskCustomFields((current) => ({ ...current, [field.key]: e.target.value }))}
+                        >
+                          <option value="">Unset</option>
+                          {(field.options || []).map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      ) : field.type === 'checkbox' ? (
+                        <button
+                          type="button"
+                          onClick={() => setNewTaskCustomFields((current) => ({ ...current, [field.key]: !current[field.key] }))}
+                          className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background px-3 text-sm"
+                        >
+                          <span className={`h-4 w-4 rounded border flex items-center justify-center ${newTaskCustomFields[field.key] ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground'}`}>
+                            {newTaskCustomFields[field.key] ? '✓' : ''}
+                          </span>
+                          {newTaskCustomFields[field.key] ? 'Checked' : 'Unchecked'}
+                        </button>
+                      ) : (
+                        <Input
+                          type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                          value={newTaskCustomFields[field.key] || ''}
+                          onChange={(e) => setNewTaskCustomFields((current) => ({
+                            ...current,
+                            [field.key]: field.type === 'number' && e.target.value !== '' ? Number(e.target.value) : e.target.value
+                          }))}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex gap-2 justify-end pt-2">
                 <Button type="button" variant="ghost" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
                 <Button type="submit">Create Task</Button>
@@ -1166,6 +1232,8 @@ export default function ProjectBoard() {
         task={selectedTask}
         projectId={projectId}
         orgId={projectDetails?.organization}
+        statusOptions={workflowColumns}
+        customFields={projectDetails?.customFields || []}
         socket={socket}
       />
 
@@ -1212,10 +1280,9 @@ export default function ProjectBoard() {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todo">To Do</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="review">Review</SelectItem>
-                <SelectItem value="done">Done</SelectItem>
+                {workflowColumns.map((column) => (
+                  <SelectItem key={column.id} value={column.id}>{column.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

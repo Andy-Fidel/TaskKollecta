@@ -40,10 +40,15 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
   });
 
   const colors = COLUMN_COLORS[column.id] || COLUMN_COLORS['todo'];
+  const customColorStyle = column.color ? {
+    borderTop: `3px solid ${column.color}`,
+  } : {};
+  const dotStyle = column.color ? { backgroundColor: column.color } : {};
 
   return (
     <div
       ref={setNodeRef}
+      style={customColorStyle}
       className={`
         flex-1 min-w-[280px] max-w-[320px] rounded-2xl 
         bg-muted/50 dark:bg-muted/20 
@@ -58,7 +63,7 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
       {/* Column Header */}
       <div className={`flex justify-between items-center p-3 rounded-t-2xl ${colors.header} transition-colors duration-200 shrink-0`}>
         <div className="flex items-center gap-2">
-          <span className={`w-2.5 h-2.5 rounded-full ${colors.dot} ${isOver ? 'animate-pulse' : ''}`}></span>
+          <span style={dotStyle} className={`w-2.5 h-2.5 rounded-full ${column.color ? '' : colors.dot} ${isOver ? 'animate-pulse' : ''}`}></span>
           <h3 className="font-bold text-foreground text-sm">{column.label}</h3>
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${colors.badge} tabular-nums`}>

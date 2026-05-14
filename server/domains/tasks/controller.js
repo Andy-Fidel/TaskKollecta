@@ -1,6 +1,8 @@
 const Task = require('../../models/Task');
+const Project = require('../../models/Project');
 const taskService = require('./taskService');
 const { handleDomainError } = require('../shared/errors');
+const { ensureMembership } = require('../shared/access');
 
 // @desc    Create new task
 // @route   POST /api/tasks
@@ -51,6 +53,7 @@ const getMyTasks = async (req, res) => {
       .populate('assignee', 'name email avatar')
       .populate('project', 'name')
       .populate('dependencies', 'title status')
+      .populate('projectMemberships.project', 'name color')
       .sort({ dueDate: 1 });
 
     res.status(200).json(tasks);
@@ -355,7 +358,7 @@ const bulkUpdateTasks = async (req, res) => {
       return res.status(400).json({ message: 'taskIds array is required' });
     }
 
-    const allowedFields = ['status', 'priority', 'assignee', 'startDate', 'dueDate'];
+    const allowedFields = ['status', 'priority', 'assignee', 'startDate', 'dueDate', 'customFieldValues'];
     const updateData = {};
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
@@ -441,6 +444,68 @@ const getChildTasks = async (req, res) => {
   }
 };
 
+// @desc Add an existing task to another project
+// @route POST /api/tasks/:id/projects
+const addTaskToProject = async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    await ensureMembership(req.user._id, task.organization);
+
+    const project = await Project.findById(req.body.projectId);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+    if (project.organization.toString() !== task.organization.toString()) {
+      return res.status(400).json({ message: 'Project must be in the same organization' });
+    }
+
+    task.projectMemberships = task.projectMemberships || [];
+    if (!task.projectMemberships.some((membership) => membership.project.toString() === task.project.toString())) {
+      task.projectMemberships.push({ project: task.project });
+    }
+    if (!task.projectMemberships.some((membership) => membership.project.toString() === project._id.toString())) {
+      task.projectMemberships.push({ project: project._id });
+      await task.save();
+    }
+
+    const updated = await Task.findById(task._id)
+      .populate('assignee', 'name avatar')
+      .populate('project', 'name')
+      .populate('projectMemberships.project', 'name color');
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc Remove a task from a secondary project
+// @route DELETE /api/tasks/:id/projects/:projectId
+const removeTaskFromProject = async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    await ensureMembership(req.user._id, task.organization);
+
+    if (task.project.toString() === req.params.projectId) {
+      return res.status(400).json({ message: 'Cannot remove the primary project from a task' });
+    }
+
+    task.projectMemberships = (task.projectMemberships || []).filter(
+      (membership) => membership.project.toString() !== req.params.projectId
+    );
+    await task.save();
+
+    const updated = await Task.findById(task._id)
+      .populate('assignee', 'name avatar')
+      .populate('project', 'name')
+      .populate('projectMemberships.project', 'name color');
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createTask, getProjectTasks, getTask,
   getMyTasks, deleteTask, addAttachment, deleteAttachment,
@@ -448,5 +513,6 @@ module.exports = {
   addDependency, removeDependency, updateTask, deleteSubtask, toggleArchiveTask,
   addTag, removeTag, setRecurrence, removeRecurrence,
   bulkUpdateTasks, bulkDeleteTasks,
-  createChildTask, getChildTasks
+  createChildTask, getChildTasks,
+  addTaskToProject, removeTaskFromProject
 };

@@ -44,13 +44,32 @@ const submitForm = async (req, res) => {
     if (!form) return res.status(404).json({ message: 'Form not found' });
 
     const responses = req.body; 
+    const project = await Project.findById(form.project);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+    const projectCustomFieldMap = new Map((project.customFields || []).map((field) => [field.key, field]));
 
     
     let formattedDescription = `**Form Submission: ${form.title}**\n\n`;
+    const customFieldValues = [];
     
     form.fields.forEach(field => {
       const answer = responses[field.id] || '(No answer)';
-      formattedDescription += `**${field.label}**: ${answer}\n\n`;
+      const displayAnswer = Array.isArray(answer) ? answer.join(', ') : answer;
+      formattedDescription += `**${field.label}**: ${displayAnswer}\n\n`;
+
+      if (field.customFieldKey && responses[field.id] !== undefined && responses[field.id] !== '') {
+        const projectCustomField = projectCustomFieldMap.get(field.customFieldKey);
+        let value = responses[field.id];
+        if (projectCustomField?.type === 'checkbox') {
+          value = Array.isArray(value) ? value.length > 0 : Boolean(value);
+        } else if (projectCustomField?.type === 'number') {
+          value = Number(value);
+        }
+        customFieldValues.push({
+          key: field.customFieldKey,
+          value,
+        });
+      }
     });
 
     
@@ -62,10 +81,12 @@ const submitForm = async (req, res) => {
       title: taskTitle,
       description: formattedDescription,
       project: form.project,
-      organization: (await Project.findById(form.project)).organization,
+      projectMemberships: [{ project: form.project }],
+      organization: project.organization,
       reporter: form.createdBy,
-      status: 'todo',
-      priority: 'medium'
+      status: project.workflowStatuses?.[0]?.id || 'todo',
+      priority: 'medium',
+      customFieldValues
     });
 
     res.status(201).json({ message: 'Submission successful', taskId: newTask._id });

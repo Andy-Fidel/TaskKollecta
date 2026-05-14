@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Plus, Trash2, Save, Type, Calendar, List, AlignLeft, 
@@ -104,8 +104,19 @@ export default function FormBuilder() {
   const [title, setTitle] = useState('New Request Form');
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState([{ id: 'f1', type: 'text', label: 'Request Title', required: true }]);
+  const [projectCustomFields, setProjectCustomFields] = useState([]);
   const [mode, setMode] = useState('build'); // 'build' | 'preview'
   const [activeFieldId, setActiveFieldId] = useState('f1');
+
+  useEffect(() => {
+    api.get(`/projects/single/${projectId}`)
+      .then(({ data }) => setProjectCustomFields(data.customFields || []))
+      .catch(() => {});
+  }, [projectId]);
+
+  const sortedCustomFields = useMemo(() => (
+    [...projectCustomFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  ), [projectCustomFields]);
 
   // DnD Setup
   const sensors = useSensors(
@@ -153,6 +164,26 @@ export default function FormBuilder() {
     } catch {
       toast.error("Failed to save form");
     }
+  };
+
+  const addCustomFieldQuestion = (customField) => {
+    const typeMap = {
+      text: 'text',
+      number: 'text',
+      date: 'date',
+      select: 'select',
+      checkbox: 'checkbox',
+    };
+    const newId = `f${Date.now()}`;
+    setFields([...fields, {
+      id: newId,
+      type: typeMap[customField.type] || 'text',
+      label: customField.name,
+      required: customField.required || false,
+      options: customField.type === 'checkbox' ? ['Yes'] : (customField.options || []),
+      customFieldKey: customField.key,
+    }]);
+    setActiveFieldId(newId);
   };
 
   const activeField = fields.find(f => f.id === activeFieldId);
@@ -329,6 +360,23 @@ export default function FormBuilder() {
                                 />
                             </div>
 
+                            {sortedCustomFields.length > 0 && (
+                              <div className="space-y-2">
+                                <Label>Map to Task Custom Field</Label>
+                                <select
+                                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                                  value={activeField.customFieldKey || ''}
+                                  onChange={(e) => updateField(activeField.id, 'customFieldKey', e.target.value)}
+                                >
+                                  <option value="">Do not map</option>
+                                  {sortedCustomFields.map((field) => (
+                                    <option key={field.key} value={field.key}>{field.name}</option>
+                                  ))}
+                                </select>
+                                <p className="text-[11px] text-muted-foreground">Mapped answers are saved as task custom field values.</p>
+                              </div>
+                            )}
+
                             {/* Options Editor for Select/Radio/Checkbox */}
                             {['select', 'radio', 'checkbox'].includes(activeField.type) && (
                               <div className="space-y-3 pt-2 border-t border-border/50">
@@ -410,6 +458,28 @@ export default function FormBuilder() {
                             </Button>
                         </CardContent>
                     </Card>
+
+                    {sortedCustomFields.length > 0 && (
+                      <Card className="mt-4 shadow-sm border-border">
+                        <CardHeader className="bg-muted/30 border-b border-border/50 pb-4">
+                          <CardTitle className="text-base flex items-center gap-2"><Settings className="w-4 h-4" /> Custom Fields</CardTitle>
+                          <CardDescription className="text-xs">Add questions mapped to task custom fields</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-4 space-y-2">
+                          {sortedCustomFields.map((field) => (
+                            <Button
+                              key={field.key}
+                              variant="outline"
+                              className="w-full justify-start h-auto py-3 px-3 shadow-none hover:bg-muted/50"
+                              onClick={() => addCustomFieldQuestion(field)}
+                            >
+                              <Settings2 className="w-4 h-4 mr-2 text-primary" />
+                              <span className="text-xs">{field.name}</span>
+                            </Button>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

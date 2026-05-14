@@ -43,6 +43,8 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
   const [lead, setLead] = useState('');
   const [isArchived, setIsArchived] = useState(false);
   const [isTemplate, setIsTemplate] = useState(false);
+  const [workflowStatuses, setWorkflowStatuses] = useState([]);
+  const [customFields, setCustomFields] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -55,8 +57,18 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
       setLead(project.lead?._id || project.lead || '');
       setIsArchived(project.status === 'archived');
       setIsTemplate(project.isTemplate || false);
+      setWorkflowStatuses(project.workflowStatuses?.length ? project.workflowStatuses : [
+        { id: 'todo', label: 'To Do', color: '#64748b', order: 0, isDone: false },
+        { id: 'in-progress', label: 'In Progress', color: '#3b82f6', order: 1, isDone: false },
+        { id: 'review', label: 'Review', color: '#f59e0b', order: 2, isDone: false },
+        { id: 'done', label: 'Done', color: '#22c55e', order: 3, isDone: true },
+      ]);
+      setCustomFields(project.customFields || []);
     }
   }, [project]);
+
+  const slugify = (value, separator = '-') =>
+    value.toLowerCase().trim().replace(/[^a-z0-9]+/g, separator).replace(new RegExp(`^\\${separator}|\\${separator}$`, 'g'), '');
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -74,7 +86,9 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
         privacy,
         lead: lead || undefined,
         status: isArchived ? 'archived' : 'active',
-        isTemplate
+        isTemplate,
+        workflowStatuses,
+        customFields
       });
       onUpdate(data);
       toast.success('Project updated successfully');
@@ -94,6 +108,25 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
     } catch {
       toast.error('Failed to delete project');
     }
+  };
+
+  const updateWorkflowStatus = (index, updates) => {
+    setWorkflowStatuses((current) => current.map((status, i) => i === index ? { ...status, ...updates } : status));
+  };
+
+  const addWorkflowStatus = () => {
+    const label = 'New Status';
+    setWorkflowStatuses((current) => [
+      ...current,
+      { id: `${slugify(label)}-${current.length + 1}`, label, color: '#64748b', order: current.length, isDone: false },
+    ]);
+  };
+
+  const addCustomField = () => {
+    setCustomFields((current) => [
+      ...current,
+      { key: `field_${current.length + 1}`, name: 'New Field', type: 'text', options: [], required: false, order: current.length },
+    ]);
   };
 
   return (
@@ -242,6 +275,100 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
                     );
                   })}
                 </div>
+              </div>
+            </div>
+
+            <Separator className="bg-border/50" />
+
+            {/* --- Section: Workflow --- */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Workflow</h3>
+                <Button type="button" variant="outline" size="sm" onClick={addWorkflowStatus}>Add Status</Button>
+              </div>
+              <div className="space-y-2">
+                {workflowStatuses.map((status, index) => (
+                  <div key={`${status.id}-${index}`} className="grid grid-cols-[1fr_96px_auto] gap-2 items-center rounded-xl border border-border/40 bg-card p-2">
+                    <Input
+                      value={status.label}
+                      onChange={(e) => updateWorkflowStatus(index, { label: e.target.value, id: slugify(e.target.value) })}
+                      className="h-9"
+                    />
+                    <Input
+                      type="color"
+                      value={status.color || '#64748b'}
+                      onChange={(e) => updateWorkflowStatus(index, { color: e.target.value })}
+                      className="h-9 p-1"
+                    />
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground px-2">
+                      <Switch checked={!!status.isDone} onCheckedChange={(checked) => updateWorkflowStatus(index, { isDone: checked })} />
+                      Done
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setWorkflowStatuses((current) => current.filter((_, i) => i !== index).map((item, order) => ({ ...item, order })))}
+                      className="col-span-3 text-left text-xs text-destructive hover:underline disabled:opacity-40"
+                      disabled={workflowStatuses.length <= 1}
+                    >
+                      Remove status
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Separator className="bg-border/50" />
+
+            {/* --- Section: Custom Fields --- */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Custom Fields</h3>
+                <Button type="button" variant="outline" size="sm" onClick={addCustomField}>Add Field</Button>
+              </div>
+              <div className="space-y-2">
+                {customFields.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                    Add fields like client, budget, impact, approval state, or launch date.
+                  </div>
+                )}
+                {customFields.map((field, index) => (
+                  <div key={`${field.key}-${index}`} className="rounded-xl border border-border/40 bg-card p-3 space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-2">
+                      <Input
+                        value={field.name}
+                        onChange={(e) => setCustomFields((current) => current.map((item, i) => i === index ? { ...item, name: e.target.value, key: slugify(e.target.value, '_') } : item))}
+                        placeholder="Field name"
+                        className="h-9"
+                      />
+                      <select
+                        value={field.type}
+                        onChange={(e) => setCustomFields((current) => current.map((item, i) => i === index ? { ...item, type: e.target.value } : item))}
+                        className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+                      >
+                        <option value="text">Text</option>
+                        <option value="number">Number</option>
+                        <option value="date">Date</option>
+                        <option value="select">Select</option>
+                        <option value="checkbox">Checkbox</option>
+                      </select>
+                    </div>
+                    {field.type === 'select' && (
+                      <Input
+                        value={(field.options || []).join(', ')}
+                        onChange={(e) => setCustomFields((current) => current.map((item, i) => i === index ? { ...item, options: e.target.value.split(',').map((option) => option.trim()).filter(Boolean) } : item))}
+                        placeholder="Options separated by commas"
+                        className="h-9"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setCustomFields((current) => current.filter((_, i) => i !== index).map((item, order) => ({ ...item, order })))}
+                      className="text-xs text-destructive hover:underline"
+                    >
+                      Remove field
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 

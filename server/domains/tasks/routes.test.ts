@@ -56,6 +56,7 @@ describe('Tasks API — CRUD, subtasks, and board management', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.title).toBe('Learn Vitest');
+    expect(res.body.projectMemberships[0].project._id).toBe(projectId);
   });
 
   it('should fail task creation without required fields', async () => {
@@ -99,11 +100,72 @@ describe('Tasks API — CRUD, subtasks, and board management', () => {
       .put(`/api/tasks/${task._id}`)
       .set('Cookie', [`jwt=${userToken}`])
       .send({
-        status: 'in-progress',
+        status: 'approved',
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('in-progress');
+    expect(res.body.status).toBe('approved');
+  });
+
+  it('should save custom field values on a task', async () => {
+    const task = await Task.create({
+      title: 'Custom Fields Task',
+      project: projectId,
+      organization: orgId,
+      reporter: userId,
+      createdBy: userId,
+    });
+
+    const res = await request(app)
+      .put(`/api/tasks/${task._id}`)
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        customFieldValues: [
+          { key: 'client_name', value: 'Acme' },
+          { key: 'budget', value: 5000 },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.customFieldValues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'client_name', value: 'Acme' }),
+        expect.objectContaining({ key: 'budget', value: 5000 }),
+      ]),
+    );
+  });
+
+  it('should add an existing task to a secondary project and return it from both projects', async () => {
+    const secondaryProject = await Project.create({
+      name: 'Secondary Project',
+      organization: orgId,
+      createdBy: userId,
+    });
+    const task = await Task.create({
+      title: 'Shared Task',
+      project: projectId,
+      projectMemberships: [{ project: projectId }],
+      organization: orgId,
+      reporter: userId,
+      createdBy: userId,
+    });
+
+    const addRes = await request(app)
+      .post(`/api/tasks/${task._id}/projects`)
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({ projectId: secondaryProject._id.toString() });
+
+    expect(addRes.status).toBe(200);
+    expect(addRes.body.projectMemberships.map((membership: any) => membership.project._id)).toEqual(
+      expect.arrayContaining([projectId, secondaryProject._id.toString()]),
+    );
+
+    const secondaryTasks = await request(app)
+      .get(`/api/tasks/project/${secondaryProject._id}`)
+      .set('Cookie', [`jwt=${userToken}`]);
+
+    expect(secondaryTasks.status).toBe(200);
+    expect(secondaryTasks.body.map((item: any) => item.title)).toContain('Shared Task');
   });
 
   it('should add a subtask successfully', async () => {

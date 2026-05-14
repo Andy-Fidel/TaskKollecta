@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { filterTasksForView, getTaskTriageMeta } from '../pages/MyTasks';
 
 const now = new Date('2026-04-09T09:00:00.000Z');
@@ -17,6 +17,15 @@ function buildTask(overrides = {}) {
 }
 
 describe('MyTasks triage helpers', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('classifies overdue, blocked, upcoming, and completed tasks into sections', () => {
     const overdue = getTaskTriageMeta(buildTask({ dueDate: '2026-04-08T12:00:00.000Z' }), now);
     const blocked = getTaskTriageMeta(buildTask({

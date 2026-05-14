@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { addDays, format, isPast, isToday, isTomorrow, startOfToday } from 'date-fns';
+import { addDays, format, isSameDay, isToday, isTomorrow, startOfDay } from 'date-fns';
 import {
   AlertTriangle,
   ArrowRight,
@@ -60,9 +60,10 @@ export function getTaskTriageMeta(task, now = new Date()) {
     : [];
   const completed = task.status === 'done';
   const blocked = !completed && blockers.length > 0;
-  const overdue = !completed && dueDate ? isPast(dueDate) && !isToday(dueDate) : false;
-  const dueToday = !completed && dueDate ? isToday(dueDate) : false;
-  const upcoming = !completed && dueDate ? dueDate > startOfToday(now) && !isToday(dueDate) : false;
+  const todayStart = startOfDay(now);
+  const dueToday = !completed && dueDate ? isSameDay(dueDate, now) : false;
+  const overdue = !completed && dueDate ? dueDate < todayStart : false;
+  const upcoming = !completed && dueDate ? dueDate > todayStart && !dueToday : false;
 
   let section = 'backlog';
   if (completed) section = 'done';

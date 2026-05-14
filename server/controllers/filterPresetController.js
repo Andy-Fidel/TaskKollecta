@@ -48,6 +48,7 @@ const createPreset = async (req, res) => {
                 priorities: filters.priorities || [],
                 assignees: filters.assignees || [],
                 tags: filters.tags || [],
+                customFields: filters.customFields || {},
                 dateFrom: filters.dateFrom || null,
                 dateTo: filters.dateTo || null
             }

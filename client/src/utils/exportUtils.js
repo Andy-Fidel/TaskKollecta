@@ -84,16 +84,33 @@ export function exportToPDF({ title, headers, rows, filename = 'export.pdf', sub
 /**
  * Build task export data from raw tasks array.
  */
-export function buildTaskExportData(tasks) {
-  const headers = ['Title', 'Status', 'Priority', 'Assignee', 'Start Date', 'Due Date', 'Project'];
+function formatCustomFieldValue(value, field) {
+  if (value === undefined || value === null || value === '') return '';
+  if (field?.type === 'checkbox') return value ? 'Yes' : 'No';
+  if (field?.type === 'date') return new Date(value).toLocaleDateString();
+  if (Array.isArray(value)) return value.join(', ');
+  return String(value);
+}
+
+/**
+ * Build task export data from raw tasks array.
+ */
+export function buildTaskExportData(tasks, customFields = [], statusOptions = []) {
+  const statusMap = new Map(statusOptions.map((status) => [status.id, status.label]));
+  const sortedCustomFields = [...customFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const headers = ['Title', 'Status', 'Priority', 'Assignee', 'Start Date', 'Due Date', 'Project', ...sortedCustomFields.map((field) => field.name)];
   const rows = tasks.map(t => [
     t.title || '',
-    t.status || '',
+    statusMap.get(t.status) || t.status || '',
     t.priority || '',
     t.assignees?.map(a => a.name || a.email).join(', ') || t.assignee?.name || '',
     t.startDate ? new Date(t.startDate).toLocaleDateString() : '',
     t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '',
     t.project?.name || '',
+    ...sortedCustomFields.map((field) => {
+      const value = t.customFieldValues?.find((item) => item.key === field.key)?.value;
+      return formatCustomFieldValue(value, field);
+    }),
   ]);
   return { headers, rows };
 }

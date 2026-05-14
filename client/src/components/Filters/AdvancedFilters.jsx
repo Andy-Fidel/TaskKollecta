@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
     Filter, X, Save, ChevronDown, Calendar as CalendarIcon,
-    User, Tag, CheckSquare, AlertTriangle, Trash2
+    User, Tag, CheckSquare, AlertTriangle, Layout
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +45,8 @@ export function AdvancedFilters({
     onFiltersChange,
     members = [],
     availableTags = [],
+    statusOptions = STATUSES,
+    customFields = [],
     presets = [],
     onPresetsChange
 }) {
@@ -61,6 +63,9 @@ export function AdvancedFilters({
         if (filters.priorities?.length) count += filters.priorities.length;
         if (filters.assignees?.length) count += filters.assignees.length;
         if (filters.tags?.length) count += filters.tags.length;
+        if (filters.customFields) {
+            count += Object.values(filters.customFields).filter((value) => value !== undefined && value !== null && value !== '').length;
+        }
         if (filters.dateFrom) count++;
         if (filters.dateTo) count++;
         return count;
@@ -109,12 +114,23 @@ export function AdvancedFilters({
         setDateToOpen(false);
     };
 
+    const setCustomFieldFilter = (fieldKey, value) => {
+        const nextCustomFields = { ...(filters.customFields || {}) };
+        if (value === undefined || value === null || value === '') {
+            delete nextCustomFields[fieldKey];
+        } else {
+            nextCustomFields[fieldKey] = value;
+        }
+        onFiltersChange({ ...filters, customFields: nextCustomFields });
+    };
+
     const clearAllFilters = () => {
         onFiltersChange({
             statuses: [],
             priorities: [],
             assignees: [],
             tags: [],
+            customFields: {},
             dateFrom: null,
             dateTo: null
         });
@@ -144,6 +160,7 @@ export function AdvancedFilters({
             priorities: preset.filters.priorities || [],
             assignees: preset.filters.assignees || [],
             tags: preset.filters.tags || [],
+            customFields: preset.filters.customFields || {},
             dateFrom: preset.filters.dateFrom ? new Date(preset.filters.dateFrom) : null,
             dateTo: preset.filters.dateTo ? new Date(preset.filters.dateTo) : null
         });
@@ -248,7 +265,7 @@ export function AdvancedFilters({
                                     Status
                                 </Label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {STATUSES.map(status => (
+                                    {statusOptions.map(status => (
                                         <label
                                             key={status.id}
                                             className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md hover:bg-accent"
@@ -363,6 +380,63 @@ export function AdvancedFilters({
                             </div>
 
                             <Separator />
+
+                            {/* Custom Field Filters */}
+                            {customFields.length > 0 && (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                            <Layout className="w-3 h-3" />
+                                            Custom Fields
+                                        </Label>
+                                        <div className="space-y-2">
+                                            {[...customFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((field) => (
+                                                <div key={field.key} className="space-y-1">
+                                                    <Label className="text-xs text-muted-foreground">{field.name}</Label>
+                                                    {field.type === 'select' ? (
+                                                        <select
+                                                            className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm"
+                                                            value={filters.customFields?.[field.key] || ''}
+                                                            onChange={(event) => setCustomFieldFilter(field.key, event.target.value)}
+                                                        >
+                                                            <option value="">Any</option>
+                                                            {(field.options || []).map((option) => (
+                                                                <option key={option} value={option}>{option}</option>
+                                                            ))}
+                                                        </select>
+                                                    ) : field.type === 'checkbox' ? (
+                                                        <select
+                                                            className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm"
+                                                            value={filters.customFields?.[field.key] ?? ''}
+                                                            onChange={(event) => {
+                                                                const value = event.target.value;
+                                                                setCustomFieldFilter(field.key, value === '' ? '' : value === 'true');
+                                                            }}
+                                                        >
+                                                            <option value="">Any</option>
+                                                            <option value="true">Checked</option>
+                                                            <option value="false">Unchecked</option>
+                                                        </select>
+                                                    ) : (
+                                                        <Input
+                                                            className="h-8"
+                                                            type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                                                            value={filters.customFields?.[field.key] || ''}
+                                                            onChange={(event) => setCustomFieldFilter(
+                                                                field.key,
+                                                                field.type === 'number' && event.target.value !== '' ? Number(event.target.value) : event.target.value
+                                                            )}
+                                                            placeholder="Filter value"
+                                                        />
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <Separator />
+                                </>
+                            )}
 
                             {/* Date Range Filter */}
                             <div className="space-y-2">
@@ -502,6 +576,24 @@ export function applyFilters(tasks, filters) {
                 endOfDay.setHours(23, 59, 59, 999);
                 if (dueDate > endOfDay) {
                     return false;
+                }
+            }
+        }
+
+        // Custom field filter
+        if (filters.customFields && Object.keys(filters.customFields).length > 0) {
+            for (const [fieldKey, expectedValue] of Object.entries(filters.customFields)) {
+                if (expectedValue === undefined || expectedValue === null || expectedValue === '') continue;
+
+                const actualValue = task.customFieldValues?.find((item) => item.key === fieldKey)?.value;
+                if (typeof expectedValue === 'boolean') {
+                    if (Boolean(actualValue) !== expectedValue) return false;
+                } else if (typeof expectedValue === 'number') {
+                    if (Number(actualValue) !== expectedValue) return false;
+                } else {
+                    const actualText = String(actualValue ?? '').toLowerCase();
+                    const expectedText = String(expectedValue).toLowerCase();
+                    if (!actualText.includes(expectedText)) return false;
                 }
             }
         }

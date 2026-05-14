@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    fileParallelism: false,
     testTimeout: 30000,          // 30s — mongodb-memory-server can be slow on first boot
     hookTimeout: 30000,
     setupFiles: ['./tests/setup.ts'],

@@ -45,6 +45,7 @@ describe('Projects API — CRUD and management', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('New Project');
+    expect(res.body.workflowStatuses.map((status: any) => status.id)).toEqual(['todo', 'in-progress', 'review', 'done']);
   });
 
   it('should get projects by organization', async () => {
@@ -117,6 +118,34 @@ describe('Projects API — CRUD and management', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('Updated Project Name');
+  });
+
+  it('should save configurable workflow statuses and custom fields', async () => {
+    const project = await Project.create({
+      name: 'Workflow Project',
+      organization: orgId,
+      createdBy: userId,
+    });
+
+    const res = await request(app)
+      .put(`/api/projects/${project._id}`)
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        workflowStatuses: [
+          { id: 'queued', label: 'Queued', color: '#64748b', order: 0 },
+          { id: 'approved', label: 'Approved', color: '#22c55e', order: 1, isDone: true },
+        ],
+        customFields: [
+          { key: 'client_name', name: 'Client Name', type: 'text', order: 0 },
+          { key: 'approval_state', name: 'Approval State', type: 'select', options: ['Draft', 'Approved'], order: 1 },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.workflowStatuses.map((status: any) => status.id)).toEqual(['queued', 'approved']);
+    expect(res.body.workflowStatuses[1].isDone).toBe(true);
+    expect(res.body.customFields.map((field: any) => field.key)).toEqual(['client_name', 'approval_state']);
+    expect(res.body.customFields[1].options).toEqual(['Draft', 'Approved']);
   });
 
   it('should fail creation without required fields', async () => {

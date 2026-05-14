@@ -28,6 +28,8 @@ const reminderRoutes = require("./routes/reminderRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const announcementRoutes = require("./routes/announcementRoutes");
 const aiRoutes = require("./routes/aiRoutes");
+const portfolioRoutes = require("./routes/portfolioRoutes");
+const goalRoutes = require("./routes/goalRoutes");
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -107,6 +109,8 @@ const createApp = () => {
   app.use("/api/reminders", reminderRoutes);
   app.use("/api/analytics", analyticsRoutes);
   app.use("/api/announcements", announcementRoutes);
+  app.use("/api/portfolios", portfolioRoutes);
+  app.use("/api/goals", goalRoutes);
   app.use("/api/ai", aiLimiter, aiRoutes);
 
   app.use(errorHandler);

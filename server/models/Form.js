@@ -10,11 +10,12 @@ const formSchema = new mongoose.Schema({
   
   fields: [{
     id: String, 
-    type: { type: String, enum: ['text', 'textarea', 'date', 'select'], required: true },
+    type: { type: String, enum: ['text', 'textarea', 'date', 'select', 'radio', 'checkbox'], required: true },
     label: { type: String, required: true },
     placeholder: String,
     options: [String], 
-    required: { type: Boolean, default: false }
+    required: { type: Boolean, default: false },
+    customFieldKey: String
   }]
 }, { timestamps: true });
 

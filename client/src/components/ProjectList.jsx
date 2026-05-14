@@ -4,7 +4,18 @@ import { Badge } from '@/components/ui/badge';
 import { PriorityBadge } from './PriorityBadge';
 import { Checkbox } from '@/components/ui/checkbox';
 
-export function ProjectList({ tasks, onTaskClick, selectedTasks, onToggleSelect }) {
+function getCustomFieldValue(task, field) {
+  const value = task.customFieldValues?.find((item) => item.key === field.key)?.value;
+  if (value === undefined || value === null || value === '') return '-';
+  if (field.type === 'checkbox') return value ? 'Yes' : 'No';
+  if (field.type === 'date') return format(new Date(value), 'MMM d, yyyy');
+  if (Array.isArray(value)) return value.join(', ');
+  return String(value);
+}
+
+export function ProjectList({ tasks, onTaskClick, selectedTasks, onToggleSelect, statusOptions = [], customFields = [] }) {
+  const statusMap = new Map(statusOptions.map((status) => [status.id, status]));
+
   if (tasks.length === 0) return (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
       <svg width="120" height="120" viewBox="0 0 120 120" fill="none" className="mb-6 opacity-60">
@@ -20,7 +31,7 @@ export function ProjectList({ tasks, onTaskClick, selectedTasks, onToggleSelect 
   );
 
   return (
-    <div className="w-full bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div className="w-full overflow-x-auto bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
           <tr>
@@ -41,6 +52,9 @@ export function ProjectList({ tasks, onTaskClick, selectedTasks, onToggleSelect 
             <th className="px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Priority</th>
             <th className="px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Assignee</th>
             <th className="px-6 py-3 font-medium text-slate-500 dark:text-slate-400">Due Date</th>
+            {customFields.map((field) => (
+              <th key={field.key} className="px-6 py-3 font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">{field.name}</th>
+            ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -57,8 +71,15 @@ export function ProjectList({ tasks, onTaskClick, selectedTasks, onToggleSelect 
               </td>
               <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-200 cursor-pointer" onClick={() => onTaskClick(task)}>{task.title}</td>
               <td className="px-6 py-4">
-                <Badge variant="secondary" className="capitalize bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    {task.status.replace('-', ' ')}
+                <Badge
+                  variant="secondary"
+                  className="capitalize bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  style={statusMap.get(task.status)?.color ? {
+                    borderColor: `${statusMap.get(task.status).color}55`,
+                    color: statusMap.get(task.status).color,
+                  } : undefined}
+                >
+                    {statusMap.get(task.status)?.label || task.status.replace('-', ' ')}
                 </Badge>
               </td>
               <td className="px-6 py-4">
@@ -78,6 +99,11 @@ export function ProjectList({ tasks, onTaskClick, selectedTasks, onToggleSelect 
               <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
                 {task.dueDate ? format(new Date(task.dueDate), 'MMM d, yyyy') : '-'}
               </td>
+              {customFields.map((field) => (
+                <td key={field.key} className="px-6 py-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  {getCustomFieldValue(task, field)}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>

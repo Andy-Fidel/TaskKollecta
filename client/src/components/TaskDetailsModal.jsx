@@ -38,7 +38,7 @@ import { RecurrencePicker } from './RecurrencePicker';
 import { MentionInput, renderMentions } from './MentionInput';
 import { getIncompleteDependencies, isTaskBlocked } from '../utils/taskState';
 
-export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, socket }) {
+export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, statusOptions = [], customFields = [], socket }) {
     const { user } = useAuth();
 
     // --- 1. HOOKS (Always run first) ---
@@ -68,9 +68,12 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     const [openUserSelect, setOpenUserSelect] = useState(false);
     const [isDependencySearchOpen, setIsDependencySearchOpen] = useState(false);
     const [projectTasks, setProjectTasks] = useState([]);
+    const [availableProjects, setAvailableProjects] = useState([]);
+    const [projectMemberships, setProjectMemberships] = useState(task?.projectMemberships || []);
 
     const [currentStatus, setCurrentStatus] = useState(task?.status || 'todo');
     const [currentPriority, setCurrentPriority] = useState(task?.priority || 'medium');
+    const [customFieldValues, setCustomFieldValues] = useState(task?.customFieldValues || []);
 
     const [pendingAssignee, setPendingAssignee] = useState(null);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -100,6 +103,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setDueDate(task.dueDate ? new Date(task.dueDate) : null);
             setCurrentStatus(task.status || 'todo');
             setCurrentPriority(task.priority || 'medium');
+            setCustomFieldValues(task.customFieldValues || []);
             setDescInput(task.description || '');
             setSubtasks(task.subtasks || []);
             setDependencies(task.dependencies || []);
@@ -107,9 +111,11 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             setRecurrence(task.recurrence || null);
             setAttachments(task.attachments || []);
             setIsMilestone(task.isMilestone || false);
+            setProjectMemberships(task.projectMemberships?.length ? task.projectMemberships : [{ project: task.project }]);
 
             // Fetch child tasks (real sub-task documents)
             api.get(`/tasks/${task._id}/children`).then(({ data }) => setChildTasks(data)).catch(() => {});
+            api.get('/projects').then(({ data }) => setAvailableProjects(data)).catch(() => {});
         }
     }, [isOpen, task, orgId]);
 
@@ -211,6 +217,12 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
     ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     const incompleteDependencies = getIncompleteDependencies({ ...task, dependencies });
     const blocked = isTaskBlocked({ ...task, status: currentStatus, dependencies });
+    const availableStatuses = statusOptions.length ? statusOptions : [
+        { id: 'todo', label: 'To Do' },
+        { id: 'in-progress', label: 'In Progress' },
+        { id: 'review', label: 'Review' },
+        { id: 'done', label: 'Done', isDone: true },
+    ];
 
     // Permission Check
     const currentMember = teamMembers.find(m => m.user?._id === user?._id);
@@ -270,7 +282,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
 
     const handleStatusChange = async (newStatus) => {
         const isHighPriority = currentPriority === 'high' || currentPriority === 'urgent';
-        const isMovingToDone = newStatus === 'done' || newStatus === 'completed';
+        const targetStatus = availableStatuses.find((status) => status.id === newStatus);
+        const isMovingToDone = newStatus === 'done' || newStatus === 'completed' || targetStatus?.isDone;
         
         if (isHighPriority && isMovingToDone && currentStatus !== newStatus) {
             setShowCompletionAnim(true);
@@ -292,6 +305,44 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
             toast.success(`Priority updated`);
         } catch { toast.error("Failed update priority"); }
     };
+
+    const handleAddProjectMembership = async (secondaryProjectId) => {
+        if (!secondaryProjectId) return;
+        try {
+            const { data } = await api.post(`/tasks/${task._id}/projects`, { projectId: secondaryProjectId });
+            setProjectMemberships(data.projectMemberships || []);
+            toast.success('Task added to project');
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to add project');
+        }
+    };
+
+    const handleRemoveProjectMembership = async (secondaryProjectId) => {
+        try {
+            const { data } = await api.delete(`/tasks/${task._id}/projects/${secondaryProjectId}`);
+            setProjectMemberships(data.projectMemberships || []);
+            toast.success('Task removed from project');
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to remove project');
+        }
+    };
+
+    const handleCustomFieldChange = async (field, value) => {
+        const nextValues = [
+            ...customFieldValues.filter((item) => item.key !== field.key),
+            { key: field.key, value },
+        ];
+        setCustomFieldValues(nextValues);
+        try {
+            await api.put(`/tasks/${task._id}`, { customFieldValues: nextValues });
+            toast.success(`${field.name} updated`);
+        } catch {
+            toast.error(`Failed to update ${field.name}`);
+        }
+    };
+
+    const getCustomFieldValue = (key) =>
+        customFieldValues.find((item) => item.key === key)?.value ?? '';
 
     const handleAddSubtask = async (e) => {
         e.preventDefault();
@@ -596,8 +647,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="start" className="w-[180px]">
-                                                    {['todo', 'in-progress', 'review', 'done'].map(s => (
-                                                        <DropdownMenuItem key={s} onClick={() => handleStatusChange(s)} className="capitalize">{String(s).replace(/-/g, ' ')}</DropdownMenuItem>
+                                                    {availableStatuses.map(s => (
+                                                        <DropdownMenuItem key={s.id} onClick={() => handleStatusChange(s.id)} className="capitalize">{s.label}</DropdownMenuItem>
                                                     ))}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
@@ -782,6 +833,94 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, sock
                                             )}
                                         </div>
                                     </div>
+
+                                    {customFields.length > 0 && (
+                                        <div className="rounded-xl border border-border/50 bg-card p-4">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <div className="bg-muted p-1.5 rounded-md"><Layout className="w-4 h-4 text-primary" /></div>
+                                                <h3 className="text-sm font-semibold text-foreground tracking-wide">Custom Fields</h3>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {[...customFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((field) => (
+                                                    <label key={field.key} className="space-y-1.5">
+                                                        <span className="text-xs font-semibold text-muted-foreground">{field.name}</span>
+                                                        {field.type === 'select' ? (
+                                                            <select
+                                                                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+                                                                value={getCustomFieldValue(field.key)}
+                                                                onChange={(event) => handleCustomFieldChange(field, event.target.value)}
+                                                            >
+                                                                <option value="">Unset</option>
+                                                                {(field.options || []).map((option) => (
+                                                                    <option key={option} value={option}>{option}</option>
+                                                                ))}
+                                                            </select>
+                                                        ) : field.type === 'checkbox' ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCustomFieldChange(field, !getCustomFieldValue(field.key))}
+                                                                className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-left"
+                                                            >
+                                                                <span className={`h-4 w-4 rounded border flex items-center justify-center ${getCustomFieldValue(field.key) ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground'}`}>
+                                                                    {getCustomFieldValue(field.key) ? <Check className="h-3 w-3" /> : null}
+                                                                </span>
+                                                                {getCustomFieldValue(field.key) ? 'Checked' : 'Unchecked'}
+                                                            </button>
+                                                        ) : (
+                                                            <input
+                                                                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+                                                                type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                                                                value={getCustomFieldValue(field.key)}
+                                                                onChange={(event) => handleCustomFieldChange(field, event.target.value)}
+                                                            />
+                                                        )}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {availableProjects.length > 1 && (
+                                        <div className="rounded-xl border border-border/50 bg-card p-4">
+                                            <div className="flex items-center justify-between gap-3 mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="bg-muted p-1.5 rounded-md"><GitBranch className="w-4 h-4 text-primary" /></div>
+                                                    <h3 className="text-sm font-semibold text-foreground tracking-wide">Projects</h3>
+                                                </div>
+                                                <select
+                                                    className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                                                    value=""
+                                                    onChange={(event) => handleAddProjectMembership(event.target.value)}
+                                                >
+                                                    <option value="">Add to project</option>
+                                                    {availableProjects
+                                                        .filter((project) => !projectMemberships.some((membership) => (membership.project?._id || membership.project) === project._id))
+                                                        .map((project) => (
+                                                            <option key={project._id} value={project._id}>{project.name}</option>
+                                                        ))}
+                                                </select>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {projectMemberships.map((membership) => {
+                                                    const memberProject = membership.project;
+                                                    const memberProjectId = memberProject?._id || memberProject;
+                                                    const isPrimary = memberProjectId === (task.project?._id || task.project);
+                                                    return (
+                                                        <Badge key={memberProjectId} variant="secondary" className="gap-1">
+                                                            {memberProject?.name || 'Project'}
+                                                            {isPrimary ? (
+                                                                <span className="text-[9px] text-muted-foreground">primary</span>
+                                                            ) : (
+                                                                <button type="button" onClick={() => handleRemoveProjectMembership(memberProjectId)} className="ml-1 text-muted-foreground hover:text-destructive">
+                                                                    <X className="h-3 w-3" />
+                                                                </button>
+                                                            )}
+                                                        </Badge>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Description */}
                                     {blocked && (
