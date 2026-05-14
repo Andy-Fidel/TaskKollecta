@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Search, User, Settings, LogOut, Shield } from 'lucide-react';
+import { HelpCircle, Menu, Search, User, Settings, LogOut, Shield } from 'lucide-react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 
 // UI Components
@@ -18,6 +18,7 @@ import Sidebar from './Sidebar';
 import { ModeToggle } from './ModeToggle';
 import { NotificationBell } from './NotificationBell';
 import { CommandMenu } from './CommandMenu';
+import { HelpWizard } from './HelpWizard';
 import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '../hooks/useKeyboardShortcuts';
 import { AnnouncementBanner } from './AnnouncementBanner';
 
@@ -29,6 +30,7 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isHelpWizardOpen, setIsHelpWizardOpen] = useState(false);
   const { showHelp, setShowHelp } = useKeyboardShortcuts();
 
   return (
@@ -89,6 +91,16 @@ export default function AppLayout() {
 
           {/* RIGHT: Actions */}
           <div className="flex items-center gap-2 md:gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setIsHelpWizardOpen(true)}
+              title="Open help wizard"
+            >
+              <HelpCircle className="h-5 w-5" />
+            </Button>
+
             <ModeToggle />
 
             <div className="relative">
@@ -160,6 +172,9 @@ export default function AppLayout() {
 
         {/* KEYBOARD SHORTCUTS HELP */}
         <KeyboardShortcutsHelp open={showHelp} onOpenChange={setShowHelp} />
+
+        {/* PRODUCT HELP WIZARD */}
+        <HelpWizard open={isHelpWizardOpen} onOpenChange={setIsHelpWizardOpen} />
 
       </div>
     </div>

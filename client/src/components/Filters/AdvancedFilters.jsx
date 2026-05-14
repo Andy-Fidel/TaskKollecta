@@ -48,11 +48,18 @@ export function AdvancedFilters({
     statusOptions = STATUSES,
     customFields = [],
     presets = [],
-    onPresetsChange
+    onPresetsChange,
+    searchQuery = '',
+    blockedOnly = false,
+    currentLayout = 'board',
+    onSearchQueryChange,
+    onBlockedOnlyChange,
+    onLayoutChange
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
     const [presetName, setPresetName] = useState('');
+    const [presetVisibility, setPresetVisibility] = useState('private');
     const [dateFromOpen, setDateFromOpen] = useState(false);
     const [dateToOpen, setDateToOpen] = useState(false);
 
@@ -143,14 +150,22 @@ export function AdvancedFilters({
             const { data } = await api.post('/filter-presets', {
                 name: presetName.trim(),
                 projectId,
-                filters
+                scope: 'project',
+                visibility: presetVisibility,
+                layout: currentLayout,
+                filters: {
+                    ...filters,
+                    query: searchQuery,
+                    blockedOnly
+                }
             });
             onPresetsChange([...presets, data]);
             setPresetName('');
+            setPresetVisibility('private');
             setIsSaveDialogOpen(false);
-            toast.success('Filter preset saved');
+            toast.success('Saved view created');
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to save preset');
+            toast.error(error.response?.data?.message || 'Failed to save view');
         }
     };
 
@@ -164,6 +179,11 @@ export function AdvancedFilters({
             dateFrom: preset.filters.dateFrom ? new Date(preset.filters.dateFrom) : null,
             dateTo: preset.filters.dateTo ? new Date(preset.filters.dateTo) : null
         });
+        onSearchQueryChange?.(preset.filters.query || '');
+        onBlockedOnlyChange?.(Boolean(preset.filters.blockedOnly));
+        if (preset.layout && preset.layout !== 'my_tasks') {
+            onLayoutChange?.(preset.layout);
+        }
         setIsOpen(false);
         toast.success(`Loaded "${preset.name}"`);
     };
@@ -173,9 +193,9 @@ export function AdvancedFilters({
         try {
             await api.delete(`/filter-presets/${presetId}`);
             onPresetsChange(presets.filter(p => p._id !== presetId));
-            toast.success('Preset deleted');
+            toast.success('Saved view deleted');
         } catch (error) {
-            toast.error('Failed to delete preset');
+            toast.error('Failed to delete view');
         }
     };
 
@@ -230,11 +250,11 @@ export function AdvancedFilters({
                     <ScrollArea className="max-h-[400px]">
                         <div className="p-4 pt-0 space-y-4">
 
-                            {/* Saved Presets */}
+                            {/* Saved Views */}
                             {presets.length > 0 && (
                                 <div className="space-y-2">
                                     <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                                        Saved Presets
+                                        Saved Views
                                     </Label>
                                     <div className="flex flex-wrap gap-1.5">
                                         {presets.map(preset => (
@@ -245,6 +265,9 @@ export function AdvancedFilters({
                                                 onClick={() => loadPreset(preset)}
                                             >
                                                 {preset.name}
+                                                {preset.visibility === 'team' && (
+                                                    <span className="rounded-full bg-primary/10 px-1 text-[10px] text-primary">Team</span>
+                                                )}
                                                 <button
                                                     onClick={(e) => deletePreset(preset._id, e)}
                                                     className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 hover:text-destructive"
@@ -499,32 +522,45 @@ export function AdvancedFilters({
                 </PopoverContent>
             </Popover>
 
-            {/* Save Preset Dialog */}
+            {/* Save View Dialog */}
             <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
                 <DialogContent className="sm:max-w-[350px]">
                     <DialogHeader>
-                        <DialogTitle>Save Filter Preset</DialogTitle>
+                        <DialogTitle>Save View</DialogTitle>
                         <DialogDescription>
-                            Save your current filter configuration to quickly apply it later.
+                            Save this layout, search, and filter configuration for reuse.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4">
-                        <Label htmlFor="preset-name">Preset Name</Label>
+                    <div className="py-4 space-y-4">
+                        <div>
+                        <Label htmlFor="preset-name">View Name</Label>
                         <Input
                             id="preset-name"
                             value={presetName}
                             onChange={(e) => setPresetName(e.target.value)}
-                            placeholder="e.g., My urgent tasks"
+                            placeholder="e.g., Blocked launch work"
                             className="mt-1.5"
                             autoFocus
                         />
+                        </div>
+                        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+                            Visibility
+                            <select
+                                value={presetVisibility}
+                                onChange={(event) => setPresetVisibility(event.target.value)}
+                                className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none focus:ring-1 focus:ring-ring"
+                            >
+                                <option value="private">Private to me</option>
+                                <option value="team">Shared with team</option>
+                            </select>
+                        </label>
                     </div>
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setIsSaveDialogOpen(false)}>
                             Cancel
                         </Button>
                         <Button onClick={savePreset} disabled={!presetName.trim()}>
-                            Save Preset
+                            Save View
                         </Button>
                     </DialogFooter>
                 </DialogContent>

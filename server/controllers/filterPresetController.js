@@ -1,63 +1,155 @@
 const FilterPreset = require('../models/FilterPreset');
+const Project = require('../models/Project');
+const { ensureMembership } = require('../domains/shared/access');
 
-// @desc    Get all filter presets for a project (user-specific)
+const normalizeFilters = (filters = {}) => ({
+    statuses: filters.statuses || [],
+    priorities: filters.priorities || [],
+    assignees: filters.assignees || [],
+    tags: filters.tags || [],
+    customFields: filters.customFields || {},
+    dateFrom: filters.dateFrom || null,
+    dateTo: filters.dateTo || null,
+    query: filters.query || '',
+    blockedOnly: Boolean(filters.blockedOnly),
+    view: filters.view || undefined,
+    projectFilter: filters.projectFilter || 'all',
+    priority: filters.priority || 'all'
+});
+
+const buildListQuery = ({ userId, scope, projectId, orgId }) => ({
+    scope,
+    ...(scope === 'project' ? { project: projectId } : { organization: orgId }),
+    $or: [
+        { user: userId },
+        { visibility: 'team' }
+    ]
+});
+
+const assertProjectAccess = async (userId, projectId) => {
+    const project = await Project.findById(projectId);
+    if (!project) {
+        const error = new Error('Project not found');
+        error.statusCode = 404;
+        throw error;
+    }
+    await ensureMembership(userId, project.organization);
+    return project;
+};
+
+// @desc    Get all saved views for a project
 // @route   GET /api/filter-presets/project/:projectId
 // @access  Private
 const getPresets = async (req, res) => {
     try {
-        const presets = await FilterPreset.find({
-            user: req.user._id,
-            project: req.params.projectId
-        }).sort({ createdAt: -1 });
+        await assertProjectAccess(req.user._id, req.params.projectId);
+        const presets = await FilterPreset.find(buildListQuery({
+            userId: req.user._id,
+            scope: 'project',
+            projectId: req.params.projectId
+        })).sort({ visibility: 1, updatedAt: -1 });
 
         res.json(presets);
     } catch (error) {
         console.error('Error fetching filter presets:', error);
-        res.status(500).json({ message: 'Failed to fetch filter presets' });
+        res.status(error.statusCode || 500).json({ message: error.message || 'Failed to fetch filter presets' });
     }
 };
 
-// @desc    Create a new filter preset
+// @desc    Get all saved views for My Tasks
+// @route   GET /api/filter-presets/my-tasks
+// @access  Private
+const getMyTaskPresets = async (req, res) => {
+    try {
+        const orgId = req.query.orgId || req.headers['x-active-org'];
+        if (!orgId) return res.status(400).json({ message: 'Organization ID required' });
+
+        await ensureMembership(req.user._id, orgId);
+        const presets = await FilterPreset.find(buildListQuery({
+            userId: req.user._id,
+            scope: 'my_tasks',
+            orgId
+        })).sort({ visibility: 1, updatedAt: -1 });
+
+        res.json(presets);
+    } catch (error) {
+        console.error('Error fetching my task saved views:', error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Failed to fetch saved views' });
+    }
+};
+
+// @desc    Create a new saved view
 // @route   POST /api/filter-presets
 // @access  Private
 const createPreset = async (req, res) => {
     try {
-        const { name, projectId, filters } = req.body;
+        const {
+            name,
+            projectId,
+            orgId,
+            scope = projectId ? 'project' : 'my_tasks',
+            visibility = 'private',
+            filters,
+            layout,
+            sort
+        } = req.body;
 
-        if (!name || !projectId) {
-            return res.status(400).json({ message: 'Name and projectId are required' });
+        if (!name?.trim()) {
+            return res.status(400).json({ message: 'Name is required' });
         }
 
-        // Check for duplicate name within same project for the user
-        const existing = await FilterPreset.findOne({
-            user: req.user._id,
-            project: projectId,
-            name: name.trim()
-        });
+        if (!['project', 'my_tasks'].includes(scope)) {
+            return res.status(400).json({ message: 'Invalid saved view scope' });
+        }
+
+        if (!['private', 'team'].includes(visibility)) {
+            return res.status(400).json({ message: 'Invalid saved view visibility' });
+        }
+
+        let project = null;
+        let organizationId = orgId;
+
+        if (scope === 'project') {
+            if (!projectId) return res.status(400).json({ message: 'projectId is required for project views' });
+            project = await assertProjectAccess(req.user._id, projectId);
+            organizationId = project.organization;
+        } else {
+            if (!organizationId) return res.status(400).json({ message: 'orgId is required for My Tasks views' });
+            await ensureMembership(req.user._id, organizationId);
+        }
+
+        const duplicateQuery = {
+            name: name.trim(),
+            scope,
+            ...(scope === 'project' ? { project: projectId } : { organization: organizationId }),
+            ...(visibility === 'team' ? { visibility: 'team' } : { user: req.user._id })
+        };
+
+        const existing = await FilterPreset.findOne(duplicateQuery);
 
         if (existing) {
-            return res.status(400).json({ message: 'A preset with this name already exists' });
+            return res.status(400).json({ message: 'A saved view with this name already exists' });
         }
 
         const preset = await FilterPreset.create({
             name: name.trim(),
             user: req.user._id,
-            project: projectId,
-            filters: {
-                statuses: filters.statuses || [],
-                priorities: filters.priorities || [],
-                assignees: filters.assignees || [],
-                tags: filters.tags || [],
-                customFields: filters.customFields || {},
-                dateFrom: filters.dateFrom || null,
-                dateTo: filters.dateTo || null
-            }
+            organization: organizationId,
+            project: scope === 'project' ? projectId : null,
+            scope,
+            visibility,
+            layout: layout || (scope === 'project' ? 'board' : 'my_tasks'),
+            sort: {
+                field: sort?.field || 'updatedAt',
+                direction: sort?.direction || 'desc'
+            },
+            filters: normalizeFilters(filters)
         });
 
         res.status(201).json(preset);
     } catch (error) {
         console.error('Error creating filter preset:', error);
-        res.status(500).json({ message: 'Failed to create filter preset' });
+        res.status(error.statusCode || 500).json({ message: error.message || 'Failed to create saved view' });
     }
 };
 
@@ -72,7 +164,6 @@ const deletePreset = async (req, res) => {
             return res.status(404).json({ message: 'Preset not found' });
         }
 
-        // Only allow the owner to delete
         if (preset.user.toString() !== req.user._id.toString()) {
             return res.status(403).json({ message: 'Not authorized to delete this preset' });
         }
@@ -87,6 +178,7 @@ const deletePreset = async (req, res) => {
 
 module.exports = {
     getPresets,
+    getMyTaskPresets,
     createPreset,
     deletePreset
 };

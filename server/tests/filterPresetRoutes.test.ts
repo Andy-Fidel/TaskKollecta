@@ -9,6 +9,7 @@ import Project from '../models/Project';
 describe('Filter presets API', () => {
   let userToken: string;
   let userId: string;
+  let teammateToken: string;
   let orgId: string;
   let projectId: string;
 
@@ -21,6 +22,13 @@ describe('Filter presets API', () => {
     userId = user._id.toString();
     userToken = getTestToken(userId);
 
+    const teammate = await User.create({
+      name: 'Filter Teammate',
+      email: 'filter-teammate@test.com',
+      password: 'password123',
+    });
+    teammateToken = getTestToken(teammate._id.toString());
+
     const org = await Organization.create({
       name: 'Filter Org',
       createdBy: userId,
@@ -31,6 +39,11 @@ describe('Filter presets API', () => {
       user: userId,
       organization: orgId,
       role: 'owner',
+    });
+    await Membership.create({
+      user: teammate._id,
+      organization: orgId,
+      role: 'member',
     });
 
     const project = await Project.create({
@@ -48,9 +61,14 @@ describe('Filter presets API', () => {
       .send({
         name: 'Approved Acme',
         projectId,
+        scope: 'project',
+        visibility: 'private',
+        layout: 'list',
         filters: {
           statuses: ['approved'],
           priorities: ['high'],
+          query: 'Acme',
+          blockedOnly: true,
           customFields: {
             client: 'Acme',
             approved: true,
@@ -59,7 +77,12 @@ describe('Filter presets API', () => {
       });
 
     expect(createRes.status).toBe(201);
+    expect(createRes.body.scope).toBe('project');
+    expect(createRes.body.visibility).toBe('private');
+    expect(createRes.body.layout).toBe('list');
     expect(createRes.body.filters.statuses).toEqual(['approved']);
+    expect(createRes.body.filters.query).toBe('Acme');
+    expect(createRes.body.filters.blockedOnly).toBe(true);
     expect(createRes.body.filters.customFields).toMatchObject({ client: 'Acme', approved: true });
 
     const listRes = await request(app)
@@ -69,5 +92,61 @@ describe('Filter presets API', () => {
     expect(listRes.status).toBe(200);
     expect(listRes.body[0].filters.statuses).toEqual(['approved']);
     expect(listRes.body[0].filters.customFields).toMatchObject({ client: 'Acme', approved: true });
+  });
+
+  it('should expose team project saved views to organization teammates', async () => {
+    const createRes = await request(app)
+      .post('/api/filter-presets')
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        name: 'Blocked team work',
+        projectId,
+        visibility: 'team',
+        filters: { blockedOnly: true },
+      });
+
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.visibility).toBe('team');
+
+    const teammateListRes = await request(app)
+      .get(`/api/filter-presets/project/${projectId}`)
+      .set('Cookie', [`jwt=${teammateToken}`]);
+
+    expect(teammateListRes.status).toBe(200);
+    expect(teammateListRes.body).toHaveLength(1);
+    expect(teammateListRes.body[0].name).toBe('Blocked team work');
+  });
+
+  it('should save and list My Tasks saved views by organization', async () => {
+    const createRes = await request(app)
+      .post('/api/filter-presets')
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        name: 'Launch attention',
+        orgId,
+        scope: 'my_tasks',
+        visibility: 'team',
+        filters: {
+          view: 'attention',
+          priority: 'high',
+          projectFilter: projectId,
+          query: 'launch',
+        },
+      });
+
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.scope).toBe('my_tasks');
+    expect(createRes.body.layout).toBe('my_tasks');
+    expect(createRes.body.filters.view).toBe('attention');
+    expect(createRes.body.filters.priority).toBe('high');
+    expect(createRes.body.filters.projectFilter).toBe(projectId);
+
+    const listRes = await request(app)
+      .get(`/api/filter-presets/my-tasks?orgId=${orgId}`)
+      .set('Cookie', [`jwt=${teammateToken}`]);
+
+    expect(listRes.status).toBe(200);
+    expect(listRes.body[0].name).toBe('Launch attention');
+    expect(listRes.body[0].filters.query).toBe('launch');
   });
 });

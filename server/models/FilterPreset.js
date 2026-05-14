@@ -12,10 +12,33 @@ const filterPresetSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    organization: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Organization'
+    },
     project: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Project',
-        required: true
+        default: null
+    },
+    scope: {
+        type: String,
+        enum: ['project', 'my_tasks'],
+        default: 'project'
+    },
+    visibility: {
+        type: String,
+        enum: ['private', 'team'],
+        default: 'private'
+    },
+    layout: {
+        type: String,
+        enum: ['board', 'list', 'calendar', 'timeline', 'my_tasks'],
+        default: 'board'
+    },
+    sort: {
+        field: { type: String, default: 'updatedAt' },
+        direction: { type: String, enum: ['asc', 'desc'], default: 'desc' }
     },
     filters: {
         statuses: [{
@@ -32,11 +55,17 @@ const filterPresetSchema = new mongoose.Schema({
         tags: [String],
         customFields: { type: Map, of: mongoose.Schema.Types.Mixed },
         dateFrom: { type: Date },
-        dateTo: { type: Date }
+        dateTo: { type: Date },
+        query: { type: String, default: '' },
+        blockedOnly: { type: Boolean, default: false },
+        view: { type: String },
+        projectFilter: { type: String, default: 'all' },
+        priority: { type: String, default: 'all' }
     }
 }, { timestamps: true });
 
 // Compound index for efficient querying
-filterPresetSchema.index({ user: 1, project: 1 });
+filterPresetSchema.index({ user: 1, project: 1, scope: 1 });
+filterPresetSchema.index({ organization: 1, scope: 1, visibility: 1 });
 
 module.exports = mongoose.models.FilterPreset || mongoose.model('FilterPreset', filterPresetSchema);

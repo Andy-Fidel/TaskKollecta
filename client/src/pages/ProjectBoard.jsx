@@ -310,6 +310,26 @@ export default function ProjectBoard() {
     [tasks],
   );
 
+  const pinnedSavedViews = useMemo(() => filterPresets.slice(0, 5), [filterPresets]);
+
+  const loadProjectSavedView = (savedView) => {
+    setFilters({
+      statuses: savedView.filters?.statuses || [],
+      priorities: savedView.filters?.priorities || [],
+      assignees: savedView.filters?.assignees || [],
+      tags: savedView.filters?.tags || [],
+      customFields: savedView.filters?.customFields || {},
+      dateFrom: savedView.filters?.dateFrom ? new Date(savedView.filters.dateFrom) : null,
+      dateTo: savedView.filters?.dateTo ? new Date(savedView.filters.dateTo) : null,
+    });
+    setSearchQuery(savedView.filters?.query || '');
+    setShowBlockedOnly(Boolean(savedView.filters?.blockedOnly));
+    if (savedView.layout && ['board', 'list', 'calendar'].includes(savedView.layout)) {
+      setView(savedView.layout);
+    }
+    toast.success(`Loaded "${savedView.name}"`);
+  };
+
   // Handlers
   const handleDragStart = (event) => setActiveId(event.active.id);
 
@@ -776,7 +796,29 @@ export default function ProjectBoard() {
               customFields={sortedCustomFields}
               presets={filterPresets}
               onPresetsChange={setFilterPresets}
+              searchQuery={searchQuery}
+              blockedOnly={showBlockedOnly}
+              currentLayout={view}
+              onSearchQueryChange={setSearchQuery}
+              onBlockedOnlyChange={setShowBlockedOnly}
+              onLayoutChange={setView}
             />
+            {pinnedSavedViews.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                {pinnedSavedViews.map((savedView) => (
+                  <button
+                    key={savedView._id}
+                    type="button"
+                    onClick={() => loadProjectSavedView(savedView)}
+                    className="h-8 shrink-0 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                    title={savedView.visibility === 'team' ? 'Team saved view' : 'Private saved view'}
+                  >
+                    {savedView.name}
+                    {savedView.visibility === 'team' && <span className="ml-1 text-primary">Team</span>}
+                  </button>
+                ))}
+              </div>
+            )}
             <Button variant="ghost" size="sm" onClick={() => setIsArchiveOpen(true)} title="View Archive">
               <Archive className="w-4 h-4 text-muted-foreground" /> <span className="hidden sm:inline ml-1">Archived</span>
             </Button>

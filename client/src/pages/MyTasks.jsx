@@ -10,18 +10,30 @@ import {
   Filter,
   FolderKanban,
   GitBranch,
+  Save,
   Search,
+  Trash2,
+  Users,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ExportMenu } from '../components/ExportMenu';
 import api from '../api/axios';
 import { useDataRefresh } from '../context/useDataRefresh';
 import { exportToCSV, exportToPDF, buildTaskExportData } from '../utils/exportUtils';
 import { trackProductEvent } from '../utils/productAnalytics';
+import { toast } from 'sonner';
 
 const VIEWS = [
   { id: 'today', label: 'Today', description: 'Due today and overdue work first' },
@@ -315,6 +327,10 @@ export default function MyTasks() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [priorityFilter, setPriorityFilter] = useState(searchParams.get('priority') || 'all');
   const [projectFilter, setProjectFilter] = useState(searchParams.get('project') || 'all');
+  const [savedViews, setSavedViews] = useState([]);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [savedViewName, setSavedViewName] = useState('');
+  const [savedViewVisibility, setSavedViewVisibility] = useState('private');
   const { refreshKey, triggerRefresh } = useDataRefresh();
 
   useEffect(() => {
@@ -340,6 +356,21 @@ export default function MyTasks() {
     fetchTasks();
   }, [refreshKey]);
 
+  useEffect(() => {
+    const fetchSavedViews = async () => {
+      const orgId = localStorage.getItem('activeOrgId');
+      if (!orgId) return;
+      try {
+        const { data } = await api.get(`/filter-presets/my-tasks?orgId=${orgId}`);
+        setSavedViews(Array.isArray(data) ? data : []);
+      } catch {
+        toast.error('Failed to load saved views');
+      }
+    };
+
+    fetchSavedViews();
+  }, []);
+
   const projectOptions = useMemo(() => {
     const seen = new Map();
     tasks.forEach((task) => {
@@ -362,6 +393,57 @@ export default function MyTasks() {
 
   const groupedTasks = useMemo(() => groupTasks(filteredTasks), [filteredTasks]);
   const counts = useMemo(() => summarizeCounts(filteredTasks), [filteredTasks]);
+
+  const loadSavedView = (savedView) => {
+    setView(savedView.filters?.view || 'all');
+    setSearchQuery(savedView.filters?.query || '');
+    setPriorityFilter(savedView.filters?.priority || 'all');
+    setProjectFilter(savedView.filters?.projectFilter || 'all');
+    toast.success(`Loaded "${savedView.name}"`);
+  };
+
+  const saveCurrentView = async () => {
+    const orgId = localStorage.getItem('activeOrgId');
+    if (!orgId) {
+      toast.error('Select an organization before saving a view');
+      return;
+    }
+    if (!savedViewName.trim()) return;
+
+    try {
+      const { data } = await api.post('/filter-presets', {
+        name: savedViewName.trim(),
+        orgId,
+        scope: 'my_tasks',
+        visibility: savedViewVisibility,
+        layout: 'my_tasks',
+        filters: {
+          view,
+          query: searchQuery,
+          priority: priorityFilter,
+          projectFilter,
+        },
+      });
+      setSavedViews((current) => [data, ...current]);
+      setSavedViewName('');
+      setSavedViewVisibility('private');
+      setIsSaveDialogOpen(false);
+      toast.success('Saved view created');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to save view');
+    }
+  };
+
+  const deleteSavedView = async (savedViewId, event) => {
+    event.stopPropagation();
+    try {
+      await api.delete(`/filter-presets/${savedViewId}`);
+      setSavedViews((current) => current.filter((savedView) => savedView._id !== savedViewId));
+      toast.success('Saved view deleted');
+    } catch {
+      toast.error('Failed to delete view');
+    }
+  };
 
   const replaceTask = (taskId, nextTask) => {
     setTasks((current) => current.map((task) => (task._id === taskId ? { ...task, ...nextTask } : task)));
@@ -487,11 +569,74 @@ export default function MyTasks() {
         ))}
       </div>
 
+      {savedViews.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+            <Save className="h-4 w-4" />
+            Saved Views
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {savedViews.map((savedView) => (
+              <div
+                key={savedView._id}
+                role="button"
+                tabIndex={0}
+                onClick={() => loadSavedView(savedView)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') loadSavedView(savedView);
+                }}
+                className="group rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary/40 hover:shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">{savedView.name}</span>
+                      {savedView.visibility === 'team' && (
+                        <Badge variant="secondary" className="gap-1 rounded-full text-[10px]">
+                          <Users className="h-3 w-3" />
+                          Team
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {VIEWS.find((item) => item.id === savedView.filters?.view)?.label || 'All Tasks'}
+                      {savedView.filters?.priority && savedView.filters.priority !== 'all' ? ` · ${savedView.filters.priority}` : ''}
+                      {savedView.filters?.query ? ` · "${savedView.filters.query}"` : ''}
+                    </p>
+                  </div>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => deleteSavedView(savedView._id, event)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') deleteSavedView(savedView._id, event);
+                    }}
+                    className="rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                    aria-label={`Delete ${savedView.name}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <Card className="rounded-3xl border-border/80 bg-card/90 shadow-sm">
         <CardHeader className="space-y-4 border-b border-border/80">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <CardTitle className="text-base">Filters</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-8 gap-1.5"
+              onClick={() => setIsSaveDialogOpen(true)}
+            >
+              <Save className="h-3.5 w-3.5" />
+              Save View
+            </Button>
           </div>
           <div className="grid gap-3 lg:grid-cols-[1.5fr,1fr,1fr]">
             <div className="relative">
@@ -594,6 +739,51 @@ export default function MyTasks() {
           </p>
         </div>
       )}
+
+      <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle>Save My Tasks View</DialogTitle>
+            <DialogDescription>
+              Save this triage view so you or your team can return to it quickly.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label htmlFor="my-tasks-view-name" className="text-sm font-medium text-foreground">
+                View Name
+              </label>
+              <Input
+                id="my-tasks-view-name"
+                value={savedViewName}
+                onChange={(event) => setSavedViewName(event.target.value)}
+                placeholder="e.g., Launch blockers"
+                className="mt-1.5"
+                autoFocus
+              />
+            </div>
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+              Visibility
+              <select
+                value={savedViewVisibility}
+                onChange={(event) => setSavedViewVisibility(event.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="private">Private to me</option>
+                <option value="team">Shared with team</option>
+              </select>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsSaveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveCurrentView} disabled={!savedViewName.trim()}>
+              Save View
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
