@@ -1,421 +1,317 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform, useInView, useSpring } from 'framer-motion';
-import { 
-  ArrowRight, CheckCircle2, Zap, Layout, 
-  Users, BarChart3, ShieldCheck, Play, Globe, Lock, Clock
+import { motion } from 'framer-motion';
+import {
+  ArrowRight,
+  BarChart3,
+  Briefcase,
+  CheckCircle2,
+  ChevronRight,
+  Gauge,
+  GitBranch,
+  LayoutDashboard,
+  Lock,
+  MessageSquareText,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  Users,
+  Workflow,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-
-// Asset Imports
-import heroTeamImg from '../assets/landing-hero-team.png';
 import dashboardUiImg from '../assets/landing-dashboard-ui.png';
+import heroTeamImg from '../assets/landing-hero-team.png';
 import conferenceImg from '../assets/landing-conference.png';
-import samImg from '../assets/Sam.jpeg';
 import gtvetsLogo from '../assets/gtvets_logo.png';
+import tkLogo from '../assets/taskkollecta-logo.png';
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] } },
+};
+
+const capabilities = [
+  {
+    icon: Workflow,
+    title: 'Run the work',
+    copy: 'Projects, boards, custom workflows, recurring work, dependencies, and intake forms stay in one operating system.',
+  },
+  {
+    icon: Target,
+    title: 'Align the work',
+    copy: 'Goals and portfolios connect daily execution to team-level outcomes, so leaders see progress without another status meeting.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Accelerate the work',
+    copy: 'AI suggestions, automations, reminders, and real-time updates remove the small delays that slow teams down.',
+  },
+];
+
+const proofStats = [
+  { value: '1', label: 'workspace for goals, projects, tasks, forms, and reporting' },
+  { value: '4+', label: 'ways to inspect work: board, list, calendar, timeline' },
+  { value: '0', label: 'context lost between intake, planning, and delivery' },
+];
+
+const operatingSystem = [
+  'Custom fields that travel from form intake to task execution.',
+  'Portfolios that summarize cross-project health and completion.',
+  'Goals that sync progress from linked work.',
+  'Workload and sprint reporting for delivery confidence.',
+];
 
 export default function LandingPage() {
-  const { scrollYProgress } = useScroll();
-  const dashboardRotateX = useTransform(scrollYProgress, [0, 0.2], [15, 0]);
-  const dashboardScale = useTransform(scrollYProgress, [0, 0.2], [0.9, 1]);
-  const dashboardOpacity = useTransform(scrollYProgress, [0, 0.2], [0.5, 1]);
-
-  // Framer Motion variants for staggered text reveal
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.15,
-        delayChildren: 0.2,
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 15 } }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-[Poppins] selection:bg-indigo-500 selection:text-white overflow-x-hidden">
-      
-      {/* --- NAVBAR --- */}
-      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl border-b border-white/20 shadow-sm supports-[backdrop-filter]:bg-white/60">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-slate-900/20">TK</div>
-            <span className="font-bold text-xl tracking-tight text-slate-900">TaskKollecta</span>
-          </div>
-          
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a href="#features" className="hover:text-indigo-600 transition-colors">Features</a>
-            <a href="#solutions" className="hover:text-indigo-600 transition-colors">Solutions</a>
-            <Link to="/docs" className="hover:text-indigo-600 transition-colors">Docs</Link>
-            <Link to="/api-reference" className="hover:text-indigo-600 transition-colors">API</Link>
-            <Link to="/community" className="hover:text-indigo-600 transition-colors">Community</Link>
+    <div className="min-h-screen bg-[#f7f8fb] text-[#111827] selection:bg-[#4f46e5] selection:text-white">
+      <nav className="fixed inset-x-0 top-0 z-50 border-b border-black/5 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 md:px-8">
+          <Link to="/" className="flex items-center gap-2.5">
+            <img src={tkLogo} alt="TaskKollecta" className="h-9 w-9 rounded-lg object-contain shadow-sm" />
+            <span className="text-base font-semibold tracking-tight">TaskKollecta</span>
+          </Link>
+
+          <div className="hidden items-center gap-7 text-sm font-medium text-slate-600 md:flex">
+            <a href="#platform" className="transition hover:text-slate-950">Platform</a>
+            <a href="#outcomes" className="transition hover:text-slate-950">Outcomes</a>
+            <a href="#security" className="transition hover:text-slate-950">Security</a>
+            <Link to="/docs" className="transition hover:text-slate-950">Docs</Link>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <Link to="/login">
-                <Button variant="ghost" className="hidden sm:inline-flex font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50">Sign in</Button>
+              <Button variant="ghost" className="hidden h-9 rounded-md px-4 text-sm font-medium sm:inline-flex">
+                Sign in
+              </Button>
             </Link>
             <Link to="/login">
-                <Button className="bg-slate-900 text-white hover:bg-slate-800 rounded-full px-6 shadow-xl shadow-slate-900/20 transition-all hover:scale-105 active:scale-95">
-                    Get Started
-                </Button>
+              <Button className="h-9 rounded-md bg-[#111827] px-4 text-sm font-semibold text-white hover:bg-black">
+                Start free
+              </Button>
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* --- HERO SECTION --- */}
-      <section className="pt-32 pb-20 px-6 lg:pt-48 lg:pb-32 overflow-hidden relative">
-        {/* Background Gradients */}
-        <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-[800px] h-[800px] bg-indigo-200/40 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
-        <div className="absolute bottom-0 left-0 translate-y-1/4 -translate-x-1/4 w-[800px] h-[800px] bg-purple-200/40 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
+      <main>
+        <section className="relative min-h-[92vh] overflow-hidden bg-[#0b1020] pt-16 text-white">
+          <div className="absolute inset-0">
+            <img src={dashboardUiImg} alt="TaskKollecta dashboard" className="h-full w-full object-cover opacity-35" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,16,32,0.98)_0%,rgba(11,16,32,0.88)_38%,rgba(11,16,32,0.58)_68%,rgba(11,16,32,0.36)_100%)]" />
+            <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#0b1020] to-transparent" />
+          </div>
 
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center relative z-10">
-          <motion.div 
-            className="space-y-10 text-center lg:text-left"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm text-sm font-medium text-slate-600 hover:border-indigo-200 transition-colors cursor-pointer">
-              <span className="flex h-2 w-2 rounded-full bg-indigo-500"></span>
-              New: AI-Powered Automations v2.0
+          <div className="relative mx-auto grid min-h-[calc(92vh-4rem)] max-w-7xl items-center gap-12 px-5 py-16 md:px-8 lg:grid-cols-[0.95fr_1.05fr]">
+            <motion.div initial="hidden" animate="visible" className="max-w-3xl">
+              <motion.div variants={fadeUp} className="mb-6 inline-flex items-center gap-2 rounded-md border border-white/14 bg-white/8 px-3 py-1.5 text-sm text-slate-200 backdrop-blur">
+                <span className="h-2 w-2 rounded-full bg-[#53d18a]" />
+                New work OS for ambitious teams
+              </motion.div>
+              <motion.h1 variants={fadeUp} className="max-w-4xl text-5xl font-semibold tracking-[-0.04em] text-white md:text-7xl lg:text-8xl">
+                TaskKollecta
+              </motion.h1>
+              <motion.p variants={fadeUp} className="mt-6 max-w-2xl text-xl leading-8 text-slate-200 md:text-2xl md:leading-9">
+                The command center where intake becomes action, projects ladder into goals, and leaders see the truth without chasing updates.
+              </motion.p>
+              <motion.div variants={fadeUp} className="mt-9 flex flex-col gap-3 sm:flex-row">
+                <Link to="/login">
+                  <Button className="h-12 rounded-md bg-white px-6 text-base font-semibold text-[#111827] hover:bg-slate-100">
+                    Build your workspace
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+                <a href="#platform">
+                  <Button variant="outline" className="h-12 rounded-md border-white/20 bg-white/5 px-6 text-base font-semibold text-white hover:bg-white/10 hover:text-white">
+                    See the platform
+                  </Button>
+                </a>
+              </motion.div>
+              <motion.div variants={fadeUp} className="mt-10 flex flex-wrap items-center gap-4 text-sm text-slate-300">
+                <span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#53d18a]" /> No credit card required</span>
+                <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#7dd3fc]" /> Secure by design</span>
+                <span className="inline-flex items-center gap-2"><Gauge className="h-4 w-4 text-[#fbbf24]" /> Built for velocity</span>
+              </motion.div>
             </motion.div>
-            
-            <motion.h1 variants={itemVariants} className="text-5xl lg:text-7xl font-bold tracking-tight text-slate-900 leading-[1.1]">
-              Manage projects <br/>
-              <span style={{ color: '#4D2FB2' }}>
-                 without the chaos.
-              </span>
-            </motion.h1>
-            
-            <motion.p variants={itemVariants} className="text-xl text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-              TaskKollecta connects your team, tasks, and tools in one fluid workspace. Stop managing busywork and start shipping software.
-            </motion.p>
 
-            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-4">
-              <Link to="/login" className="w-full sm:w-auto">
-                  <motion.button 
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="inline-flex items-center justify-center w-full h-14 px-8 text-lg font-medium rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 transition-shadow hover:shadow-indigo-500/50"
-                  >
-                      Start building free <ArrowRight className="ml-2 h-5 w-5"/>
-                  </motion.button>
-              </Link>
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="pt-8 flex flex-col items-center lg:items-start gap-4">
-              <p className="text-sm text-slate-400 font-medium uppercase tracking-wider">Trusted by 10,000+ teams</p>
-              <div className="flex flex-wrap justify-center lg:justify-start gap-x-8 gap-y-4 items-center">
-                 <img src={gtvetsLogo} alt="GTVETS" className="h-10 object-contain" />
-              </div>
-            </motion.div>
-          </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
-            animate={{ opacity: 1, scale: 1, rotate: 0 }}
-            transition={{ duration: 0.8, type: "spring", bounce: 0.4, delay: 0.4 }}
-            className="relative"
-          >
-             <div className="absolute -inset-4 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-[2.5rem] blur-2xl opacity-20"></div>
-             <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200 bg-white">
-                <img 
-                    src={heroTeamImg} 
-                    alt="Team collaboration" 
-                    className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700"
-                />
-             </div>
-             {/* Floating Badge */}
-             <motion.div 
-                animate={{ y: [0, -10, 0] }}
-                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                className="absolute -bottom-6 -left-6 bg-white p-4 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-4 max-w-xs"
-             >
-                <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-                    <CheckCircle2 className="w-6 h-6" />
-                </div>
-                <div>
-                    <p className="text-xs text-slate-500 font-medium">Sprint Goal Reached</p>
-                    <p className="text-sm font-bold text-slate-900">Q3 Product Launch 🚀</p>
-                </div>
-             </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* --- DASHBOARD PREVIEW SECTION --- */}
-      <section className="py-24 bg-white relative">
-         <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-                <h2 className="text-3xl md:text-5xl font-bold text-slate-900">One dashboard to rule them all.</h2>
-                <p className="text-xl text-slate-500">
-                   Get a bird's eye view of your entire organization. Track progress, velocity, and health in real-time.
-                </p>
-            </div>
-            
-            <div className="relative group perspective-1000">
-                <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl opacity-20 blur-xl group-hover:opacity-30 transition duration-1000"></div>
-                <motion.div 
-                    style={{ 
-                        rotateX: dashboardRotateX, 
-                        scale: dashboardScale, 
-                        opacity: dashboardOpacity,
-                        transformPerspective: 1000 
-                    }}
-                    className="relative rounded-2xl overflow-hidden border border-slate-200/60 shadow-2xl bg-slate-900/5 backdrop-blur-sm"
-                >
-                    <img 
-                        src={dashboardUiImg} 
-                        alt="TaskKollecta Dashboard" 
-                        className="w-full h-auto shadow-inner"
-                    />
-                </motion.div>
-            </div>
-         </div>
-      </section>
-
-      {/* --- FEATURES GRID --- */}
-      <section id="features" className="py-24 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-6">
-            <motion.div 
-              className="grid md:grid-cols-3 gap-8"
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
+            <motion.div
+              initial={{ opacity: 0, y: 22, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="hidden lg:block"
             >
-                <FeatureCard 
-                    variants={itemVariants}
-                    icon={Layout} 
-                    title="Kanban Boards" 
-                    desc="Visualize work in progress with fluid, drag-and-drop boards designed for flow."
-                />
-                <FeatureCard 
-                    variants={itemVariants}
-                    icon={Zap} 
-                    title="Smart Automations" 
-                    desc="Save hours every week. Let our AI handle task assignments, status updates, and notifications."
-                />
-                <FeatureCard 
-                    variants={itemVariants}
-                    icon={Users} 
-                    title="Real-time Context" 
-                    desc="Collaborate live. See who's typing, who's viewing, and solve problems together instantly."
-                />
-                <FeatureCard 
-                    variants={itemVariants}
-                    icon={BarChart3} 
-                    title="Deep Analytics" 
-                    desc="Uncover bottlenecks with instant sprint reports, burndown charts, and velocity tracking."
-                />
-                <FeatureCard 
-                    variants={itemVariants}
-                    icon={ShieldCheck} 
-                    title="Enterprise Security" 
-                    desc="SOC2 compliant, SSO ready, and encrypted at rest. Your data is safe with us."
-                />
-                <FeatureCard 
-                    variants={itemVariants}
-                    icon={Globe} 
-                    title="Global Infrastructure" 
-                    desc="Lightning fast performance from anywhere in the world, backed by minimal latency."
-                />
+              <div className="rounded-lg border border-white/12 bg-white/10 p-2 shadow-2xl shadow-black/40 backdrop-blur-md">
+                <img src={dashboardUiImg} alt="TaskKollecta product preview" className="w-full rounded-md border border-white/10 object-cover" />
+              </div>
             </motion.div>
+          </div>
+        </section>
+
+        <section className="-mt-1 bg-[#0b1020] px-5 pb-10 text-white md:px-8">
+          <div className="mx-auto grid max-w-7xl gap-px overflow-hidden rounded-lg border border-white/10 bg-white/10 md:grid-cols-3">
+            {proofStats.map((stat) => (
+              <div key={stat.label} className="bg-[#11182b] p-6">
+                <p className="text-4xl font-semibold tracking-tight">{stat.value}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="platform" className="bg-white px-5 py-24 md:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#4f46e5]">Platform</p>
+                <h2 className="mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.03em] text-slate-950 md:text-6xl">
+                  One operating rhythm from request to result.
+                </h2>
+              </div>
+              <p className="max-w-2xl text-lg leading-8 text-slate-600">
+                TaskKollecta is not another place to park tasks. It is the system that captures demand, coordinates delivery, and explains progress to every stakeholder.
+              </p>
+            </div>
+
+            <div className="mt-14 grid gap-4 md:grid-cols-3">
+              {capabilities.map((item) => (
+                <section key={item.title} className="rounded-lg border border-slate-200 bg-[#fbfcff] p-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#111827] text-white">
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="mt-6 text-xl font-semibold tracking-tight">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{item.copy}</p>
+                </section>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-[#f7f8fb] px-5 py-24 md:px-8">
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-2 lg:items-center">
+            <div className="order-2 lg:order-1">
+              <img src={heroTeamImg} alt="Team planning with TaskKollecta" className="w-full rounded-lg border border-slate-200 object-cover shadow-xl shadow-slate-200" />
+            </div>
+            <div className="order-1 lg:order-2">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0f766e]">The story</p>
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-slate-950 md:text-5xl">
+                Work stops slipping when every team can see the same system.
+              </h2>
+              <div className="mt-8 space-y-4">
+                {operatingSystem.map((item, index) => (
+                  <div key={item} className="flex gap-4 rounded-lg border border-slate-200 bg-white p-4">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-950 text-sm font-semibold text-white">{index + 1}</span>
+                    <p className="text-sm leading-6 text-slate-700">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="outcomes" className="bg-white px-5 py-24 md:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:items-center">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#b45309]">Executive clarity</p>
+                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-slate-950 md:text-6xl">
+                  A premium view for leaders. A practical workspace for teams.
+                </h2>
+              </div>
+              <div className="grid gap-3">
+                <Outcome icon={Briefcase} title="Portfolio health" text="Understand project progress across departments without building another spreadsheet." />
+                <Outcome icon={GitBranch} title="Dependency awareness" text="See what is blocked, what is moving, and where risk is building." />
+                <Outcome icon={BarChart3} title="Delivery intelligence" text="Sprint reports, workload, and trend data turn conversations into decisions." />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="security" className="bg-[#111827] px-5 py-24 text-white md:px-8">
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#93c5fd]">Trust</p>
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] md:text-5xl">
+                Designed for teams who need speed and control.
+              </h2>
+              <p className="mt-6 text-lg leading-8 text-slate-300">
+                Roles, organization boundaries, private projects, secure authentication, and clear activity history give operators confidence as work scales.
+              </p>
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                <TrustItem icon={Lock} text="Role-based access" />
+                <TrustItem icon={Users} text="Multi-organization workspaces" />
+                <TrustItem icon={MessageSquareText} text="Comments, mentions, notifications" />
+                <TrustItem icon={LayoutDashboard} text="Admin and analytics surfaces" />
+              </div>
+            </div>
+            <div>
+              <img src={conferenceImg} alt="Leadership team reviewing portfolio progress" className="w-full rounded-lg border border-white/10 object-cover shadow-2xl shadow-black/30" />
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white px-5 py-20 md:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 rounded-lg border border-slate-200 bg-[#f7f8fb] p-8 md:p-12 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <div className="flex items-center gap-3">
+                <img src={gtvetsLogo} alt="GTVETS" className="h-9 object-contain" />
+                <span className="text-sm font-medium text-slate-500">Teams already organize work with TaskKollecta</span>
+              </div>
+              <h2 className="mt-6 text-3xl font-semibold tracking-[-0.03em] text-slate-950 md:text-5xl">
+                Give your team a calmer way to ship.
+              </h2>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+                Start with one project. Add forms, fields, goals, portfolios, and automations as the work matures.
+              </p>
+            </div>
+            <Link to="/login">
+              <Button className="h-12 rounded-md bg-[#111827] px-6 text-base font-semibold text-white hover:bg-black">
+                Start free
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-slate-200 bg-white px-5 py-12 md:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2.5">
+            <img src={tkLogo} alt="TaskKollecta" className="h-8 w-8 rounded-md object-contain" />
+            <span className="font-semibold tracking-tight">TaskKollecta</span>
+          </div>
+          <div className="flex flex-wrap gap-5 text-sm text-slate-500">
+            <Link to="/docs" className="hover:text-slate-950">Docs</Link>
+            <Link to="/api-reference" className="hover:text-slate-950">API</Link>
+            <Link to="/community" className="hover:text-slate-950">Community</Link>
+            <Link to="/privacy" className="hover:text-slate-950">Privacy</Link>
+            <Link to="/terms" className="hover:text-slate-950">Terms</Link>
+          </div>
+          <p className="text-sm text-slate-400">© 2026 TaskKollecta.</p>
         </div>
-      </section>
-
-      {/* --- ENTERPRISE SECTION --- */}
-      <section className="py-24 bg-slate-900 text-white overflow-hidden relative">
-          {/* Background decoration */}
-          <div className="absolute inset-0 overflow-hidden">
-             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/20 rounded-full blur-3xl"></div>
-             <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-3xl"></div>
-          </div>
-
-          <div className="max-w-7xl mx-auto px-6 relative z-10">
-              <div className="flex flex-col lg:flex-row items-center gap-16">
-                  <motion.div 
-                    initial={{ opacity: 0, x: -50 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true, margin: "-100px" }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
-                    className="flex-1 space-y-10"
-                  >
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider">
-                        <Lock className="w-4 h-4" /> Enterprise Grade
-                      </div>
-                      <h2 className="text-4xl lg:text-5xl font-bold leading-tight">
-                          Scale your team <br/> without breaking your process.
-                      </h2>
-                      <p className="text-xl text-slate-300 leading-relaxed">
-                          Whether you're a startup of 10 or an enterprise of 10,000, TaskKollecta adapts to your workflow. 
-                          Manage multiple organizations, enforce granular permissions, and get insights that matter.
-                      </p>
-                      
-                      <div className="grid grid-cols-2 gap-8 pt-4">
-                          <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                              <h4 className="text-2xl font-bold text-white mb-1"><Counter from={0} to={99.99} decimals={2} />%</h4>
-                              <p className="text-sm text-slate-400">Uptime SLA</p>
-                          </div>
-                          <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                              <h4 className="text-2xl font-bold text-white mb-1"><Counter from={0} to={24} />/7</h4>
-                              <p className="text-sm text-slate-400">Priority Support</p>
-                          </div>
-                      </div>
-
-                      <motion.button 
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="inline-flex items-center justify-center h-14 px-8 bg-white text-slate-900 font-medium hover:bg-slate-100 rounded-full text-lg shadow-lg"
-                      >
-                          Contact Sales
-                      </motion.button>
-                  </motion.div>
-                  
-                  <motion.div 
-                    initial={{ opacity: 0, x: 50 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true, margin: "-100px" }}
-                    transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-                    className="flex-1 relative"
-                  >
-                       <div className="absolute -inset-4 bg-indigo-500/30 rounded-2xl blur-xl"></div>
-                       <img 
-                          src={conferenceImg} 
-                          alt="Enterprise Conference" 
-                          className="relative rounded-2xl border border-white/10 shadow-2xl w-full h-auto"
-                       />
-                       {/* Glass Cards */}
-                       <motion.div 
-                          animate={{ y: [0, -15, 0] }}
-                          transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
-                          className="absolute -bottom-8 -left-8 bg-slate-800/90 backdrop-blur-md p-6 rounded-xl border border-white/10 shadow-xl max-w-xs hidden md:block"
-                       >
-                           <div className="flex items-center gap-4 mb-4">
-                               <img src={samImg} alt="Samuel Andy-Fidel" className="h-10 w-10 rounded-full object-cover" />
-                               <div>
-                                   <p className="text-white font-medium">Samuel Andy-Fidel</p>
-                                   <p className="text-xs text-slate-400">System Architect</p>
-                               </div>
-                           </div>
-                           <p className="text-sm text-slate-300 italic">"This platform revolutionized how we manage tasks and collaborate on projects. It's simply the best."</p>
-                       </motion.div>
-                  </motion.div>
-              </div>
-          </div>
-      </section>
-
-      {/* --- CTA SECTION --- */}
-      <section className="py-24 px-6 bg-white">
-          <div className="max-w-4xl mx-auto bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-12 md:p-20 text-center relative overflow-hidden shadow-2xl shadow-slate-200">
-              <div className="relative z-10 space-y-10">
-                  <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight">Ready to transform your workflow?</h2>
-                  <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-                      Join the new standard in project management. 
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
-                      <Link to="/login">
-                        <motion.button 
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="inline-flex items-center justify-center h-14 px-8 text-lg font-medium bg-white text-slate-900 hover:bg-indigo-50 rounded-full shadow-lg transition-shadow"
-                        >
-                            Get Started for Free
-                        </motion.button>
-                      </Link>
-                  </div>
-                  <p className="text-sm text-slate-500">No credit card required · Cancel anytime</p>
-              </div>
-          </div>
-      </section>
-
-      {/* --- FOOTER --- */}
-      <footer className="bg-slate-50 border-t border-slate-200 py-16 px-6">
-          <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-12">
-              <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-sm">TK</div>
-                    <span className="font-bold text-xl text-slate-900">TaskKollecta</span>
-                  </div>
-                  <p className="text-sm text-slate-500 leading-relaxed">
-                      Built for modern teams who demand excellence. 
-                      Ship faster, collaborate better, and measure everything.
-                  </p>
-              </div>
-              <div>
-                  <h4 className="font-bold text-slate-900 mb-8">Product</h4>
-                  <ul className="space-y-3 text-sm text-slate-500">
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">Features</a></li>
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">Automations</a></li>
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">Integrations</a></li>
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">Changelog</a></li>
-                  </ul>
-              </div>
-              <div>
-                  <h4 className="font-bold text-slate-900 mb-8">Resources</h4>
-                  <ul className="space-y-3 text-sm text-slate-500">
-                      <li><Link to="/docs" className="hover:text-indigo-600 transition-colors">Documentation</Link></li>
-                      <li><Link to="/api-reference" className="hover:text-indigo-600 transition-colors">API Reference</Link></li>
-                      <li><Link to="/community" className="hover:text-indigo-600 transition-colors">Community</Link></li>
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">Blog</a></li>
-                  </ul>
-              </div>
-              <div>
-                  <h4 className="font-bold text-slate-900 mb-8">Legal</h4>
-                  <ul className="space-y-3 text-sm text-slate-500">
-                      <li><Link to="/privacy" className="hover:text-indigo-600 transition-colors">Privacy</Link></li>
-                      <li><Link to="/terms" className="hover:text-indigo-600 transition-colors">Terms</Link></li>
-                      <li><a href="#" className="hover:text-indigo-600 transition-colors">Security</a></li>
-                  </ul>
-              </div>
-          </div>
-          <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center text-sm text-slate-400">
-              <p>© 2026 TaskKollecta Inc. All rights reserved.</p>
-              <div className="flex gap-8 mt-4 md:mt-0">
-                  <a href="#" className="hover:text-slate-600">Twitter</a>
-                  <a href="#" className="hover:text-slate-600">GitHub</a>
-                  <a href="#" className="hover:text-slate-600">Discord</a>
-              </div>
-          </div>
       </footer>
-
     </div>
   );
 }
 
-// eslint-disable-next-line no-unused-vars
-function FeatureCard({ icon: Icon, title, desc, variants }) {
-    return (
-        <motion.div variants={variants} className="group bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div>
-            <div className="h-14 w-14 bg-white border border-slate-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-8 shadow-sm relative z-10 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
-                <Icon className="h-7 w-7" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-3 relative z-10">{title}</h3>
-            <p className="text-slate-500 leading-relaxed relative z-10">{desc}</p>
-        </motion.div>
-    )
+function Outcome({ icon: Icon, title, text }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#eef2ff] text-[#4f46e5]">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <h3 className="font-semibold tracking-tight text-slate-950">{title}</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-600">{text}</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function Counter({ from, to, decimals = 0 }) {
-    const nodeRef = React.useRef(null);
-    const inView = useInView(nodeRef, { once: true, margin: "-100px" });
-    const springValue = useSpring(from, { stiffness: 50, damping: 20 });
-    const displayValue = useTransform(springValue, (val) => val.toFixed(decimals));
-
-    React.useEffect(() => {
-        if (inView) {
-            springValue.set(to);
-        }
-    }, [inView, to, springValue]);
-
-    return <motion.span ref={nodeRef}>{displayValue}</motion.span>;
+function TrustItem({ icon: Icon, text }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
+      <Icon className="h-5 w-5 text-[#93c5fd]" />
+      <span className="text-sm font-medium text-slate-200">{text}</span>
+    </div>
+  );
 }
