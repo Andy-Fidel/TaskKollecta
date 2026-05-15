@@ -87,8 +87,8 @@ describe('Product analytics API', () => {
     expect(summary.body.recommendations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'review_workspace_setup', route: '/projects' }),
-        expect.objectContaining({ id: 'create_first_project', route: '/projects' }),
-        expect.objectContaining({ id: 'open_help_wizard', route: '/dashboard' }),
+        expect.objectContaining({ id: 'create_first_project', action: 'open_project_wizard', route: '/projects' }),
+        expect.objectContaining({ id: 'open_help_wizard', action: 'open_help_wizard', route: '/dashboard' }),
       ]),
     );
   });

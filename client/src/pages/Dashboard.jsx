@@ -25,6 +25,7 @@ import api from '../api/axios';
 import { useAuth } from '../context/useAuth';
 import { ReminderWidget } from '@/components/ReminderWidget';
 import { SmartFocusMode } from '@/components/SmartFocusMode';
+import { HelpWizard } from '@/components/HelpWizard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDataRefresh } from '../context/useDataRefresh';
 import { trackProductEvent } from '../utils/productAnalytics';
@@ -111,6 +112,7 @@ export default function Dashboard() {
 
   // Modal State
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isHelpWizardOpen, setIsHelpWizardOpen] = useState(false);
   const [orgMembers, setOrgMembers] = useState([]);
   const { refreshKey, triggerRefresh } = useDataRefresh();
 
@@ -674,7 +676,11 @@ export default function Dashboard() {
 
           {/* Activation Insights */}
           {adoptionData && (
-            <ActivationInsights data={adoptionData} />
+            <ActivationInsights
+              data={adoptionData}
+              onOpenProjectWizard={() => setIsProjectModalOpen(true)}
+              onOpenHelpWizard={() => setIsHelpWizardOpen(true)}
+            />
           )}
 
           {/* Today's Tasks */}
@@ -709,6 +715,8 @@ export default function Dashboard() {
         onProjectCreated={handleProjectCreated}
       />
 
+      <HelpWizard open={isHelpWizardOpen} onOpenChange={setIsHelpWizardOpen} />
+
       {/* Inline CSS animations */}
       <style>{`
         @keyframes fadeInUp {
@@ -732,7 +740,7 @@ function QuickAction(props) {
   )
 }
 
-function ActivationInsights({ data }) {
+function ActivationInsights({ data, onOpenProjectWizard, onOpenHelpWizard }) {
   const navigate = useNavigate();
   const score = data.activationScore || 0;
   const steps = data.activationSteps || [];
@@ -748,6 +756,14 @@ function ActivationInsights({ data }) {
         route: recommendation.route,
       },
     });
+    if (recommendation.action === 'open_project_wizard') {
+      onOpenProjectWizard?.();
+      return;
+    }
+    if (recommendation.action === 'open_help_wizard') {
+      onOpenHelpWizard?.();
+      return;
+    }
     navigate(recommendation.route || '/dashboard');
   };
 
