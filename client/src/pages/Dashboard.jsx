@@ -100,6 +100,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
+  const [adoptionData, setAdoptionData] = useState(null);
 
   // Date Filters
   const [dateRange, setDateRange] = useState({
@@ -127,8 +128,12 @@ export default function Dashboard() {
         // Fetch org members for the project wizard
         const activeOrgId = localStorage.getItem('activeOrgId') || orgRes.data?.[0]?._id;
         if (activeOrgId) {
-          const memRes = await api.get(`/organizations/${activeOrgId}/members`);
+          const [memRes, adoptionRes] = await Promise.all([
+            api.get(`/organizations/${activeOrgId}/members`),
+            api.get(`/analytics/product-adoption?orgId=${activeOrgId}`).catch(() => ({ data: null })),
+          ]);
           setOrgMembers(memRes.data);
+          setAdoptionData(adoptionRes.data);
         }
       } catch {
         console.error("Failed to load dashboard");
@@ -666,6 +671,11 @@ export default function Dashboard() {
             <ReminderWidget />
           </div>
 
+          {/* Activation Insights */}
+          {adoptionData && (
+            <ActivationInsights data={adoptionData} />
+          )}
+
           {/* Today's Tasks */}
           <Card className={cardStyle}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -719,6 +729,63 @@ function QuickAction(props) {
       <span className="text-xs font-bold text-muted-foreground group-hover:text-foreground">{label}</span>
     </button>
   )
+}
+
+function ActivationInsights({ data }) {
+  const score = data.activationScore || 0;
+  const steps = data.activationSteps || [];
+  const help = data.helpEngagement || {};
+
+  return (
+    <Card className="border-border bg-card text-card-foreground shadow-sm rounded-2xl">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <Target className="w-5 h-5 text-primary" />
+              Activation Insights
+            </CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">How this workspace is adopting key workflows.</p>
+          </div>
+          <Badge variant={score >= 80 ? 'default' : 'secondary'} className="rounded-full">
+            {score}%
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${score}%` }} />
+        </div>
+
+        <div className="space-y-2">
+          {steps.map((step) => (
+            <div key={step.id} className="flex items-center gap-3 rounded-lg border border-border bg-background/70 p-2.5">
+              <CheckCircle2 className={`h-4 w-4 shrink-0 ${step.completed ? 'text-emerald-500' : 'text-muted-foreground/40'}`} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{step.label}</p>
+                <p className="text-[10px] text-muted-foreground">{step.count || 0} events</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 border-t border-border pt-4">
+          <MiniMetric label="Help opens" value={help.opened || 0} />
+          <MiniMetric label="Paths" value={help.pathsSelected || 0} />
+          <MiniMetric label="Workflows" value={help.workflowsOpened || 0} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MiniMetric({ label, value }) {
+  return (
+    <div className="rounded-lg bg-muted/40 p-2 text-center">
+      <p className="text-lg font-bold text-foreground tabular-nums">{value}</p>
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+    </div>
+  );
 }
 
 function TaskItem({ title, project, priority }) {

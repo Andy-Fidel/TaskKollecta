@@ -329,7 +329,91 @@ const getProductAdoptionAnalytics = async (req, res) => {
       { $sort: { count: -1 } },
     ]);
 
+    const milestoneCounts = await ProductEvent.aggregate([
+      {
+        $match: {
+          organization: new mongoose.Types.ObjectId(orgId),
+          eventName: 'onboarding_milestone_completed',
+        },
+      },
+      {
+        $group: {
+          _id: '$metadata.milestone',
+          count: { $sum: 1 },
+          lastSeenAt: { $max: '$createdAt' },
+        },
+      },
+    ]);
+
+    const eventMap = new Map(eventCounts.map((item) => [item._id, {
+      count: item.count,
+      lastSeenAt: item.lastSeenAt,
+    }]));
+    const milestoneMap = new Map(milestoneCounts.map((item) => [item._id, {
+      count: item.count,
+      lastSeenAt: item.lastSeenAt,
+    }]));
+
+    const getCount = (eventName) => eventMap.get(eventName)?.count || 0;
+    const getLastSeenAt = (eventName) => eventMap.get(eventName)?.lastSeenAt || null;
+    const getMilestoneCount = (milestone) => milestoneMap.get(milestone)?.count || 0;
+    const getMilestoneLastSeenAt = (milestone) => milestoneMap.get(milestone)?.lastSeenAt || null;
+
+    const activationSteps = [
+      {
+        id: 'onboarding_completed',
+        label: 'Completed onboarding',
+        completed: getCount('onboarding_completed') > 0,
+        count: getCount('onboarding_completed'),
+        lastSeenAt: getLastSeenAt('onboarding_completed'),
+      },
+      {
+        id: 'first_project_created',
+        label: 'Created first project',
+        completed: getMilestoneCount('first_project_created') > 0,
+        count: getMilestoneCount('first_project_created'),
+        lastSeenAt: getMilestoneLastSeenAt('first_project_created'),
+      },
+      {
+        id: 'help_wizard_opened',
+        label: 'Opened help wizard',
+        completed: getCount('help_wizard_opened') > 0,
+        count: getCount('help_wizard_opened'),
+        lastSeenAt: getLastSeenAt('help_wizard_opened'),
+      },
+      {
+        id: 'saved_view_created',
+        label: 'Created a saved view',
+        completed: getMilestoneCount('first_saved_view_created') > 0,
+        count: getMilestoneCount('first_saved_view_created'),
+        lastSeenAt: getMilestoneLastSeenAt('first_saved_view_created'),
+      },
+      {
+        id: 'setup_checklist_action_clicked',
+        label: 'Used setup checklist',
+        completed: getCount('setup_checklist_action_clicked') > 0,
+        count: getCount('setup_checklist_action_clicked'),
+        lastSeenAt: getLastSeenAt('setup_checklist_action_clicked'),
+      },
+    ];
+
+    const completedActivationSteps = activationSteps.filter((step) => step.completed).length;
+    const activationScore = activationSteps.length === 0
+      ? 0
+      : Math.round((completedActivationSteps / activationSteps.length) * 100);
+
+    const helpEngagement = {
+      opened: getCount('help_wizard_opened'),
+      pathsSelected: getCount('help_wizard_path_selected'),
+      workflowsOpened: getCount('help_wizard_workflow_opened'),
+    };
+
     res.json({
+      activationScore,
+      completedActivationSteps,
+      totalActivationSteps: activationSteps.length,
+      activationSteps,
+      helpEngagement,
       events: eventCounts.map((item) => ({
         eventName: item._id,
         count: item.count,

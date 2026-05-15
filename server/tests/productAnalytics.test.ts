@@ -72,5 +72,59 @@ describe('Product analytics API', () => {
         expect.objectContaining({ eventName: 'command_workspace_switched', count: 1 }),
       ]),
     );
+    expect(summary.body.activationScore).toBeGreaterThanOrEqual(0);
+    expect(summary.body.activationSteps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'help_wizard_opened', completed: false }),
+        expect.objectContaining({ id: 'setup_checklist_action_clicked', completed: false }),
+      ]),
+    );
+    expect(summary.body.helpEngagement).toMatchObject({
+      opened: 0,
+      pathsSelected: 0,
+      workflowsOpened: 0,
+    });
+  });
+
+  it('returns activation milestones and help engagement summary', async () => {
+    const events = [
+      { eventName: 'help_wizard_opened', metadata: {} },
+      { eventName: 'help_wizard_path_selected', metadata: { pathId: 'focus' } },
+      { eventName: 'help_wizard_workflow_opened', metadata: { pathId: 'focus', route: '/tasks' } },
+      { eventName: 'setup_checklist_action_clicked', metadata: { itemId: 'create-project' } },
+      { eventName: 'onboarding_milestone_completed', metadata: { milestone: 'first_project_created' } },
+      { eventName: 'onboarding_milestone_completed', metadata: { milestone: 'first_saved_view_created' } },
+    ];
+
+    for (const event of events) {
+      const response = await request(app)
+        .post('/api/analytics/events')
+        .set('Cookie', [`jwt=${token}`])
+        .send({
+          ...event,
+          organizationId: org._id.toString(),
+        });
+      expect(response.status).toBe(201);
+    }
+
+    const summary = await request(app)
+      .get(`/api/analytics/product-adoption?orgId=${org._id.toString()}`)
+      .set('Cookie', [`jwt=${token}`]);
+
+    expect(summary.status).toBe(200);
+    expect(summary.body.activationScore).toBe(80);
+    expect(summary.body.activationSteps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'first_project_created', completed: true, count: 1 }),
+        expect.objectContaining({ id: 'saved_view_created', completed: true, count: 1 }),
+        expect.objectContaining({ id: 'help_wizard_opened', completed: true, count: 1 }),
+        expect.objectContaining({ id: 'setup_checklist_action_clicked', completed: true, count: 1 }),
+      ]),
+    );
+    expect(summary.body.helpEngagement).toMatchObject({
+      opened: 1,
+      pathsSelected: 1,
+      workflowsOpened: 1,
+    });
   });
 });
