@@ -10,13 +10,13 @@
 
 const Task = require('../models/Task');
 const Project = require('../models/Project');
-const { sendDueDateReminderEmail } = require('./notificationService');
+const { sendDueDateReminderEmail, sendNotification } = require('./notificationService');
 
 /**
  * Find tasks due within X days and send reminders
  * @param {number} daysAhead - Number of days to look ahead (default: 1)
  */
-const sendDueDateReminders = async (daysAhead = 1) => {
+const sendDueDateReminders = async (daysAhead = 1, io = null) => {
     console.log(`📧 Running due date reminder check for tasks due in ${daysAhead} day(s)...`);
 
     try {
@@ -48,10 +48,29 @@ const sendDueDateReminders = async (daysAhead = 1) => {
         let sentCount = 0;
         for (const task of tasks) {
             try {
+                const projectId = task.project?._id || task.project;
+                const dueLabel = daysAhead === 0 ? 'today' : daysAhead === 1 ? 'tomorrow' : `in ${daysAhead} days`;
+
+                await sendNotification(io, {
+                    recipientId: task.assignee,
+                    senderId: task.reporter || task.assignee,
+                    type: 'due_date',
+                    relatedId: task._id,
+                    relatedModel: 'Task',
+                    relatedProject: projectId,
+                    message: `"${task.title}" is due ${dueLabel}`,
+                    allowSelf: true,
+                    dedupeKey: `due_date:${task._id}:${daysAhead}:${startOfDay.toISOString().slice(0, 10)}`,
+                    metadata: {
+                        daysAhead,
+                        dueDate: task.dueDate,
+                    },
+                });
+
                 await sendDueDateReminderEmail(task.assignee, {
                     task,
                     projectName: task.project?.name || 'General',
-                    projectId: task.project?._id || task.project,
+                    projectId,
                     daysUntilDue: daysAhead
                 });
                 sentCount++;

@@ -95,6 +95,8 @@ describe('taskSideEffects', () => {
     expect(notifications).toHaveLength(1);
     expect(notifications[0].type).toBe('task_assigned');
     expect(notifications[0].relatedId.toString()).toBe(task._id.toString());
+    expect(notifications[0].relatedProject?.toString()).toBe(project._id.toString());
+    expect(notifications[0].actionUrl).toBe(`/project/${project._id}`);
   });
 
   it('records task activities and invalidates project caches without failing the flow', async () => {
@@ -155,5 +157,13 @@ describe('taskSideEffects', () => {
       relatedId: task._id,
     });
     expect(assignmentNotifications).toHaveLength(1);
+
+    const statusNotifications = await Notification.find({
+      recipient: replacementAssignee._id,
+      type: 'task_status_change',
+      relatedId: task._id,
+    });
+    expect(statusNotifications).toHaveLength(1);
+    expect(statusNotifications[0].actionUrl).toBe(`/project/${project._id}`);
   });
 });

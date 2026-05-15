@@ -32,7 +32,13 @@ const userSchema = new mongoose.Schema({
     emailComments: { type: Boolean, default: true },
     emailDueDates: { type: Boolean, default: true },
     emailStatusChanges: { type: Boolean, default: false },
-    emailMentions: { type: Boolean, default: true }
+    emailMentions: { type: Boolean, default: true },
+    inAppAssignments: { type: Boolean, default: true },
+    inAppComments: { type: Boolean, default: true },
+    inAppDueDates: { type: Boolean, default: true },
+    inAppStatusChanges: { type: Boolean, default: true },
+    inAppMentions: { type: Boolean, default: true },
+    inAppAutomations: { type: Boolean, default: true }
   },
 
   // Reminder Preferences

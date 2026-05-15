@@ -80,4 +80,26 @@ describe('notificationService', () => {
       message: 'Not authorized',
     });
   });
+
+  it('rejects unsupported notification statuses', async () => {
+    const notification = await Notification.create({
+      recipient: recipient._id,
+      sender: sender._id,
+      type: 'new_comment',
+      relatedId: recipient._id,
+      relatedModel: 'Task',
+      message: 'Protected',
+    });
+
+    await expect(
+      notificationService.updateNotificationStatus({
+        notificationId: notification._id.toString(),
+        userId: recipient._id,
+        status: 'muted',
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: 'Invalid notification status',
+    });
+  });
 });

@@ -29,6 +29,7 @@ const notifyTaskAssigneeAboutComment = async ({ io, task, taskId, user, content 
     type: 'new_comment',
     relatedId: taskId,
     relatedModel: 'Task',
+    relatedProject: task.project,
     message: `commented on: ${task.title}`,
   });
 
@@ -58,6 +59,7 @@ const notifyMentionedUsers = async ({ io, task, taskId, user, content }) => {
       type: 'mention',
       relatedId: taskId,
       relatedModel: 'Task',
+      relatedProject: task.project,
       message: 'mentioned you in a comment',
     });
 

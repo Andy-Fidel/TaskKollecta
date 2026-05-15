@@ -37,7 +37,13 @@ export default function Settings() {
     emailComments: true,
     emailDueDates: true,
     emailStatusChanges: false,
-    emailMentions: true
+    emailMentions: true,
+    inAppAssignments: true,
+    inAppComments: true,
+    inAppDueDates: true,
+    inAppStatusChanges: true,
+    inAppMentions: true,
+    inAppAutomations: true
   });
   const [notifLoading, setNotifLoading] = useState(false);
 
@@ -191,11 +197,42 @@ export default function Settings() {
   };
 
   const notificationOptions = [
-    { key: 'emailAssignments', title: 'Task Assignments', description: 'Receive emails when assigned to a task' },
-    { key: 'emailComments', title: 'Comments', description: 'Receive emails when someone comments on your task' },
-    { key: 'emailMentions', title: 'Mentions', description: 'Receive emails when someone @mentions you' },
-    { key: 'emailDueDates', title: 'Due Date Reminders', description: 'Receive reminder emails before tasks are due' },
-    { key: 'emailStatusChanges', title: 'Status Updates', description: 'Receive emails when your task status changes' }
+    {
+      title: 'Task Assignments',
+      description: 'When someone assigns you work',
+      inAppKey: 'inAppAssignments',
+      emailKey: 'emailAssignments',
+    },
+    {
+      title: 'Comments',
+      description: 'When someone comments on your task',
+      inAppKey: 'inAppComments',
+      emailKey: 'emailComments',
+    },
+    {
+      title: 'Mentions',
+      description: 'When someone @mentions you',
+      inAppKey: 'inAppMentions',
+      emailKey: 'emailMentions',
+    },
+    {
+      title: 'Due Date Reminders',
+      description: 'Before assigned work is due',
+      inAppKey: 'inAppDueDates',
+      emailKey: 'emailDueDates',
+    },
+    {
+      title: 'Status Updates',
+      description: 'When your assigned work moves status',
+      inAppKey: 'inAppStatusChanges',
+      emailKey: 'emailStatusChanges',
+    },
+    {
+      title: 'Automations',
+      description: 'When a project automation sends you an alert',
+      inAppKey: 'inAppAutomations',
+      emailKey: null,
+    },
   ];
 
   const reminderTypeOptions = [
@@ -350,21 +387,41 @@ export default function Settings() {
         <TabsContent value="notifications" className="space-y-4 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Email Notifications</CardTitle>
-              <CardDescription>Choose what email notifications you receive.</CardDescription>
+              <CardTitle>Notification Channels</CardTitle>
+              <CardDescription>Choose which updates appear in your inbox and which are also sent by email.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {notificationOptions.map(({ key, title, description }) => (
-                <div key={key} className="flex items-center justify-between p-4 border rounded-lg">
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-[1fr_72px_72px] items-center gap-3 px-4 text-xs font-medium uppercase text-muted-foreground">
+                <span>Update</span>
+                <span className="text-center">In-app</span>
+                <span className="text-center">Email</span>
+              </div>
+              {notificationOptions.map(({ title, description, inAppKey, emailKey }) => (
+                <div key={inAppKey} className="grid grid-cols-[1fr_72px_72px] items-center gap-3 p-4 border rounded-lg">
                   <div className="space-y-0.5">
                     <Label className="text-base">{title}</Label>
                     <p className="text-xs text-muted-foreground">{description}</p>
                   </div>
-                  <Switch
-                    checked={notifPrefs[key]}
-                    onCheckedChange={(checked) => handleNotifToggle(key, checked)}
-                    disabled={notifLoading}
-                  />
+                  <div className="flex justify-center">
+                    <Switch
+                      checked={notifPrefs[inAppKey]}
+                      onCheckedChange={(checked) => handleNotifToggle(inAppKey, checked)}
+                      disabled={notifLoading}
+                      aria-label={`${title} in-app notifications`}
+                    />
+                  </div>
+                  <div className="flex justify-center">
+                    {emailKey ? (
+                      <Switch
+                        checked={notifPrefs[emailKey]}
+                        onCheckedChange={(checked) => handleNotifToggle(emailKey, checked)}
+                        disabled={notifLoading}
+                        aria-label={`${title} email notifications`}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </CardContent>

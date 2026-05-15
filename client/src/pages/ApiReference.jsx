@@ -117,8 +117,10 @@ const ENDPOINT_GROUPS = [
     base: '/api/notifications',
     endpoints: [
       { method: 'GET', path: '/', desc: 'List notifications for current user', auth: true },
-      { method: 'PUT', path: '/:id/read', desc: 'Mark a notification as read', auth: true },
-      { method: 'PUT', path: '/read-all', desc: 'Mark all notifications as read', auth: true },
+      { method: 'PUT', path: '/:id/status', desc: 'Set a notification status to unread, read, or archived', auth: true },
+      { method: 'PUT', path: '/read', desc: 'Mark all notifications as read', auth: true },
+      { method: 'DELETE', path: '/:id', desc: 'Delete a notification', auth: true },
+      { method: 'DELETE', path: '/', desc: 'Clear all notifications', auth: true },
     ]
   },
 ];

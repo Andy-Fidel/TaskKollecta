@@ -45,6 +45,7 @@ const notifyTaskCreationAssignment = async ({
       type: 'task_assigned',
       relatedId: task._id,
       relatedModel: 'Task',
+      relatedProject: projectId,
       message: `assigned you to task: ${task.title}`,
     });
 
@@ -67,15 +68,15 @@ const notifyTaskCreationAssignment = async ({
   }
 };
 
-const runTaskUpdateAutomations = async ({ task, body }) => {
+const runTaskUpdateAutomations = async ({ io, user, task, body }) => {
   const runs = [];
 
   if (body.status) {
-    runs.push(runAutomations(task.project, 'status_change', body.status, task));
+    runs.push(runAutomations(task.project, 'status_change', body.status, task, { io, actorId: user?._id }));
   }
 
   if (body.priority) {
-    runs.push(runAutomations(task.project, 'priority_change', body.priority, task));
+    runs.push(runAutomations(task.project, 'priority_change', body.priority, task, { io, actorId: user?._id }));
   }
 
   await Promise.all(runs);
@@ -89,6 +90,7 @@ const notifyTaskUpdate = async ({ io, user, oldTask, updatedTask, body }) => {
       type: 'task_assigned',
       relatedId: updatedTask._id,
       relatedModel: 'Task',
+      relatedProject: updatedTask.project?._id || updatedTask.project,
       message: `assigned you to task: ${updatedTask.title}`,
     });
 
@@ -103,6 +105,16 @@ const notifyTaskUpdate = async ({ io, user, oldTask, updatedTask, body }) => {
   if (body.status && oldTask.status !== body.status && updatedTask.assignee) {
     const assigneeId = updatedTask.assignee._id || updatedTask.assignee;
     if (assigneeId.toString() !== user._id.toString()) {
+      await sendNotification(io, {
+        recipientId: assigneeId,
+        senderId: user._id,
+        type: 'task_status_change',
+        relatedId: updatedTask._id,
+        relatedModel: 'Task',
+        relatedProject: updatedTask.project?._id || updatedTask.project,
+        message: `moved your task "${updatedTask.title}" from ${oldTask.status} to ${body.status}`,
+      });
+
       await sendStatusChangeEmail(assigneeId, {
         changerName: user.name,
         task: updatedTask,

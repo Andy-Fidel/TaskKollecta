@@ -388,7 +388,7 @@ export default function Documentation() {
                 <li>In-app notification bell with unread count</li>
                 <li>Reply-from-inbox on comment notifications</li>
                 <li>Email notifications for critical updates</li>
-                <li>Mark all as read / bulk dismiss</li>
+                <li>Mark all as read, archive, or delete individual notifications</li>
               </ul>
             </div>
           </section>

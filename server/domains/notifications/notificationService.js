@@ -52,11 +52,13 @@ const clearAllNotifications = async ({ userId }) => {
 const updateNotificationStatus = async ({ notificationId, userId, status }) => {
   const notification = await ensureNotificationOwnership({ notificationId, userId });
 
-  if (['unread', 'read', 'archived'].includes(status)) {
-    notification.status = status;
-    notification.isRead = status === 'read' || status === 'archived';
-    await notification.save();
+  if (!['unread', 'read', 'archived'].includes(status)) {
+    throw createDomainError(400, 'Invalid notification status');
   }
+
+  notification.status = status;
+  notification.isRead = status === 'read' || status === 'archived';
+  await notification.save();
 
   return notification;
 };

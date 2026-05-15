@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -60,8 +60,10 @@ export default function ProjectBoard() {
   const { user } = useAuth();
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const socket = useSocket(projectId);
   const { triggerRefresh } = useDataRefresh();
+  const openedNotificationTaskRef = useRef(null);
 
   // State
   const [tasks, setTasks] = useState([]);
@@ -190,6 +192,33 @@ export default function ProjectBoard() {
     };
     fetchInitialData();
   }, [projectId]);
+
+  useEffect(() => {
+    const taskId = location.state?.openTaskId;
+    if (!taskId || openedNotificationTaskRef.current === taskId) return;
+
+    openedNotificationTaskRef.current = taskId;
+    const existingTask = tasks.find((taskItem) => taskItem._id === taskId);
+
+    if (existingTask) {
+      setSelectedTask(existingTask);
+      setIsDetailsOpen(true);
+      navigate(location.pathname, { replace: true, state: {} });
+      return;
+    }
+
+    api.get(`/tasks/single/${taskId}`)
+      .then(({ data }) => {
+        setSelectedTask(data);
+        setIsDetailsOpen(true);
+      })
+      .catch(() => {
+        toast.error('Task could not be opened from the notification.');
+      })
+      .finally(() => {
+        navigate(location.pathname, { replace: true, state: {} });
+      });
+  }, [location.pathname, location.state, navigate, tasks]);
 
   const loadMoreTasks = useCallback(async () => {
     if (isLoadingMore || !hasMoreTasks) return;

@@ -1,7 +1,7 @@
 const Automation = require('../models/Automation');
 const Task = require('../models/Task');
 const Project = require('../models/Project');
-const Notification = require('../models/Notification');
+const { sendNotification } = require('./notificationService');
 
 /**
  * Run matching automation rules for a given trigger.
@@ -102,19 +102,16 @@ const runAutomations = async (projectId, triggerType, triggerValue, originalTask
           // Build a human-readable message
           const actionMsg = buildNotificationMessage(triggerType, triggerValue, taskToUpdate.title);
 
-          await Notification.create({
-            recipient: recipientId,
-            sender: recipientId, // system-generated, using same user as placeholder
+          await sendNotification(opts.io, {
+            recipientId,
+            senderId: opts.actorId || recipientId, // system-generated fallback for legacy automation runs
             type: 'automation',
             relatedId: taskToUpdate._id,
             relatedModel: 'Task',
-            message: actionMsg
+            relatedProject: projectId,
+            message: actionMsg,
+            allowSelf: true,
           });
-
-          // Push via socket if available
-          if (opts.io) {
-            opts.io.to(`user:${recipientId}`).emit('new_notification', { message: actionMsg });
-          }
         }
       }
     }

@@ -348,23 +348,24 @@ const updateNotificationPreferences = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const { emailAssignments, emailComments, emailDueDates, emailStatusChanges, emailMentions } = req.body;
+    const allowedPreferences = [
+      'emailAssignments',
+      'emailComments',
+      'emailDueDates',
+      'emailStatusChanges',
+      'emailMentions',
+      'inAppAssignments',
+      'inAppComments',
+      'inAppDueDates',
+      'inAppStatusChanges',
+      'inAppMentions',
+      'inAppAutomations',
+    ];
 
-    // Update only provided preferences
-    if (emailAssignments !== undefined) {
-      user.notificationPreferences.emailAssignments = emailAssignments;
-    }
-    if (emailComments !== undefined) {
-      user.notificationPreferences.emailComments = emailComments;
-    }
-    if (emailDueDates !== undefined) {
-      user.notificationPreferences.emailDueDates = emailDueDates;
-    }
-    if (emailStatusChanges !== undefined) {
-      user.notificationPreferences.emailStatusChanges = emailStatusChanges;
-    }
-    if (emailMentions !== undefined) {
-      user.notificationPreferences.emailMentions = emailMentions;
+    for (const key of allowedPreferences) {
+      if (req.body[key] !== undefined) {
+        user.notificationPreferences[key] = req.body[key] === true;
+      }
     }
 
     await user.save();
@@ -388,12 +389,23 @@ const getNotificationPreferences = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json(user.notificationPreferences || {
+    const defaults = {
       emailAssignments: true,
       emailComments: true,
       emailDueDates: true,
       emailStatusChanges: false,
-      emailMentions: true
+      emailMentions: true,
+      inAppAssignments: true,
+      inAppComments: true,
+      inAppDueDates: true,
+      inAppStatusChanges: true,
+      inAppMentions: true,
+      inAppAutomations: true,
+    };
+
+    res.json({
+      ...defaults,
+      ...(user.notificationPreferences?.toObject?.() || user.notificationPreferences || {}),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

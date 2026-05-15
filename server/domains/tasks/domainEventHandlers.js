@@ -42,7 +42,7 @@ module.exports = (registerDomainEventHandler) => {
       await recordTaskMoved({ io, user, task: updatedTask, status: body.status });
     }
 
-    await runTaskUpdateAutomations({ task: updatedTask, body });
+    await runTaskUpdateAutomations({ io, user, task: updatedTask, body });
     await notifyTaskUpdate({ io, user, oldTask, updatedTask, body });
     await invalidateProjectTasks(updatedTask.project);
   });

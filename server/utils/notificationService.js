@@ -17,10 +17,61 @@ let isProcessing = false;
 /**
  * Send in-app notification via Socket.io
  */
-const sendNotification = async (io, { recipientId, senderId, type, relatedId, relatedModel, message }) => {
+const getActionUrl = ({ relatedModel, relatedId, relatedProject }) => {
+  if (relatedModel === 'Project') return `/project/${relatedId}`;
+  if (relatedModel === 'Task' && relatedProject) return `/project/${relatedProject}`;
+  return null;
+};
+
+const getInAppPreferenceKey = (notificationType) => {
+  const prefMap = {
+    task_assigned: 'inAppAssignments',
+    new_comment: 'inAppComments',
+    due_date: 'inAppDueDates',
+    task_status_change: 'inAppStatusChanges',
+    mention: 'inAppMentions',
+    automation: 'inAppAutomations',
+  };
+
+  return prefMap[notificationType];
+};
+
+const shouldSendInApp = async (userId, notificationType) => {
+  const preferenceKey = getInAppPreferenceKey(notificationType);
+  if (!preferenceKey) return true;
+
+  const user = await User.findById(userId).select('notificationPreferences');
+  if (!user) return false;
+
+  return user.notificationPreferences?.[preferenceKey] !== false;
+};
+
+const sendNotification = async (io, {
+  recipientId,
+  senderId,
+  type,
+  relatedId,
+  relatedModel,
+  relatedProject,
+  message,
+  allowSelf = false,
+  dedupeKey,
+  metadata,
+}) => {
   try {
     // Don't notify yourself
-    if (recipientId.toString() === senderId.toString()) return;
+    if (!allowSelf && recipientId.toString() === senderId.toString()) return;
+
+    const sendInApp = await shouldSendInApp(recipientId, type);
+    if (!sendInApp) return;
+
+    const actionUrl = getActionUrl({ relatedModel, relatedId, relatedProject });
+
+    if (dedupeKey) {
+      const existing = await Notification.findOne({ dedupeKey })
+        .populate('sender', 'name avatar');
+      if (existing) return existing;
+    }
 
     // Create in DB
     const notification = await Notification.create({
@@ -29,14 +80,20 @@ const sendNotification = async (io, { recipientId, senderId, type, relatedId, re
       type,
       relatedId,
       relatedModel,
+      relatedProject,
+      actionUrl,
+      dedupeKey,
+      metadata,
       message
     });
 
     const populated = await Notification.findById(notification._id)
       .populate('sender', 'name avatar');
 
-    // Emit Real-time Event via Socket.io
-    io.to(`user_${recipientId.toString()}`).emit('new_notification', populated);
+    // Emit real-time event via Socket.io when a request socket is available.
+    if (io) {
+      io.to(`user_${recipientId.toString()}`).emit('new_notification', populated);
+    }
 
     return populated;
   } catch (error) {

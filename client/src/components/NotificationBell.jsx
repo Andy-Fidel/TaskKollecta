@@ -1,6 +1,20 @@
-import { useEffect, useState, useContext } from 'react';
-import { Bell, X, CheckCheck, Trash2, Archive, CheckCircle2, Reply, Send } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Fragment, useEffect, useMemo, useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Archive,
+  AtSign,
+  Bell,
+  CalendarClock,
+  CheckCheck,
+  CheckCircle2,
+  MessageCircle,
+  Reply,
+  Send,
+  Trash2,
+  UserPlus,
+  Zap,
+} from 'lucide-react';
+import { formatDistanceToNow, isToday, isYesterday, differenceInCalendarDays } from 'date-fns';
 import { 
   Popover, PopoverContent, PopoverTrigger 
 } from '@/components/ui/popover';
@@ -14,19 +28,77 @@ import api from '../api/axios';
 import { useAuth } from '../context/useAuth';
 import { SocketContext } from '../context/socketContextDef';
 
+const NOTIFICATION_META = {
+  task_assigned: {
+    label: 'Assignment',
+    Icon: UserPlus,
+    iconClass: 'bg-blue-500/10 text-blue-600 dark:text-blue-300',
+    badgeClass: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
+  },
+  new_comment: {
+    label: 'Comment',
+    Icon: MessageCircle,
+    iconClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+    badgeClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  },
+  mention: {
+    label: 'Mention',
+    Icon: AtSign,
+    iconClass: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
+    badgeClass: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  },
+  due_date: {
+    label: 'Due date',
+    Icon: CalendarClock,
+    iconClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+    badgeClass: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  },
+  task_status_change: {
+    label: 'Status',
+    Icon: CheckCircle2,
+    iconClass: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-300',
+    badgeClass: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+  },
+  automation: {
+    label: 'Automation',
+    Icon: Zap,
+    iconClass: 'bg-orange-500/10 text-orange-600 dark:text-orange-300',
+    badgeClass: 'bg-orange-500/10 text-orange-700 dark:text-orange-300',
+  },
+};
+
+const FALLBACK_NOTIFICATION_META = {
+  label: 'Update',
+  Icon: Bell,
+  iconClass: 'bg-muted text-muted-foreground',
+  badgeClass: 'bg-muted text-muted-foreground',
+};
+
+const getNotificationGroup = (createdAt) => {
+  const date = new Date(createdAt);
+  if (isToday(date)) return 'Today';
+  if (isYesterday(date)) return 'Yesterday';
+  if (differenceInCalendarDays(new Date(), date) < 7) return 'This week';
+  return 'Earlier';
+};
+
 export function NotificationBell() {
   const { user } = useAuth();
   const { socket } = useContext(SocketContext);
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('unread');
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!user || !socket) return;
     const handleNewNotification = (newNotif) => {
+      if (!newNotif?._id) return;
       setNotifications(prev => [newNotif, ...prev]);
       setUnreadCount(prev => prev + 1);
     };
@@ -37,10 +109,16 @@ export function NotificationBell() {
   useEffect(() => {
     (async () => {
       try {
+        setIsLoading(true);
+        setError('');
         const { data } = await api.get('/notifications');
         setNotifications(data.notifications || []);
         setUnreadCount(data.unreadCount || 0);
-      } catch { /* ignore */ }
+      } catch {
+        setError('Notifications could not be loaded.');
+      } finally {
+        setIsLoading(false);
+      }
     })();
   }, []);
 
@@ -79,12 +157,54 @@ export function NotificationBell() {
       } catch { console.error("Failed to delete"); }
   };
 
-  const handleClearAll = async () => {
+  const handleMarkAllRead = async () => {
       try {
-          await api.delete('/notifications');
-          setNotifications([]);
+          await api.put('/notifications/read');
+          setNotifications(prev => prev.map(n => (
+            n.status === 'archived' ? n : { ...n, status: 'read', isRead: true }
+          )));
           setUnreadCount(0);
-      } catch { console.error("Failed to clear all"); }
+      } catch { console.error("Failed to mark notifications as read"); }
+  };
+
+  const navigateToNotificationTarget = async (notif) => {
+      if (notif.actionUrl) {
+          const state = notif.relatedModel === 'Task' ? { openTaskId: notif.relatedId } : undefined;
+          navigate(notif.actionUrl, { state });
+          return;
+      }
+
+      if (notif.relatedModel === 'Project' && notif.relatedId) {
+          navigate(`/project/${notif.relatedId}`);
+          return;
+      }
+
+      if (notif.relatedModel === 'Task' && notif.relatedId) {
+          try {
+              const { data } = await api.get(`/tasks/single/${notif.relatedId}`);
+              const targetProject = data.project?._id || data.project || data.projectMemberships?.[0]?.project?._id;
+              if (targetProject) {
+                  navigate(`/project/${targetProject}`, { state: { openTaskId: notif.relatedId } });
+              } else {
+                  navigate('/tasks');
+              }
+          } catch {
+              navigate('/tasks');
+          }
+      }
+  };
+
+  const handleOpenNotification = async (notif) => {
+      const isUnread = notif.status === 'unread' || (!notif.status && !notif.isRead);
+      if (isUnread) {
+          try {
+              await api.put(`/notifications/${notif._id}/status`, { status: 'read' });
+              setUnreadCount(prev => Math.max(0, prev - 1));
+              setNotifications(prev => prev.map(n => n._id === notif._id ? { ...n, status: 'read', isRead: true } : n));
+          } catch { /* preserve navigation even if read sync fails */ }
+      }
+      setIsOpen(false);
+      await navigateToNotificationTarget(notif);
   };
 
   const handleReply = async (e, notif) => {
@@ -92,10 +212,14 @@ export function NotificationBell() {
       if (!replyText.trim() || !notif.relatedId) return;
       try {
           await api.post('/comments', { taskId: notif.relatedId, content: replyText });
-          // Emit socket event for real-time
-          if (socket) {
-              socket.emit('new_comment', { taskId: notif.relatedId, comment: { content: replyText, user } });
-          }
+	          // Emit socket event for real-time
+	          if (socket) {
+	              socket.emit('new_comment', {
+                    taskId: notif.relatedId,
+                    projectId: notif.relatedProject,
+                    comment: { content: replyText, user },
+                  });
+	          }
           // Auto-mark as read
           const isUnread = notif.status === 'unread' || (!notif.status && !notif.isRead);
           if (isUnread) {
@@ -118,6 +242,20 @@ export function NotificationBell() {
       return true;
   });
 
+  const groupedNotifications = useMemo(() => {
+      const groups = [];
+      for (const notification of displayedNotifications) {
+          const label = getNotificationGroup(notification.createdAt);
+          const currentGroup = groups[groups.length - 1];
+          if (currentGroup?.label === label) {
+              currentGroup.notifications.push(notification);
+          } else {
+              groups.push({ label, notifications: [notification] });
+          }
+      }
+      return groups;
+  }, [displayedNotifications]);
+
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
@@ -136,15 +274,15 @@ export function NotificationBell() {
                <h4 className="font-bold text-sm text-foreground">Inbox</h4>
                {unreadCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 h-5">{unreadCount} New</Badge>}
            </div>
-           {notifications.length > 0 && (
+           {unreadCount > 0 && (
                <TooltipProvider>
                    <Tooltip>
                        <TooltipTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={handleClearAll}>
-                               <Trash2 className="w-3.5 h-3.5" />
+                           <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={handleMarkAllRead}>
+                               <CheckCheck className="w-3.5 h-3.5" />
                            </Button>
                        </TooltipTrigger>
-                       <TooltipContent><p>Clear all</p></TooltipContent>
+                       <TooltipContent><p>Mark all as read</p></TooltipContent>
                    </Tooltip>
                </TooltipProvider>
            )}
@@ -160,30 +298,63 @@ export function NotificationBell() {
           </div>
           
           <ScrollArea className="h-[350px] flex-1">
-             {displayedNotifications.length === 0 ? (
+             {isLoading ? (
+                 <div className="p-8 text-center text-sm text-muted-foreground">Loading notifications...</div>
+             ) : error ? (
+                 <div className="p-8 text-center text-sm text-destructive">{error}</div>
+             ) : displayedNotifications.length === 0 ? (
                  <div className="p-8 text-center flex flex-col items-center justify-center h-full text-muted-foreground/60">
                     <CheckCheck className="w-10 h-10 mb-3 opacity-20" />
                     <span className="text-sm font-medium">No notifications here</span>
                     <span className="text-xs mt-1">You're all caught up!</span>
                  </div>
              ) : (
-                 <div className="divide-y divide-border">
-                    {displayedNotifications.map((notif) => {
-                        const isUnread = notif.status === 'unread' || (!notif.status && !notif.isRead);
-                        
-                        return (
-                            <div key={notif._id} className={`group relative p-4 flex gap-3 hover:bg-muted/40 transition-colors ${isUnread ? 'bg-primary/5 dark:bg-primary/10' : ''}`}>
-                                {/* Avatar */}
-                                <Avatar className="h-9 w-9 mt-0.5 border border-border/50 shrink-0">
-                                    <AvatarImage src={notif.sender?.avatar} />
-                                    <AvatarFallback className="text-xs bg-muted text-muted-foreground">{notif.sender?.name?.charAt(0) || '?'}</AvatarFallback>
-                                </Avatar>
-                                
-                                {/* Content */}
-                                <div className="space-y-1.5 pr-2 flex-1 min-w-0">
-                                    <p className="text-xs text-muted-foreground leading-relaxed break-words">
-                                        <span className="font-semibold text-foreground">{notif.sender?.name}</span> {notif.message}
-                                    </p>
+	                 <div className="divide-y divide-border">
+	                    {groupedNotifications.map((group) => (
+                          <Fragment key={group.label}>
+                            <div className="sticky top-0 z-10 bg-card/95 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur-sm">
+                              {group.label}
+                            </div>
+	                    {group.notifications.map((notif) => {
+	                        const isUnread = notif.status === 'unread' || (!notif.status && !notif.isRead);
+                          const meta = NOTIFICATION_META[notif.type] || FALLBACK_NOTIFICATION_META;
+                          const TypeIcon = meta.Icon;
+	                        
+	                        return (
+	                            <div
+	                              key={notif._id}
+                              role="button"
+                              tabIndex={0}
+                              className={`group relative w-full p-4 flex gap-3 text-left hover:bg-muted/40 transition-colors ${isUnread ? 'bg-primary/5 dark:bg-primary/10' : ''}`}
+                              onClick={() => handleOpenNotification(notif)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  handleOpenNotification(notif);
+                                }
+                              }}
+	                            >
+	                                <div className="relative shrink-0">
+	                                  <Avatar className="h-9 w-9 mt-0.5 border border-border/50">
+	                                      <AvatarImage src={notif.sender?.avatar} />
+	                                      <AvatarFallback className="text-xs bg-muted text-muted-foreground">{notif.sender?.name?.charAt(0) || '?'}</AvatarFallback>
+	                                  </Avatar>
+                                    <span className={`absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-background ${meta.iconClass}`}>
+                                      <TypeIcon className="h-3 w-3" />
+                                    </span>
+	                                </div>
+	                                
+	                                {/* Content */}
+	                                <div className="space-y-1.5 pr-2 flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.badgeClass}`}>
+                                        {meta.label}
+                                      </span>
+                                      {isUnread && <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-label="Unread" />}
+                                    </div>
+	                                    <p className="text-xs text-muted-foreground leading-relaxed break-words">
+	                                        <span className="font-semibold text-foreground">{notif.sender?.name}</span> {notif.message}
+	                                    </p>
                                     <p className="text-[10px] text-muted-foreground/70 font-medium">
                                         {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
                                     </p>
@@ -272,11 +443,13 @@ export function NotificationBell() {
                                   )}
 
                                 </div>
-                            </div>
-                        );
-                    })}
-                 </div>
-             )}
+	                            </div>
+	                        );
+	                    })}
+                          </Fragment>
+                        ))}
+	                 </div>
+	             )}
           </ScrollArea>
         </Tabs>
       </PopoverContent>
