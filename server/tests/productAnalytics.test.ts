@@ -84,6 +84,13 @@ describe('Product analytics API', () => {
       pathsSelected: 0,
       workflowsOpened: 0,
     });
+    expect(summary.body.recommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'review_workspace_setup', route: '/projects' }),
+        expect.objectContaining({ id: 'create_first_project', route: '/projects' }),
+        expect.objectContaining({ id: 'open_help_wizard', route: '/dashboard' }),
+      ]),
+    );
   });
 
   it('returns activation milestones and help engagement summary', async () => {
@@ -126,5 +133,8 @@ describe('Product analytics API', () => {
       pathsSelected: 1,
       workflowsOpened: 1,
     });
+    expect(summary.body.recommendations).toEqual([
+      expect.objectContaining({ id: 'review_workspace_setup' }),
+    ]);
   });
 });

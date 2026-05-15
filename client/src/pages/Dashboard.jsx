@@ -27,6 +27,7 @@ import { ReminderWidget } from '@/components/ReminderWidget';
 import { SmartFocusMode } from '@/components/SmartFocusMode';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDataRefresh } from '../context/useDataRefresh';
+import { trackProductEvent } from '../utils/productAnalytics';
 
 // --- Theme-compatible chart colors ---
 const COLORS = [
@@ -732,9 +733,23 @@ function QuickAction(props) {
 }
 
 function ActivationInsights({ data }) {
+  const navigate = useNavigate();
   const score = data.activationScore || 0;
   const steps = data.activationSteps || [];
   const help = data.helpEngagement || {};
+  const recommendations = data.recommendations || [];
+
+  const openRecommendation = (recommendation) => {
+    trackProductEvent('activation_recommendation_clicked', {
+      organizationId: localStorage.getItem('activeOrgId'),
+      source: 'dashboard',
+      metadata: {
+        recommendationId: recommendation.id,
+        route: recommendation.route,
+      },
+    });
+    navigate(recommendation.route || '/dashboard');
+  };
 
   return (
     <Card className="border-border bg-card text-card-foreground shadow-sm rounded-2xl">
@@ -774,8 +789,39 @@ function ActivationInsights({ data }) {
           <MiniMetric label="Paths" value={help.pathsSelected || 0} />
           <MiniMetric label="Workflows" value={help.workflowsOpened || 0} />
         </div>
+
+        {recommendations.length > 0 && (
+          <div className="space-y-2 border-t border-border pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recommended next</p>
+            {recommendations.map((recommendation) => (
+              <button
+                key={recommendation.id}
+                type="button"
+                onClick={() => openRecommendation(recommendation)}
+                className="w-full rounded-lg border border-border bg-background/70 p-3 text-left transition hover:border-primary/40 hover:bg-accent/40"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{recommendation.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{recommendation.description}</p>
+                  </div>
+                  <ArrowIcon />
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </svg>
   );
 }
 

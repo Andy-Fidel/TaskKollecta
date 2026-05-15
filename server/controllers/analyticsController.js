@@ -408,12 +408,52 @@ const getProductAdoptionAnalytics = async (req, res) => {
       workflowsOpened: getCount('help_wizard_workflow_opened'),
     };
 
+    const recommendationMap = {
+      onboarding_completed: {
+        id: 'review_workspace_setup',
+        title: 'Review workspace setup',
+        description: 'Confirm the workspace has the right team, projects, and operating views.',
+        route: '/projects',
+      },
+      first_project_created: {
+        id: 'create_first_project',
+        title: 'Create the first project',
+        description: 'Start one real project so tasks, ownership, and reporting have a home.',
+        route: '/projects',
+      },
+      help_wizard_opened: {
+        id: 'open_help_wizard',
+        title: 'Open the help wizard',
+        description: 'Use a guided path to learn how TaskKollecta supports setup, focus, outcomes, and automation.',
+        route: '/dashboard',
+      },
+      saved_view_created: {
+        id: 'create_saved_view',
+        title: 'Create a saved view',
+        description: 'Save a project or My Tasks filter so repeat work can be revisited without rebuilding filters.',
+        route: '/tasks',
+      },
+      setup_checklist_action_clicked: {
+        id: 'use_setup_checklist',
+        title: 'Use a setup checklist',
+        description: 'Follow contextual checklist actions on Projects, My Tasks, Portfolios, or Goals.',
+        route: '/projects',
+      },
+    };
+
+    const recommendations = activationSteps
+      .filter((step) => !step.completed)
+      .map((step) => recommendationMap[step.id])
+      .filter(Boolean)
+      .slice(0, 3);
+
     res.json({
       activationScore,
       completedActivationSteps,
       totalActivationSteps: activationSteps.length,
       activationSteps,
       helpEngagement,
+      recommendations,
       events: eventCounts.map((item) => ({
         eventName: item._id,
         count: item.count,
