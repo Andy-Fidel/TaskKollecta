@@ -559,6 +559,9 @@ export default function Dashboard() {
             </Card>
           )}
 
+          {/* Project Risk Radar */}
+          <ProjectRiskRadar projects={data.projectRiskRadar || []} onOpenProject={(projectId) => navigate(`/project/${projectId}`)} />
+
           {/* Recent Activity */}
           <Card className={cardStyle}>
             <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-border/50">
@@ -822,6 +825,89 @@ function ActivationInsights({ data, onOpenProjectWizard, onOpenHelpWizard }) {
       </CardContent>
     </Card>
   );
+}
+
+function ProjectRiskRadar({ projects = [], onOpenProject }) {
+  return (
+    <Card className="border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-border/50 pb-4">
+        <div>
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-rose-500" />
+            Project Risk Radar
+          </CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Projects ranked by overdue work, blockers, priority pressure, and stale progress.</p>
+        </div>
+        <Badge variant={projects.length > 0 ? 'destructive' : 'secondary'} className="rounded-full">
+          {projects.length} flagged
+        </Badge>
+      </CardHeader>
+      <CardContent className="space-y-3 pt-4">
+        {projects.length > 0 ? projects.map((project) => (
+          <button
+            key={project._id}
+            type="button"
+            onClick={() => onOpenProject(project._id)}
+            className="w-full rounded-xl border border-border bg-background/70 p-4 text-left transition hover:border-primary/40 hover:bg-accent/40"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.color || 'hsl(var(--primary))' }} />
+                  <p className="truncate text-sm font-semibold text-foreground">{project.name}</p>
+                  <RiskBadge level={project.riskLevel} />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {(project.reasons || []).slice(0, 3).map((reason) => (
+                    <span key={reason} className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {reason}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="w-20 shrink-0 text-right">
+                <p className="text-lg font-bold text-foreground tabular-nums">{project.completion || 0}%</p>
+                <p className="text-[10px] text-muted-foreground">complete</p>
+              </div>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div className={`h-full rounded-full ${riskBar(project.riskLevel)}`} style={{ width: `${Math.min(project.riskScore || 0, 100)}%` }} />
+            </div>
+          </button>
+        )) : (
+          <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+            <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500" />
+            <p className="mt-3 text-sm font-semibold text-foreground">No project risks detected</p>
+            <p className="mt-1 text-xs text-muted-foreground">Overdue, blocked, high-priority, and stale project signals are clear.</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RiskBadge({ level }) {
+  const styles = {
+    critical: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+    high: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    medium: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    low: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+  };
+
+  return (
+    <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase ${styles[level] || styles.low}`}>
+      {level || 'low'}
+    </span>
+  );
+}
+
+function riskBar(level) {
+  return {
+    critical: 'bg-rose-500',
+    high: 'bg-orange-500',
+    medium: 'bg-amber-500',
+    low: 'bg-emerald-500',
+  }[level] || 'bg-emerald-500';
 }
 
 function ArrowIcon() {

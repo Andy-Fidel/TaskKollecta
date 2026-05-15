@@ -242,6 +242,7 @@ const getDashboardStats = async (req, res) => {
       .populate({ path: 'task', select: 'title project', populate: { path: 'project', select: 'name' } });
 
     const recentProjects = await getRecentProjectsWithProgress(targetOrgIds);
+    const projectRiskRadar = await getProjectRiskRadar(targetOrgIds);
 
     res.json({
       stats: {
@@ -259,6 +260,7 @@ const getDashboardStats = async (req, res) => {
         byProjectStatus
       },
       recentProjects,
+      projectRiskRadar,
       todaysTasks,
       todayFocusTasks,
       recentActivities
@@ -268,6 +270,100 @@ const getDashboardStats = async (req, res) => {
     console.error(error);
     res.status(500).json({ message: error.message });
   }
+};
+
+const getProjectRiskRadar = async (targetOrgIds) => {
+  const projects = await Project.find({
+    organization: { $in: targetOrgIds },
+    status: { $ne: 'archived' },
+  })
+    .sort({ updatedAt: -1 })
+    .limit(20)
+    .select('name status color dueDate updatedAt');
+
+  const now = new Date();
+  const staleCutoff = new Date(now);
+  staleCutoff.setDate(staleCutoff.getDate() - 7);
+
+  const radar = await Promise.all(projects.map(async (project) => {
+    const taskMatch = { project: project._id };
+    const activeMatch = { ...taskMatch, status: { $ne: 'done' } };
+
+    const [totalTasks, completedTasks, overdueTasks, priorityTasks, dependencyTasks] = await Promise.all([
+      Task.countDocuments(taskMatch),
+      Task.countDocuments({ ...taskMatch, status: 'done' }),
+      Task.countDocuments({ ...activeMatch, dueDate: { $lt: now } }),
+      Task.countDocuments({ ...activeMatch, priority: { $in: ['urgent', 'high'] } }),
+      Task.find({ ...activeMatch, dependencies: { $exists: true, $ne: [] } })
+        .populate('dependencies', 'status')
+        .select('dependencies')
+        .lean(),
+    ]);
+
+    const blockedTasks = dependencyTasks.filter((task) => (
+      (task.dependencies || []).some((dependency) => dependency?.status !== 'done')
+    )).length;
+
+    const completion = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+    const stale = project.updatedAt < staleCutoff;
+    const dueDate = project.dueDate ? new Date(project.dueDate) : null;
+    const projectOverdue = dueDate ? dueDate < now && project.status !== 'completed' : false;
+
+    const reasons = [];
+    let riskScore = 0;
+
+    if (overdueTasks > 0) {
+      riskScore += overdueTasks * 18;
+      reasons.push(`${overdueTasks} overdue`);
+    }
+    if (blockedTasks > 0) {
+      riskScore += blockedTasks * 16;
+      reasons.push(`${blockedTasks} blocked`);
+    }
+    if (priorityTasks > 0) {
+      riskScore += priorityTasks * 8;
+      reasons.push(`${priorityTasks} high priority`);
+    }
+    if (projectOverdue) {
+      riskScore += 25;
+      reasons.push('project due date passed');
+    }
+    if (stale && totalTasks > completedTasks) {
+      riskScore += 12;
+      reasons.push('no recent updates');
+    }
+    if (totalTasks > 0 && completion < 35) {
+      riskScore += 10;
+      reasons.push('low completion');
+    }
+
+    let riskLevel = 'low';
+    if (riskScore >= 65) riskLevel = 'critical';
+    else if (riskScore >= 35) riskLevel = 'high';
+    else if (riskScore >= 15) riskLevel = 'medium';
+
+    return {
+      _id: project._id,
+      name: project.name,
+      color: project.color,
+      status: project.status,
+      dueDate: project.dueDate,
+      totalTasks,
+      completedTasks,
+      completion,
+      overdueTasks,
+      blockedTasks,
+      priorityTasks,
+      riskScore,
+      riskLevel,
+      reasons,
+    };
+  }));
+
+  return radar
+    .filter((project) => project.riskScore > 0)
+    .sort((a, b) => b.riskScore - a.riskScore)
+    .slice(0, 5);
 };
 
 const getRecentProjectsWithProgress = async (targetOrgIds) => {
