@@ -167,12 +167,71 @@ const getDashboardStats = async (req, res) => {
     const byProjectStatus = Object.values(projectStatusMap);
 
     // Today's Tasks
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
     const todaysTasks = await Task.find({
       assignee: userId,
       status: { $ne: 'done' },
-      dueDate: { $gte: new Date().setHours(0, 0, 0, 0), $lte: new Date().setHours(23, 59, 59, 999) },
+      dueDate: { $gte: todayStart, $lte: todayEnd },
       organization: { $in: targetOrgIds }
     }).populate('project', 'name');
+
+    const focusCandidates = await Task.find({
+      assignee: userId,
+      status: { $ne: 'done' },
+      organization: { $in: targetOrgIds },
+      $or: [
+        { dueDate: { $lte: todayEnd } },
+        { priority: { $in: ['urgent', 'high'] } },
+        { dependencies: { $exists: true, $ne: [] } },
+      ],
+    })
+      .populate('project', 'name')
+      .populate('dependencies', 'title status')
+      .limit(30)
+      .lean();
+
+    const todayFocusTasks = focusCandidates
+      .map((task) => {
+        const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+        const incompleteDependencies = (task.dependencies || []).filter((dependency) => dependency?.status !== 'done');
+        const overdue = dueDate ? dueDate < todayStart : false;
+        const dueToday = dueDate ? dueDate >= todayStart && dueDate <= todayEnd : false;
+        const blocked = incompleteDependencies.length > 0;
+
+        let focusReason = 'High priority';
+        let focusScore = 1;
+        if (task.priority === 'urgent') focusScore += 40;
+        if (task.priority === 'high') focusScore += 25;
+        if (blocked) {
+          focusReason = 'Blocked';
+          focusScore += 35;
+        }
+        if (dueToday) {
+          focusReason = 'Due today';
+          focusScore += 30;
+        }
+        if (overdue) {
+          focusReason = 'Overdue';
+          focusScore += 50;
+        }
+
+        return {
+          ...task,
+          focusReason,
+          focusScore,
+          blocked,
+          blockerCount: incompleteDependencies.length,
+        };
+      })
+      .sort((a, b) => {
+        if (b.focusScore !== a.focusScore) return b.focusScore - a.focusScore;
+        return new Date(a.dueDate || 8640000000000000) - new Date(b.dueDate || 8640000000000000);
+      })
+      .slice(0, 6);
 
     // Recent Activities (Complex Filter: Only show activities for tasks in target Orgs)
     const allOrgTasks = await Task.find({ organization: { $in: targetOrgIds } }).select('_id');
@@ -201,6 +260,7 @@ const getDashboardStats = async (req, res) => {
       },
       recentProjects,
       todaysTasks,
+      todayFocusTasks,
       recentActivities
     });
 

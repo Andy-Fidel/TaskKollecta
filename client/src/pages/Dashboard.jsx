@@ -683,20 +683,12 @@ export default function Dashboard() {
             />
           )}
 
-          {/* Today's Tasks */}
-          <Card className={cardStyle}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-lg font-bold">Due Today</CardTitle>
-              <Badge variant="secondary" className="cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors" onClick={() => navigate('/tasks')}>View All</Badge>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-4">
-              {data.todaysTasks?.length > 0 ? (
-                data.todaysTasks.map(task => (
-                  <TaskItem key={task._id} title={task.title} project={task.project?.name} priority={task.priority} />
-                ))
-              ) : <div className="text-center text-muted-foreground text-sm py-8 bg-muted/20 rounded-lg border border-dashed border-border">All clear for today! 🎉</div>}
-            </CardContent>
-          </Card>
+          {/* Today's Focus */}
+          <TodayFocusCard
+            tasks={data.todayFocusTasks || data.todaysTasks || []}
+            onOpenTasks={() => navigate('/tasks?view=attention')}
+            onOpenTask={(task) => navigate(task.project?._id ? `/project/${task.project._id}` : '/tasks')}
+          />
 
           {/* Calendar (Mini) */}
           <Card className={cardStyle}>
@@ -848,6 +840,95 @@ function MiniMetric({ label, value }) {
       <p className="text-[10px] text-muted-foreground">{label}</p>
     </div>
   );
+}
+
+function TodayFocusCard({ tasks = [], onOpenTasks, onOpenTask }) {
+  const counts = tasks.reduce((acc, task) => {
+    const reason = task.focusReason || 'Due today';
+    acc[reason] = (acc[reason] || 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <Card className="border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div>
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <Flame className="w-5 h-5 text-orange-500" />
+            Today&apos;s Focus
+          </CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Ranked by urgency, blockers, priority, and due date.</p>
+        </div>
+        <Badge variant="secondary" className="cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors" onClick={onOpenTasks}>View All</Badge>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-4">
+        {tasks.length > 0 ? (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              <FocusMetric label="Overdue" value={counts.Overdue || 0} tone="text-rose-600 bg-rose-500/10" />
+              <FocusMetric label="Blocked" value={counts.Blocked || 0} tone="text-violet-600 bg-violet-500/10" />
+              <FocusMetric label="Today" value={counts['Due today'] || 0} tone="text-amber-600 bg-amber-500/10" />
+            </div>
+            <div className="space-y-2">
+              {tasks.slice(0, 5).map((task) => (
+                <button
+                  key={task._id}
+                  type="button"
+                  onClick={() => onOpenTask(task)}
+                  className="w-full rounded-xl border border-border bg-background/70 p-3 text-left transition hover:border-primary/40 hover:bg-accent/40"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${focusReasonDot(task.focusReason)}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-foreground">{task.title}</p>
+                        <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase ${priorityStyle(task.priority)}`}>
+                          {task.priority || 'medium'}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                        {task.project?.name || 'No project'} · {task.focusReason || 'Due today'}
+                        {task.blockerCount > 0 ? ` · ${task.blockerCount} blocker${task.blockerCount === 1 ? '' : 's'}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="text-center text-muted-foreground text-sm py-8 bg-muted/20 rounded-lg border border-dashed border-border">
+            No urgent focus items right now.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FocusMetric({ label, value, tone }) {
+  return (
+    <div className={`rounded-lg p-2 text-center ${tone}`}>
+      <p className="text-lg font-bold tabular-nums">{value}</p>
+      <p className="text-[10px] font-medium">{label}</p>
+    </div>
+  );
+}
+
+function focusReasonDot(reason) {
+  if (reason === 'Overdue') return 'bg-rose-500';
+  if (reason === 'Blocked') return 'bg-violet-500';
+  if (reason === 'Due today') return 'bg-amber-500';
+  return 'bg-primary';
+}
+
+function priorityStyle(priority) {
+  return {
+    urgent: 'text-rose-600 bg-rose-500/10 border-rose-500/20',
+    high: 'text-orange-600 bg-orange-500/10 border-orange-500/20',
+    medium: 'text-amber-600 bg-amber-500/10 border-amber-500/20',
+    low: 'text-blue-600 bg-blue-500/10 border-blue-500/20',
+  }[priority] || 'text-muted-foreground bg-muted border-transparent';
 }
 
 function TaskItem({ title, project, priority }) {
