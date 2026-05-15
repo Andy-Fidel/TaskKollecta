@@ -149,4 +149,46 @@ describe('Filter presets API', () => {
     expect(listRes.body[0].name).toBe('Launch attention');
     expect(listRes.body[0].filters.query).toBe('launch');
   });
+
+  it('should list visible workspace saved views across project and My Tasks scopes', async () => {
+    await request(app)
+      .post('/api/filter-presets')
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        name: 'Team project view',
+        projectId,
+        visibility: 'team',
+        layout: 'board',
+        filters: { blockedOnly: true },
+      });
+
+    await request(app)
+      .post('/api/filter-presets')
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        name: 'Private triage',
+        orgId,
+        scope: 'my_tasks',
+        visibility: 'private',
+        filters: { view: 'attention' },
+      });
+
+    const ownerListRes = await request(app)
+      .get(`/api/filter-presets/workspace?orgId=${orgId}`)
+      .set('Cookie', [`jwt=${userToken}`]);
+
+    expect(ownerListRes.status).toBe(200);
+    expect(ownerListRes.body.map((view: any) => view.name)).toEqual(
+      expect.arrayContaining(['Team project view', 'Private triage']),
+    );
+    expect(ownerListRes.body.find((view: any) => view.name === 'Team project view').project.name).toBe('Filter Project');
+
+    const teammateListRes = await request(app)
+      .get(`/api/filter-presets/workspace?orgId=${orgId}`)
+      .set('Cookie', [`jwt=${teammateToken}`]);
+
+    expect(teammateListRes.status).toBe(200);
+    expect(teammateListRes.body.map((view: any) => view.name)).toContain('Team project view');
+    expect(teammateListRes.body.map((view: any) => view.name)).not.toContain('Private triage');
+  });
 });

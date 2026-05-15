@@ -78,6 +78,33 @@ const getMyTaskPresets = async (req, res) => {
     }
 };
 
+// @desc    Get all visible saved views for a workspace
+// @route   GET /api/filter-presets/workspace?orgId=...
+// @access  Private
+const getWorkspacePresets = async (req, res) => {
+    try {
+        const orgId = req.query.orgId || req.headers['x-active-org'];
+        if (!orgId) return res.status(400).json({ message: 'Organization ID required' });
+
+        await ensureMembership(req.user._id, orgId);
+        const presets = await FilterPreset.find({
+            organization: orgId,
+            $or: [
+                { user: req.user._id },
+                { visibility: 'team' }
+            ]
+        })
+            .populate('project', 'name color')
+            .sort({ updatedAt: -1 })
+            .limit(12);
+
+        res.json(presets);
+    } catch (error) {
+        console.error('Error fetching workspace saved views:', error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Failed to fetch saved views' });
+    }
+};
+
 // @desc    Create a new saved view
 // @route   POST /api/filter-presets
 // @access  Private
@@ -179,6 +206,7 @@ const deletePreset = async (req, res) => {
 module.exports = {
     getPresets,
     getMyTaskPresets,
+    getWorkspacePresets,
     createPreset,
     deletePreset
 };

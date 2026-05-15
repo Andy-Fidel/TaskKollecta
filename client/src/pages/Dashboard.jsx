@@ -102,6 +102,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [adoptionData, setAdoptionData] = useState(null);
+  const [savedViews, setSavedViews] = useState([]);
 
   // Date Filters
   const [dateRange, setDateRange] = useState({
@@ -130,12 +131,14 @@ export default function Dashboard() {
         // Fetch org members for the project wizard
         const activeOrgId = localStorage.getItem('activeOrgId') || orgRes.data?.[0]?._id;
         if (activeOrgId) {
-          const [memRes, adoptionRes] = await Promise.all([
+          const [memRes, adoptionRes, savedViewsRes] = await Promise.all([
             api.get(`/organizations/${activeOrgId}/members`),
             api.get(`/analytics/product-adoption?orgId=${activeOrgId}`).catch(() => ({ data: null })),
+            api.get(`/filter-presets/workspace?orgId=${activeOrgId}`).catch(() => ({ data: [] })),
           ]);
           setOrgMembers(memRes.data);
           setAdoptionData(adoptionRes.data);
+          setSavedViews(Array.isArray(savedViewsRes.data) ? savedViewsRes.data : []);
         }
       } catch {
         console.error("Failed to load dashboard");
@@ -695,12 +698,19 @@ export default function Dashboard() {
             onOpenTask={(task) => navigate(task.project?._id ? `/project/${task.project._id}` : '/tasks')}
           />
 
-          {/* Calendar (Mini) */}
-          <Card className={cardStyle}>
-            <CardContent className="flex justify-center p-4">
-              <Calendar mode="single" selected={new Date()} className="rounded-md border-none" />
-            </CardContent>
-          </Card>
+          {/* Saved Views Launcher */}
+          <SavedViewsLauncher views={savedViews} onOpenView={(savedView) => {
+            if (savedView.scope === 'my_tasks') {
+              const params = new URLSearchParams();
+              if (savedView.filters?.view) params.set('view', savedView.filters.view);
+              if (savedView.filters?.query) params.set('q', savedView.filters.query);
+              if (savedView.filters?.priority && savedView.filters.priority !== 'all') params.set('priority', savedView.filters.priority);
+              if (savedView.filters?.projectFilter && savedView.filters.projectFilter !== 'all') params.set('project', savedView.filters.projectFilter);
+              navigate(`/tasks${params.toString() ? `?${params.toString()}` : ''}`);
+              return;
+            }
+            if (savedView.project?._id) navigate(`/project/${savedView.project._id}`);
+          }} />
         </div>
       </div>
 
@@ -1053,6 +1063,54 @@ function TodayFocusCard({ tasks = [], onOpenTasks, onOpenTask }) {
         ) : (
           <div className="text-center text-muted-foreground text-sm py-8 bg-muted/20 rounded-lg border border-dashed border-border">
             No urgent focus items right now.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SavedViewsLauncher({ views = [], onOpenView }) {
+  return (
+    <Card className="border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+        <div>
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 text-primary" />
+            Saved Views
+          </CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Jump back into private and team operating views.</p>
+        </div>
+        <Badge variant="secondary" className="rounded-full">{views.length}</Badge>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {views.length > 0 ? views.slice(0, 6).map((view) => (
+          <button
+            key={view._id}
+            type="button"
+            onClick={() => onOpenView(view)}
+            className="w-full rounded-lg border border-border bg-background/70 p-3 text-left transition hover:border-primary/40 hover:bg-accent/40"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold text-foreground">{view.name}</span>
+                  {view.visibility === 'team' && (
+                    <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-primary">Team</span>
+                  )}
+                </div>
+                <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                  {view.scope === 'my_tasks' ? 'My Tasks' : view.project?.name || 'Project'} · {view.layout || 'view'}
+                </p>
+              </div>
+              <ArrowIcon />
+            </div>
+          </button>
+        )) : (
+          <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+            <FolderOpen className="mx-auto h-8 w-8 text-muted-foreground" />
+            <p className="mt-3 text-sm font-semibold text-foreground">No saved views yet</p>
+            <p className="mt-1 text-xs text-muted-foreground">Save filters from Project Board or My Tasks to launch them here.</p>
           </div>
         )}
       </CardContent>
