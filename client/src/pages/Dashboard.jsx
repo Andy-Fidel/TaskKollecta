@@ -24,7 +24,6 @@ import { formatActivityAction } from "../utils/formatActivity";
 import api from '../api/axios';
 import { useAuth } from '../context/useAuth';
 import { ReminderWidget } from '@/components/ReminderWidget';
-import { SmartFocusMode } from '@/components/SmartFocusMode';
 import { HelpWizard } from '@/components/HelpWizard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDataRefresh } from '../context/useDataRefresh';
@@ -662,9 +661,12 @@ export default function Dashboard() {
 
         {/* RIGHT COLUMN */}
         <div className="space-y-10">
-          
-          {/* Smart Focus Mode */}
-          <SmartFocusMode />
+          {/* My Week Planner */}
+          <MyWeekPlanner
+            data={data.weekPlanner}
+            onOpenTasks={() => navigate('/tasks?view=upcoming')}
+            onOpenTask={(task) => navigate(task.project?._id ? `/project/${task.project._id}` : '/tasks')}
+          />
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -881,6 +883,72 @@ function ProjectRiskRadar({ projects = [], onOpenProject }) {
             <p className="mt-1 text-xs text-muted-foreground">Overdue, blocked, high-priority, and stale project signals are clear.</p>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MyWeekPlanner({ data, onOpenTasks, onOpenTask }) {
+  const sections = [
+    { id: 'today', label: 'Today', tasks: data?.today || [], tone: 'text-amber-600 bg-amber-500/10' },
+    { id: 'upcoming', label: 'This week', tasks: data?.upcoming || [], tone: 'text-sky-600 bg-sky-500/10' },
+    { id: 'unscheduledHighPriority', label: 'Unscheduled', tasks: data?.unscheduledHighPriority || [], tone: 'text-rose-600 bg-rose-500/10' },
+  ];
+  const total = sections.reduce((sum, section) => sum + section.tasks.length, 0);
+
+  return (
+    <Card className="border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+        <div>
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <CalendarIcon className="w-5 h-5 text-primary" />
+            My Week Planner
+          </CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Plan today, scan this week, and schedule priority work.</p>
+        </div>
+        <Badge variant="secondary" className="cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors" onClick={onOpenTasks}>
+          {total} items
+        </Badge>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {sections.map((section) => (
+          <div key={section.id} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${section.tone}`}>
+                {section.label}
+              </span>
+              <span className="text-[10px] text-muted-foreground">{section.tasks.length}</span>
+            </div>
+            {section.tasks.length > 0 ? (
+              <div className="space-y-1.5">
+                {section.tasks.slice(0, 3).map((task) => (
+                  <button
+                    key={task._id}
+                    type="button"
+                    onClick={() => onOpenTask(task)}
+                    className="w-full rounded-lg border border-border bg-background/70 p-2.5 text-left transition hover:border-primary/40 hover:bg-accent/40"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
+                        <p className="truncate text-[10px] text-muted-foreground">
+                          {task.project?.name || 'No project'}{task.dueDate ? ` · ${new Date(task.dueDate).toLocaleDateString()}` : ''}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase ${priorityStyle(task.priority)}`}>
+                        {task.priority || 'medium'}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-3 text-xs text-muted-foreground">
+                Nothing here.
+              </div>
+            )}
+          </div>
+        ))}
       </CardContent>
     </Card>
   );

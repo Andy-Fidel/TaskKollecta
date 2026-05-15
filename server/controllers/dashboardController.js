@@ -243,6 +243,7 @@ const getDashboardStats = async (req, res) => {
 
     const recentProjects = await getRecentProjectsWithProgress(targetOrgIds);
     const projectRiskRadar = await getProjectRiskRadar(targetOrgIds);
+    const weekPlanner = await getWeekPlannerTasks({ userId, targetOrgIds, todayStart, todayEnd });
 
     res.json({
       stats: {
@@ -261,6 +262,7 @@ const getDashboardStats = async (req, res) => {
       },
       recentProjects,
       projectRiskRadar,
+      weekPlanner,
       todaysTasks,
       todayFocusTasks,
       recentActivities
@@ -270,6 +272,56 @@ const getDashboardStats = async (req, res) => {
     console.error(error);
     res.status(500).json({ message: error.message });
   }
+};
+
+const getWeekPlannerTasks = async ({ userId, targetOrgIds, todayStart, todayEnd }) => {
+  const weekEnd = new Date(todayEnd);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+
+  const baseMatch = {
+    assignee: userId,
+    status: { $ne: 'done' },
+    organization: { $in: targetOrgIds },
+  };
+
+  const [today, upcoming, unscheduledHighPriority] = await Promise.all([
+    Task.find({
+      ...baseMatch,
+      dueDate: { $gte: todayStart, $lte: todayEnd },
+    })
+      .populate('project', 'name')
+      .sort({ priority: 1, dueDate: 1 })
+      .limit(5)
+      .lean(),
+    Task.find({
+      ...baseMatch,
+      dueDate: { $gt: todayEnd, $lte: weekEnd },
+    })
+      .populate('project', 'name')
+      .sort({ dueDate: 1 })
+      .limit(5)
+      .lean(),
+    Task.find({
+      ...baseMatch,
+      dueDate: { $in: [null, undefined] },
+      priority: { $in: ['urgent', 'high'] },
+    })
+      .populate('project', 'name')
+      .sort({ priority: 1, updatedAt: -1 })
+      .limit(5)
+      .lean(),
+  ]);
+
+  return {
+    today,
+    upcoming,
+    unscheduledHighPriority,
+    totals: {
+      today: today.length,
+      upcoming: upcoming.length,
+      unscheduledHighPriority: unscheduledHighPriority.length,
+    },
+  };
 };
 
 const getProjectRiskRadar = async (targetOrgIds) => {
