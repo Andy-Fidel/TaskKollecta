@@ -47,7 +47,8 @@ const projectSchema = new mongoose.Schema({
       label: { type: String, required: true },
       color: { type: String, default: '#64748b' },
       order: { type: Number, default: 0 },
-      isDone: { type: Boolean, default: false }
+      isDone: { type: Boolean, default: false },
+      wipLimit: { type: Number, default: null }
     }],
     default: () => DEFAULT_WORKFLOW_STATUSES
   },

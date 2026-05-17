@@ -1,15 +1,35 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AlertTriangle, Calendar, MoreHorizontal, User as UserIcon, Repeat, Check, Diamond, Link2 } from 'lucide-react';
+import { AlertTriangle, Archive, Calendar, Copy, MoreHorizontal, User as UserIcon, Repeat, Check, Diamond, Link2 } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { getIncompleteDependencies, isTaskBlocked } from '../utils/taskState';
 
 import { motion as Motion } from 'framer-motion';
 
-export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
+export function SortableTask({
+  task,
+  onClick,
+  isSelected,
+  onToggleSelect,
+  onSetPriority,
+  onSetStatus,
+  statusOptions = [],
+  onArchiveTask,
+  onCopyTaskLink,
+}) {
   const {
     attributes,
     listeners,
@@ -34,6 +54,9 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
 
   const incompleteDependencies = getIncompleteDependencies(task);
   const blocked = isTaskBlocked(task);
+  const stopCardInteraction = (event) => {
+    event.stopPropagation();
+  };
 
   return (
     <Motion.div
@@ -62,6 +85,9 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
     >
       {/* Selection checkbox */}
       <button
+        type="button"
+        aria-label={isSelected ? `Deselect ${task.title}` : `Select ${task.title}`}
+        onPointerDown={stopCardInteraction}
         onClick={(e) => { e.stopPropagation(); onToggleSelect?.(task._id); }}
         className={`absolute top-3 left-3 w-5 h-5 rounded border flex items-center justify-center transition-all z-10
           ${isSelected
@@ -73,10 +99,65 @@ export function SortableTask({ task, onClick, isSelected, onToggleSelect }) {
         {isSelected && <Check className="h-3 w-3" />}
       </button>
 
-      {/* Hover Action */}
-      <button className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity">
-        <MoreHorizontal className="h-4 w-4" />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Task actions for ${task.title}`}
+            onPointerDown={stopCardInteraction}
+            onClick={stopCardInteraction}
+            className="absolute top-3 right-3 rounded-md p-1 opacity-0 transition-opacity text-muted-foreground hover:bg-muted hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring group-hover:opacity-100"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44" onClick={stopCardInteraction} onPointerDown={stopCardInteraction}>
+          <DropdownMenuItem onClick={() => onClick?.()}>
+            Open details
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onCopyTaskLink?.(task)}>
+            <Copy className="h-4 w-4" />
+            Copy link
+          </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Priority</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {['urgent', 'high', 'medium', 'low'].map((priority) => (
+                <DropdownMenuItem
+                  key={priority}
+                  onClick={() => onSetPriority?.(task, priority)}
+                  className="capitalize"
+                >
+                  {task.priority === priority && <Check className="h-4 w-4" />}
+                  {priority}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          {statusOptions.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {statusOptions.map((status) => (
+                  <DropdownMenuItem
+                    key={status.id}
+                    onClick={() => onSetStatus?.(task, status.id)}
+                    className="capitalize"
+                  >
+                    {task.status === status.id && <Check className="h-4 w-4" />}
+                    {status.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onArchiveTask?.(task)}>
+            <Archive className="h-4 w-4" />
+            Archive
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Priority Badge & Indicators */}
       <div className="flex items-center gap-2 mb-3">

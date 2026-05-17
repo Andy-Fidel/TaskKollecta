@@ -19,6 +19,7 @@ const taskSchema = new mongoose.Schema({
   },
   dueDate: { type: Date },
   startDate: { type: Date },
+  index: { type: Number, default: 0 },
 
   // RELATIONS
   organization: {
@@ -90,7 +91,7 @@ const taskSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for common queries
-taskSchema.index({ project: 1, status: 1 }); // Tasks by project and status (kanban)
+taskSchema.index({ project: 1, status: 1, index: 1 }); // Tasks by project and status (kanban)
 taskSchema.index({ 'projectMemberships.project': 1, status: 1 }); // Multi-homed tasks by project
 taskSchema.index({ assignee: 1, status: 1 }); // My tasks
 taskSchema.index({ project: 1, createdAt: -1 }); // Project tasks sorted by date

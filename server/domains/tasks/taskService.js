@@ -18,7 +18,7 @@ const requireTaskAccess = async (userId, task) => {
 };
 
 const createTask = async ({ body, user, io }) => {
-  const { title, description, status, priority, startDate, dueDate, projectId, orgId, assignee, assigneeEmail, customFieldValues } = body;
+  const { title, description, status, priority, startDate, dueDate, projectId, orgId, assignee, assigneeEmail, customFieldValues, index } = body;
 
   await ensureMembership(user._id, orgId);
 
@@ -81,6 +81,7 @@ const createTask = async ({ body, user, io }) => {
     description,
     status: status || 'todo',
     priority: priority || 'medium',
+    index: Number.isFinite(Number(index)) ? Number(index) : Date.now(),
     startDate,
     dueDate,
     project: projectId,

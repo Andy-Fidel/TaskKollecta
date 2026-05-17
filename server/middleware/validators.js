@@ -32,6 +32,7 @@ const validateCreateTask = [
     body('description').optional().trim().isLength({ max: 5000 }).withMessage('Description too long'),
     body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid priority'),
     body('status').optional().trim().isLength({ min: 1, max: 80 }).withMessage('Invalid status'),
+    body('index').optional().isNumeric().withMessage('Invalid task index'),
     body('projectId').isMongoId().withMessage('Invalid project ID'),
     body('orgId').isMongoId().withMessage('Invalid organization ID'),
     handleValidation
@@ -43,6 +44,7 @@ const validateUpdateTask = [
     body('description').optional().trim().isLength({ max: 5000 }),
     body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
     body('status').optional().trim().isLength({ min: 1, max: 80 }),
+    body('index').optional().isNumeric().withMessage('Invalid task index'),
     handleValidation
 ];
 

@@ -133,7 +133,7 @@ describe('Projects API — CRUD and management', () => {
       .send({
         workflowStatuses: [
           { id: 'queued', label: 'Queued', color: '#64748b', order: 0 },
-          { id: 'approved', label: 'Approved', color: '#22c55e', order: 1, isDone: true },
+          { id: 'approved', label: 'Approved', color: '#22c55e', order: 1, isDone: true, wipLimit: 3 },
         ],
         customFields: [
           { key: 'client_name', name: 'Client Name', type: 'text', order: 0 },
@@ -144,6 +144,7 @@ describe('Projects API — CRUD and management', () => {
     expect(res.status).toBe(200);
     expect(res.body.workflowStatuses.map((status: any) => status.id)).toEqual(['queued', 'approved']);
     expect(res.body.workflowStatuses[1].isDone).toBe(true);
+    expect(res.body.workflowStatuses[1].wipLimit).toBe(3);
     expect(res.body.customFields.map((field: any) => field.key)).toEqual(['client_name', 'approval_state']);
     expect(res.body.customFields[1].options).toEqual(['Draft', 'Approved']);
   });

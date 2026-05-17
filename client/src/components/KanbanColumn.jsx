@@ -2,9 +2,16 @@ import { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableTask } from './SortableTask';
-import { Loader2, Plus, X } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, MoreHorizontal, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const COLUMN_COLORS = {
   'todo': {
@@ -37,9 +44,30 @@ const COLUMN_COLORS = {
   }
 };
 
-export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onToggleSelect, onQuickCreate, isQuickCreating, hasMore, onLoadMore, isLoadingMore }) {
+export function KanbanColumn({
+  column,
+  tasks,
+  onTaskClick,
+  selectedTasks,
+  onToggleSelect,
+  onSetPriority,
+  onSetStatus,
+  statusOptions,
+  onArchiveTask,
+  onCopyTaskLink,
+  isCollapsed,
+  onToggleCollapse,
+  onSetWipLimit,
+  onQuickCreate,
+  isQuickCreating,
+  hasMore,
+  onLoadMore,
+  isLoadingMore,
+}) {
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [quickTitle, setQuickTitle] = useState('');
+  const [isEditingWipLimit, setIsEditingWipLimit] = useState(false);
+  const [wipLimitInput, setWipLimitInput] = useState(column.wipLimit ? String(column.wipLimit) : '');
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -50,6 +78,8 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
   } : {};
   const dotStyle = column.color ? { backgroundColor: column.color } : {};
   const trimmedQuickTitle = quickTitle.trim();
+  const wipLimit = Number.isFinite(Number(column.wipLimit)) && Number(column.wipLimit) > 0 ? Number(column.wipLimit) : null;
+  const isOverWipLimit = Boolean(wipLimit && tasks.length > wipLimit);
 
   const handleQuickSubmit = async (event) => {
     event.preventDefault();
@@ -67,6 +97,40 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
     setIsAddingTask(false);
   };
 
+  const handleWipSubmit = async (event) => {
+    event.preventDefault();
+    const parsedLimit = Number(wipLimitInput);
+    await onSetWipLimit?.(column.id, Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : null);
+    setIsEditingWipLimit(false);
+  };
+
+  if (isCollapsed) {
+    return (
+      <button
+        ref={setNodeRef}
+        type="button"
+        style={customColorStyle}
+        onClick={() => onToggleCollapse?.(column.id)}
+        className={`
+          flex min-h-[280px] w-14 shrink-0 flex-col items-center gap-3 rounded-2xl
+          bg-muted/50 px-2 py-3 text-muted-foreground transition-all hover:bg-muted hover:text-foreground
+          ${isOver ? `ring-2 ${colors.glow} ${colors.dropGlow}` : 'ring-0'}
+          ${isOverWipLimit ? 'border border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300' : ''}
+        `}
+        aria-label={`Expand ${column.label} column`}
+      >
+        <span style={dotStyle} className={`h-2.5 w-2.5 rounded-full ${column.color ? '' : colors.dot}`} />
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${colors.badge} tabular-nums`}>
+          {tasks.length}
+        </span>
+        <span className="mt-2 [writing-mode:vertical-rl] rotate-180 text-xs font-bold tracking-wide">
+          {column.label}
+        </span>
+        <ChevronRight className="mt-auto h-4 w-4" />
+      </button>
+    );
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -76,6 +140,7 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
         bg-muted/50 dark:bg-muted/20 
         transition-all duration-300 ease-out
         flex flex-col max-h-[calc(100vh-220px)]
+        ${isOverWipLimit ? 'border border-amber-300 dark:border-amber-800' : ''}
         ${isOver 
           ? `ring-2 ${colors.glow} ${colors.dropGlow} scale-[1.01] shadow-lg` 
           : 'ring-0 shadow-none'
@@ -84,14 +149,86 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
     >
       {/* Column Header */}
       <div className={`flex justify-between items-center p-3 rounded-t-2xl ${colors.header} transition-colors duration-200 shrink-0`}>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span style={dotStyle} className={`w-2.5 h-2.5 rounded-full ${column.color ? '' : colors.dot} ${isOver ? 'animate-pulse' : ''}`}></span>
-          <h3 className="font-bold text-foreground text-sm">{column.label}</h3>
+          <h3 className="truncate font-bold text-foreground text-sm">{column.label}</h3>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${colors.badge} tabular-nums`}>
-          {tasks.length}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${colors.badge} tabular-nums`}>
+            {tasks.length}
+          </span>
+          {wipLimit && (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums ${isOverWipLimit ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : 'bg-background/70 text-muted-foreground'}`}>
+              / {wipLimit}
+            </span>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`${column.label} column actions`}>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={() => setIsAddingTask(true)}>
+                <Plus className="h-4 w-4" />
+                Add task
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onToggleCollapse?.(column.id)}>
+                <ChevronLeft className="h-4 w-4" />
+                Collapse column
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => {
+                setWipLimitInput(wipLimit ? String(wipLimit) : '');
+                setIsEditingWipLimit(true);
+              }}>
+                <AlertTriangle className="h-4 w-4" />
+                {wipLimit ? 'Edit WIP limit' : 'Set WIP limit'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+
+      {isOverWipLimit && (
+        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+          <div className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            WIP limit exceeded by {tasks.length - wipLimit}
+          </div>
+        </div>
+      )}
+
+      {isEditingWipLimit && (
+        <form onSubmit={handleWipSubmit} className="border-b border-border/50 bg-background/70 px-2.5 py-2">
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min="1"
+              value={wipLimitInput}
+              onChange={(event) => setWipLimitInput(event.target.value)}
+              placeholder="No limit"
+              aria-label={`WIP limit for ${column.label}`}
+              className="h-8 text-sm"
+              autoFocus
+            />
+            <Button type="submit" size="sm" className="h-8 px-2">Save</Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => {
+                setWipLimitInput('');
+                onSetWipLimit?.(column.id, null);
+                setIsEditingWipLimit(false);
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+        </form>
+      )}
 
       <div className="border-b border-border/50 px-2.5 py-2">
         {isAddingTask ? (
@@ -162,6 +299,11 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
                 onClick={() => onTaskClick(task)}
                 isSelected={selectedTasks?.has(task._id)}
                 onToggleSelect={onToggleSelect}
+                onSetPriority={onSetPriority}
+                onSetStatus={onSetStatus}
+                statusOptions={statusOptions}
+                onArchiveTask={onArchiveTask}
+                onCopyTaskLink={onCopyTaskLink}
               />
             ))}
           </div>

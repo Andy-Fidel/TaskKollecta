@@ -107,6 +107,32 @@ describe('Tasks API — CRUD, subtasks, and board management', () => {
     expect(res.body.status).toBe('approved');
   });
 
+  it('should update and persist task board index', async () => {
+    const task = await Task.create({
+      title: 'Reorder Me',
+      project: projectId,
+      organization: orgId,
+      reporter: userId,
+      createdBy: userId,
+      index: 1000,
+    });
+
+    const res = await request(app)
+      .put(`/api/tasks/${task._id}`)
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        status: 'review',
+        index: 3000,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('review');
+    expect(res.body.index).toBe(3000);
+
+    const savedTask = await Task.findById(task._id);
+    expect(savedTask?.index).toBe(3000);
+  });
+
   it('should save custom field values on a task', async () => {
     const task = await Task.create({
       title: 'Custom Fields Task',

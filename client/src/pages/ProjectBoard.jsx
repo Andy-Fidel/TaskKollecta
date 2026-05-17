@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import {
@@ -21,6 +22,16 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ProjectSettingsDialog } from '@/components/ProjectSettingsDialog';
 import { AdvancedFilters, applyFilters } from '@/components/Filters/AdvancedFilters';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -55,6 +66,18 @@ const COLUMNS = [
   { id: 'review', label: 'Review' },
   { id: 'done', label: 'Done' }
 ];
+
+const sortTasksForBoard = (items) => [...items].sort((a, b) => {
+  const aIndex = Number.isFinite(Number(a.index)) ? Number(a.index) : Number.MAX_SAFE_INTEGER;
+  const bIndex = Number.isFinite(Number(b.index)) ? Number(b.index) : Number.MAX_SAFE_INTEGER;
+  if (aIndex !== bIndex) return aIndex - bIndex;
+  return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+});
+
+const reindexTasks = (items) => items.map((task, index) => ({
+  ...task,
+  index: (index + 1) * 1000,
+}));
 
 export default function ProjectBoard() {
   const { user } = useAuth();
@@ -94,6 +117,8 @@ export default function ProjectBoard() {
 
   // Bulk selection
   const [selectedTasks, setSelectedTasks] = useState(new Set());
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const toggleTaskSelection = (taskId) => {
     setSelectedTasks(prev => {
@@ -116,20 +141,31 @@ export default function ProjectBoard() {
       });
       setSelectedTasks(new Set());
       triggerRefresh();
-    } catch { alert('Bulk update failed'); }
+      toast.success('Tasks updated');
+    } catch {
+      toast.error('Bulk update failed');
+    }
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Delete ${selectedTasks.size} task(s)?`)) return;
     const deletedIds = Array.from(selectedTasks);
+    if (deletedIds.length === 0 || isBulkDeleting) return;
+
+    setIsBulkDeleting(true);
     try {
       await api.delete('/tasks/bulk', { data: { taskIds: deletedIds } });
-      setTasks(prev => prev.filter(t => !selectedTasks.has(t._id)));
+      setTasks(prev => prev.filter(t => !deletedIds.includes(t._id)));
       // Notify teammates
       if (socket) deletedIds.forEach(id => socket.emit('task_deleted', { _id: id, projectId }));
       setSelectedTasks(new Set());
+      setIsBulkDeleteOpen(false);
+      toast.success(`${deletedIds.length} task${deletedIds.length === 1 ? '' : 's'} deleted`);
       triggerRefresh();
-    } catch { alert('Bulk delete failed'); }
+    } catch {
+      toast.error('Bulk delete failed');
+    } finally {
+      setIsBulkDeleting(false);
+    }
   };
 
   const [selectedTask, setSelectedTask] = useState(null);
@@ -142,6 +178,7 @@ export default function ProjectBoard() {
   const [view, setView] = useState('board');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeViewers, setActiveViewers] = useState([]);
+  const [collapsedColumns, setCollapsedColumns] = useState(new Set());
 
   // Advanced Filters State
   const [filters, setFilters] = useState({
@@ -165,7 +202,7 @@ export default function ProjectBoard() {
     const statuses = projectDetails?.workflowStatuses?.length ? projectDetails.workflowStatuses : COLUMNS;
     return [...statuses]
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-      .map((status) => ({ id: status.id, label: status.label, color: status.color, isDone: status.isDone }));
+      .map((status) => ({ id: status.id, label: status.label, color: status.color, isDone: status.isDone, wipLimit: status.wipLimit }));
   }, [projectDetails]);
 
   const sortedCustomFields = useMemo(() => (
@@ -408,6 +445,36 @@ export default function ProjectBoard() {
     toast.success(`Loaded "${savedView.name}"`);
   };
 
+  const toggleColumnCollapse = (columnId) => {
+    setCollapsedColumns((current) => {
+      const next = new Set(current);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  };
+
+  const handleColumnWipLimitChange = async (columnId, limit) => {
+    const nextLimit = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : null;
+    const previousProjectDetails = projectDetails;
+    const nextWorkflowStatuses = workflowColumns.map((status, index) => ({
+      ...status,
+      order: index,
+      wipLimit: status.id === columnId ? nextLimit : status.wipLimit ?? null,
+    }));
+
+    setProjectDetails((current) => current ? { ...current, workflowStatuses: nextWorkflowStatuses } : current);
+
+    try {
+      const { data } = await api.put(`/projects/${projectId}`, { workflowStatuses: nextWorkflowStatuses });
+      setProjectDetails(data);
+      toast.success(nextLimit ? 'WIP limit updated' : 'WIP limit removed');
+    } catch {
+      setProjectDetails(previousProjectDetails);
+      toast.error('Failed to update WIP limit');
+    }
+  };
+
   // Handlers
   const handleDragStart = (event) => setActiveId(event.active.id);
 
@@ -417,54 +484,95 @@ export default function ProjectBoard() {
     if (!over) return;
 
     const activeTask = tasks.find(t => t._id === active.id);
-    const overId = over.id;
-    let newStatus = overId;
+    if (!activeTask) return;
 
-    if (!workflowColumns.some(col => col.id === overId)) {
-      const overTask = tasks.find(t => t._id === overId);
-      newStatus = overTask ? overTask.status : activeTask.status;
+    const overId = over.id;
+    const overTask = tasks.find(t => t._id === overId);
+    const isOverColumn = workflowColumns.some(col => col.id === overId);
+    const newStatus = isOverColumn ? overId : overTask?.status || activeTask.status;
+    const targetColumn = workflowColumns.find((col) => col.id === newStatus);
+
+    if ((newStatus === 'done' || targetColumn?.isDone) && activeTask.status !== newStatus && isTaskBlocked(activeTask)) {
+      const blockers = activeTask.dependencies
+        ?.filter((dependency) => dependency?.status !== 'done')
+        .map((dependency) => dependency.title)
+        .join(', ');
+      toast.error(`Task is blocked by: ${blockers || 'unfinished dependencies'}`);
+      return;
     }
 
-    if (activeTask && activeTask.status !== newStatus) {
-      const previousStatus = activeTask.status;
+    const visibleTasks = sortTasksForBoard(filteredTasks);
+    const sourceColumnTasks = visibleTasks.filter((task) => task.status === activeTask.status);
+    const targetColumnTasks = visibleTasks.filter((task) => task.status === newStatus);
 
-      const targetColumn = workflowColumns.find((col) => col.id === newStatus);
-      if ((newStatus === 'done' || targetColumn?.isDone) && isTaskBlocked(activeTask)) {
-        const blockers = activeTask.dependencies
-          ?.filter((dependency) => dependency?.status !== 'done')
-          .map((dependency) => dependency.title)
-          .join(', ');
-        toast.error(`Task is blocked by: ${blockers || 'unfinished dependencies'}`);
-        return;
-      }
+    let nextSourceColumnTasks = sourceColumnTasks;
+    let nextTargetColumnTasks = targetColumnTasks;
 
-      // Optimistic update
-      setTasks((prev) => prev.map(t => t._id === activeTask._id ? { ...t, status: newStatus } : t));
-      if (socket) socket.emit("task_moved", { _id: activeTask._id, status: newStatus, projectId });
+    if (activeTask.status === newStatus) {
+      const oldIndex = sourceColumnTasks.findIndex((task) => task._id === activeTask._id);
+      const newIndex = overTask ? sourceColumnTasks.findIndex((task) => task._id === overTask._id) : sourceColumnTasks.length - 1;
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+      nextTargetColumnTasks = arrayMove(sourceColumnTasks, oldIndex, newIndex);
+    } else {
+      nextSourceColumnTasks = sourceColumnTasks.filter((task) => task._id !== activeTask._id);
+      const movedTask = { ...activeTask, status: newStatus };
+      const insertIndex = overTask
+        ? Math.max(targetColumnTasks.findIndex((task) => task._id === overTask._id), 0)
+        : targetColumnTasks.length;
+      nextTargetColumnTasks = [
+        ...targetColumnTasks.slice(0, insertIndex),
+        movedTask,
+        ...targetColumnTasks.slice(insertIndex),
+      ];
+    }
 
-      // Milestone Celebration!
-      if ((newStatus === 'done' || targetColumn?.isDone) && activeTask.isMilestone) {
-        confetti({
-          particleCount: 150,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#F59E0B', '#FCD34D', '#FFFBEB'], // Amber/Gold tones
-          zIndex: 9999
-        });
-        toast('Milestone Achieved! 🏆', {
-          description: `"${activeTask.title}" has been completed.`,
-          duration: 5000,
-        });
-      }
+    const reindexedSource = activeTask.status === newStatus ? [] : reindexTasks(nextSourceColumnTasks);
+    const reindexedTarget = reindexTasks(nextTargetColumnTasks);
+    const changedTasks = [...reindexedSource, ...reindexedTarget].filter((nextTask) => {
+      const currentTask = tasks.find((task) => task._id === nextTask._id);
+      return currentTask && (currentTask.status !== nextTask.status || Number(currentTask.index || 0) !== nextTask.index);
+    });
 
-      try {
-        await api.put(`/tasks/${activeTask._id}`, { status: newStatus });
-        triggerRefresh();
-      } catch (error) {
-        // Revert on failure
-        setTasks((prev) => prev.map(t => t._id === activeTask._id ? { ...t, status: previousStatus } : t));
-        alert(`Failed to move task: ${error.response?.data?.message || 'Network error'}`);
-      }
+    if (changedTasks.length === 0) return;
+
+    const previousTasks = tasks;
+
+    setTasks((current) => current.map((task) => {
+      const changedTask = changedTasks.find((item) => item._id === task._id);
+      return changedTask ? { ...task, status: changedTask.status, index: changedTask.index } : task;
+    }));
+
+    if (activeTask.status !== newStatus && socket) {
+      socket.emit("task_moved", { _id: activeTask._id, status: newStatus, projectId });
+    }
+
+    if ((newStatus === 'done' || targetColumn?.isDone) && activeTask.status !== newStatus && activeTask.isMilestone) {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#F59E0B', '#FCD34D', '#FFFBEB'],
+        zIndex: 9999
+      });
+      toast('Milestone Achieved! 🏆', {
+        description: `"${activeTask.title}" has been completed.`,
+        duration: 5000,
+      });
+    }
+
+    try {
+      await Promise.all(changedTasks.map((task) => {
+        const currentTask = tasks.find((item) => item._id === task._id);
+        const payload = currentTask?.status !== task.status
+          ? { status: task.status, index: task.index }
+          : { index: task.index };
+
+        return api.put(`/tasks/${task._id}`, payload);
+      }));
+      triggerRefresh();
+    } catch (error) {
+      setTasks(previousTasks);
+      toast.error(`Failed to move task: ${error.response?.data?.message || 'Network error'}`);
     }
   };
 
@@ -589,6 +697,11 @@ export default function ProjectBoard() {
     const trimmedTitle = title.trim();
     if (!trimmedTitle || quickCreatingStatus) return false;
 
+    const statusTasks = sortTasksForBoard(tasks.filter((task) => task.status === status));
+    const firstIndex = statusTasks.length > 0 && Number.isFinite(Number(statusTasks[0].index))
+      ? Number(statusTasks[0].index)
+      : 2000;
+
     setQuickCreatingStatus(status);
     try {
       const payload = {
@@ -597,6 +710,7 @@ export default function ProjectBoard() {
         orgId: projectDetails.organization,
         status,
         priority: 'medium',
+        index: firstIndex - 1000,
       };
 
       const { data } = await api.post('/tasks', payload);
@@ -610,6 +724,78 @@ export default function ProjectBoard() {
       return false;
     } finally {
       setQuickCreatingStatus(null);
+    }
+  };
+
+  const handleTaskPriorityUpdate = async (task, priority) => {
+    const previousPriority = task.priority;
+    setTasks((current) => current.map((item) => item._id === task._id ? { ...item, priority } : item));
+
+    try {
+      await api.put(`/tasks/${task._id}`, { priority });
+      toast.success('Priority updated');
+      triggerRefresh();
+    } catch {
+      setTasks((current) => current.map((item) => item._id === task._id ? { ...item, priority: previousPriority } : item));
+      toast.error('Failed to update priority');
+    }
+  };
+
+  const handleTaskStatusUpdate = async (task, status) => {
+    if (task.status === status) return;
+
+    const targetColumn = workflowColumns.find((column) => column.id === status);
+    if ((status === 'done' || targetColumn?.isDone) && isTaskBlocked(task)) {
+      const blockers = task.dependencies
+        ?.filter((dependency) => dependency?.status !== 'done')
+        .map((dependency) => dependency.title)
+        .join(', ');
+      toast.error(`Task is blocked by: ${blockers || 'unfinished dependencies'}`);
+      return;
+    }
+
+    const previousTask = task;
+    const targetTasks = sortTasksForBoard(tasks.filter((item) => item.status === status));
+    const firstIndex = targetTasks.length > 0 && Number.isFinite(Number(targetTasks[0].index))
+      ? Number(targetTasks[0].index)
+      : 2000;
+    const nextIndex = firstIndex - 1000;
+
+    setTasks((current) => current.map((item) => item._id === task._id ? { ...item, status, index: nextIndex } : item));
+    if (socket) socket.emit("task_moved", { _id: task._id, status, projectId });
+
+    try {
+      await api.put(`/tasks/${task._id}`, { status, index: nextIndex });
+      toast.success('Status updated');
+      triggerRefresh();
+    } catch (error) {
+      setTasks((current) => current.map((item) => item._id === task._id ? previousTask : item));
+      toast.error(`Failed to update status: ${error.response?.data?.message || 'Network error'}`);
+    }
+  };
+
+  const handleTaskArchive = async (task) => {
+    const previousTasks = tasks;
+    setTasks((current) => current.filter((item) => item._id !== task._id));
+
+    try {
+      await api.put(`/tasks/${task._id}/archive`);
+      if (socket) socket.emit('task_deleted', { _id: task._id, projectId });
+      toast.success('Task archived');
+      triggerRefresh();
+    } catch {
+      setTasks(previousTasks);
+      toast.error('Failed to archive task');
+    }
+  };
+
+  const handleTaskCopyLink = async (task) => {
+    const taskUrl = `${window.location.origin}/project/${projectId}?task=${task._id}`;
+    try {
+      await navigator.clipboard.writeText(taskUrl);
+      toast.success('Task link copied');
+    } catch {
+      toast.error('Could not copy task link');
     }
   };
 
@@ -961,10 +1147,18 @@ export default function ProjectBoard() {
                   <KanbanColumn
                     key={col.id}
                     column={col}
-                    tasks={filteredTasks.filter(t => t.status === col.id)}
+                    tasks={sortTasksForBoard(filteredTasks.filter(t => t.status === col.id))}
                     onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
                     selectedTasks={selectedTasks}
                     onToggleSelect={toggleTaskSelection}
+                    onSetPriority={handleTaskPriorityUpdate}
+                    onSetStatus={handleTaskStatusUpdate}
+                    statusOptions={workflowColumns}
+                    onArchiveTask={handleTaskArchive}
+                    onCopyTaskLink={handleTaskCopyLink}
+                    isCollapsed={collapsedColumns.has(col.id)}
+                    onToggleCollapse={toggleColumnCollapse}
+                    onSetWipLimit={handleColumnWipLimitChange}
                     onQuickCreate={handleQuickCreateTask}
                     isQuickCreating={quickCreatingStatus === col.id}
                     hasMore={hasMoreTasks}
@@ -1462,7 +1656,7 @@ export default function ProjectBoard() {
             </Select>
 
             {/* Delete */}
-            <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={handleBulkDelete}>
+            <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => setIsBulkDeleteOpen(true)}>
               <Trash2 className="w-3.5 h-3.5 mr-1" />
               Delete
             </Button>
@@ -1474,6 +1668,27 @@ export default function ProjectBoard() {
           </div>
         </div>
       )}
+
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete selected tasks?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedTasks.size} selected task{selectedTasks.size === 1 ? '' : 's'} from this project. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting || selectedTasks.size === 0}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkDeleting ? 'Deleting...' : 'Delete tasks'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

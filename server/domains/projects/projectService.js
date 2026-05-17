@@ -30,6 +30,7 @@ const normalizeWorkflowStatuses = (statuses) =>
       color: status.color || '#64748b',
       order: Number.isFinite(Number(status.order)) ? Number(status.order) : index,
       isDone: Boolean(status.isDone),
+      wipLimit: Number.isFinite(Number(status.wipLimit)) && Number(status.wipLimit) > 0 ? Number(status.wipLimit) : null,
     }))
     .filter((status) => status.id && status.label);
 
