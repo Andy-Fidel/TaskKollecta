@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -6,7 +7,7 @@ import {
     User as UserIcon, Check, MoreHorizontal, Trash2, Paperclip, FileText,
     Image as ImageIcon, Link2, Link2Off, AlertCircle, X, Plus,
     AlignLeft, Layout, Clock, CheckCircle2, ListChecks, History, Tag, Repeat,
-    Calendar as CalendarIcon, Diamond, GitBranch, Sparkles, Loader2, Wand2
+    Calendar as CalendarIcon, Diamond, GitBranch, Sparkles, Loader2, Wand2, Circle, UploadCloud
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -40,6 +41,7 @@ import { getIncompleteDependencies, isTaskBlocked } from '../utils/taskState';
 
 export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, statusOptions = [], customFields = [], socket }) {
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     // --- 1. HOOKS (Always run first) ---
     const [comments, setComments] = useState([]);
@@ -54,6 +56,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
     const [childTasks, setChildTasks] = useState([]);
     const [newChildTitle, setNewChildTitle] = useState('');
     const [isCreatingChild, setIsCreatingChild] = useState(false);
+    const [convertingSubtaskId, setConvertingSubtaskId] = useState(null);
 
     const [newComment, setNewComment] = useState('');
     const [newSubtask, setNewSubtask] = useState('');
@@ -62,7 +65,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
     const [dueDate, setDueDate] = useState(task?.dueDate ? new Date(task.dueDate) : null);
     const [isEditingDesc, setIsEditingDesc] = useState(false);
     const [descInput, setDescInput] = useState('');
+    const [isSavingDescription, setIsSavingDescription] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+    const [uploadQueue, setUploadQueue] = useState([]);
     const [showCompletionAnim, setShowCompletionAnim] = useState(false);
 
     const [openUserSelect, setOpenUserSelect] = useState(false);
@@ -77,14 +83,20 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
 
     const [pendingAssignee, setPendingAssignee] = useState(null);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [isDeletingTask, setIsDeletingTask] = useState(false);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const [isUpdatingPriority, setIsUpdatingPriority] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState([]);
     
     // Typing indicator state
     const [typingUsers, setTypingUsers] = useState([]);
     const [typingTimeout, setTypingTimeout] = useState(null);
     const [isAiDescribing, setIsAiDescribing] = useState(false);
+    const [aiDescriptionDraft, setAiDescriptionDraft] = useState('');
     const [isAiSubtasks, setIsAiSubtasks] = useState(false);
     const [suggestedSubtasks, setSuggestedSubtasks] = useState([]);
+    const [isSendingComment, setIsSendingComment] = useState(false);
 
     // --- 2. EFFECTS ---
     useEffect(() => {
@@ -112,6 +124,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
             setAttachments(task.attachments || []);
             setIsMilestone(task.isMilestone || false);
             setProjectMemberships(task.projectMemberships?.length ? task.projectMemberships : [{ project: task.project }]);
+            setAiDescriptionDraft('');
 
             // Fetch child tasks (real sub-task documents)
             api.get(`/tasks/${task._id}/children`).then(({ data }) => setChildTasks(data)).catch(() => {});
@@ -121,11 +134,12 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
 
     useEffect(() => {
         if (isDependencySearchOpen && projectTasks.length === 0 && task) {
-            api.get(`/tasks/project/${projectId}`).then(({ data }) => {
-                setProjectTasks(data.filter(t => t._id !== task._id));
-            });
-        }
-    }, [isDependencySearchOpen, projectId, task, projectTasks.length]);
+                api.get(`/tasks/project/${projectId}`).then(({ data }) => {
+	                const tasks = Array.isArray(data) ? data : data.tasks || [];
+	                setProjectTasks(tasks.filter(t => t._id !== task._id));
+	            });
+	        }
+	    }, [isDependencySearchOpen, projectId, task, projectTasks.length]);
 
     useEffect(() => {
         if (!socket || !task || !isOpen) return;
@@ -211,18 +225,21 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
     if (!task) return null;
 
     // --- 4. DATA PROCESSING (Safe) ---
-    const timeline = [
-        ...(Array.isArray(comments) ? comments : []).map(c => ({ ...c, type: 'comment' })),
-        ...(Array.isArray(activities) ? activities : []).map(a => ({ ...a, type: 'activity' }))
-    ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    const incompleteDependencies = getIncompleteDependencies({ ...task, dependencies });
-    const blocked = isTaskBlocked({ ...task, status: currentStatus, dependencies });
-    const availableStatuses = statusOptions.length ? statusOptions : [
-        { id: 'todo', label: 'To Do' },
+	    const timeline = [
+	        ...(Array.isArray(comments) ? comments : []).map(c => ({ ...c, type: 'comment' })),
+	        ...(Array.isArray(activities) ? activities : []).map(a => ({ ...a, type: 'activity' }))
+	    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+	    const incompleteDependencies = getIncompleteDependencies({ ...task, dependencies });
+	    const blocked = isTaskBlocked({ ...task, status: currentStatus, dependencies });
+	    const availableStatuses = statusOptions.length ? statusOptions : [
+	        { id: 'todo', label: 'To Do' },
         { id: 'in-progress', label: 'In Progress' },
         { id: 'review', label: 'Review' },
-        { id: 'done', label: 'Done', isDone: true },
-    ];
+	        { id: 'done', label: 'Done', isDone: true },
+	    ];
+	    const doneStatus = availableStatuses.find((status) => status.isDone || status.id === 'done' || status.id === 'completed');
+	    const isDone = doneStatus ? currentStatus === doneStatus.id : currentStatus === 'done' || currentStatus === 'completed';
+	    const canComplete = !blocked && doneStatus && !isDone;
 
     // Permission Check
     const currentMember = teamMembers.find(m => m.user?._id === user?._id);
@@ -232,32 +249,55 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
 
     // --- 5. HANDLERS ---
     const handleSaveDescription = async () => {
+        setIsSavingDescription(true);
         try {
             await api.put(`/tasks/${task._id}`, { description: descInput });
             setIsEditingDesc(false);
             toast.success("Description updated");
-        } catch { toast.error("Failed to update description"); }
-    };
-
-    const handleAiDescribe = async () => {
-        setIsAiDescribing(true);
-        setIsEditingDesc(true);
-        try {
-            const { data } = await api.post('/ai/describe', {
-                title: task.title,
-                projectName: task.project?.name || '',
-            });
-            let generated = data.description || '';
-            if (data.acceptanceCriteria?.length) {
-                generated += '\n\nAcceptance Criteria:\n' + data.acceptanceCriteria.map(c => `• ${c}`).join('\n');
-            }
-            setDescInput(generated);
         } catch {
-            toast.error('AI generation failed');
+            toast.error("Failed to update description");
         } finally {
-            setIsAiDescribing(false);
+            setIsSavingDescription(false);
         }
     };
+
+	    const handleAiDescribe = async () => {
+	        setIsAiDescribing(true);
+	        setIsEditingDesc(true);
+	        setAiDescriptionDraft('');
+	        try {
+	            const { data } = await api.post('/ai/describe', {
+	                title: task.title,
+	                projectName: task.project?.name || '',
+            });
+            let generated = data.description || '';
+	            if (data.acceptanceCriteria?.length) {
+	                generated += '\n\nAcceptance Criteria:\n' + data.acceptanceCriteria.map(c => `• ${c}`).join('\n');
+	            }
+	            setAiDescriptionDraft(generated);
+	        } catch {
+	            toast.error('AI generation failed');
+	        } finally {
+	            setIsAiDescribing(false);
+	        }
+	    };
+
+	    const handleInsertAiDescription = () => {
+	        if (!aiDescriptionDraft.trim()) return;
+	        setDescInput(aiDescriptionDraft);
+	        setAiDescriptionDraft('');
+	    };
+
+	    const handleCopyTaskLink = async () => {
+	        const targetProjectId = projectId || task.project?._id || task.project;
+	        const taskUrl = `${window.location.origin}/project/${targetProjectId}?task=${task._id}`;
+	        try {
+	            await navigator.clipboard.writeText(taskUrl);
+	            toast.success('Task link copied');
+	        } catch {
+	            toast.error('Could not copy task link');
+	        }
+	    };
 
     const initiateAssignment = (memberUser) => {
         setPendingAssignee(memberUser);
@@ -280,31 +320,61 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
     };
 
 
-    const handleStatusChange = async (newStatus) => {
-        const isHighPriority = currentPriority === 'high' || currentPriority === 'urgent';
-        const targetStatus = availableStatuses.find((status) => status.id === newStatus);
-        const isMovingToDone = newStatus === 'done' || newStatus === 'completed' || targetStatus?.isDone;
-        
-        if (isHighPriority && isMovingToDone && currentStatus !== newStatus) {
-            setShowCompletionAnim(true);
-            setTimeout(() => setShowCompletionAnim(false), 3000);
-        }
+	    const handleStatusChange = async (newStatus) => {
+	        const isHighPriority = currentPriority === 'high' || currentPriority === 'urgent';
+	        const targetStatus = availableStatuses.find((status) => status.id === newStatus);
+	        const isMovingToDone = newStatus === 'done' || newStatus === 'completed' || targetStatus?.isDone;
+
+	        if (blocked && isMovingToDone) {
+	            toast.error(`Cannot complete while blocked by ${incompleteDependencies.length} task${incompleteDependencies.length === 1 ? '' : 's'}`);
+	            return;
+	        }
+
+	        const previousStatus = currentStatus;
+	        setIsUpdatingStatus(true);
+	        
+	        if (isHighPriority && isMovingToDone && currentStatus !== newStatus) {
+	            setShowCompletionAnim(true);
+	            setTimeout(() => setShowCompletionAnim(false), 3000);
+	        }
 
         setCurrentStatus(newStatus);
         try {
-            await api.put(`/tasks/${task._id}`, { status: newStatus });
-            if (socket) socket.emit("task_moved", { _id: task._id, status: newStatus, projectId });
-            toast.success(`Status updated`);
-        } catch { toast.error("Failed update status"); }
-    };
+	            await api.put(`/tasks/${task._id}`, { status: newStatus });
+	            if (socket) socket.emit("task_moved", { _id: task._id, status: newStatus, projectId });
+	            toast.success(`Status updated`);
+	        } catch {
+	            setCurrentStatus(previousStatus);
+	            toast.error("Failed to update status");
+	        } finally {
+	            setIsUpdatingStatus(false);
+	        }
+	    };
 
-    const handlePriorityChange = async (newPriority) => {
-        setCurrentPriority(newPriority);
-        try {
-            await api.put(`/tasks/${task._id}`, { priority: newPriority });
-            toast.success(`Priority updated`);
-        } catch { toast.error("Failed update priority"); }
-    };
+	    const handlePriorityChange = async (newPriority) => {
+	        const previousPriority = currentPriority;
+	        setIsUpdatingPriority(true);
+	        setCurrentPriority(newPriority);
+	        try {
+	            await api.put(`/tasks/${task._id}`, { priority: newPriority });
+	            toast.success(`Priority updated`);
+	        } catch {
+	            setCurrentPriority(previousPriority);
+	            toast.error("Failed to update priority");
+	        } finally {
+	            setIsUpdatingPriority(false);
+	        }
+	    };
+
+	    const handleMarkComplete = () => {
+	        if (!doneStatus || isDone) return;
+	        handleStatusChange(doneStatus.id);
+	    };
+
+	    const openRelatedTask = (taskId) => {
+	        const targetProjectId = projectId || task.project?._id || task.project;
+	        navigate(`/project/${targetProjectId}?task=${taskId}`, { state: { openTaskId: taskId } });
+	    };
 
     const handleAddProjectMembership = async (secondaryProjectId) => {
         if (!secondaryProjectId) return;
@@ -327,19 +397,21 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
         }
     };
 
-    const handleCustomFieldChange = async (field, value) => {
-        const nextValues = [
-            ...customFieldValues.filter((item) => item.key !== field.key),
-            { key: field.key, value },
-        ];
-        setCustomFieldValues(nextValues);
+	    const handleCustomFieldChange = async (field, value) => {
+	        const previousValues = customFieldValues;
+	        const nextValues = [
+	            ...customFieldValues.filter((item) => item.key !== field.key),
+	            { key: field.key, value },
+	        ];
+	        setCustomFieldValues(nextValues);
         try {
-            await api.put(`/tasks/${task._id}`, { customFieldValues: nextValues });
-            toast.success(`${field.name} updated`);
-        } catch {
-            toast.error(`Failed to update ${field.name}`);
-        }
-    };
+	            await api.put(`/tasks/${task._id}`, { customFieldValues: nextValues });
+	            toast.success(`${field.name} updated`);
+	        } catch {
+	            setCustomFieldValues(previousValues);
+	            toast.error(`Failed to update ${field.name}`);
+	        }
+	    };
 
     const getCustomFieldValue = (key) =>
         customFieldValues.find((item) => item.key === key)?.value ?? '';
@@ -373,6 +445,24 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
         } catch {
             setSubtasks(originalSubtasks);
             toast.error("Delete error");
+        }
+    };
+
+    const handleConvertSubtaskToChildTask = async (subtask) => {
+        if (!subtask?.title || convertingSubtaskId) return;
+        const originalSubtasks = subtasks;
+        setConvertingSubtaskId(subtask._id);
+        try {
+            const { data: childTask } = await api.post(`/tasks/${task._id}/children`, { title: subtask.title });
+            await api.delete(`/tasks/${task._id}/subtasks/${subtask._id}`);
+            setChildTasks(prev => [childTask, ...prev]);
+            setSubtasks(prev => prev.filter(item => item._id !== subtask._id));
+            toast.success('Checklist item converted to child task');
+        } catch {
+            setSubtasks(originalSubtasks);
+            toast.error('Failed to convert checklist item');
+        } finally {
+            setConvertingSubtaskId(null);
         }
     };
 
@@ -472,38 +562,69 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
         }
     };
 
-    const handleSendComment = async (e) => {
-        e.preventDefault();
-        if (!newComment.trim()) return;
-        try {
-            const { data } = await api.post('/comments', { content: newComment, taskId: task._id });
-            setComments([...comments, data]);
-            setNewComment('');
-            if (socket) socket.emit('new_comment', { projectId, comment: data });
-            toast.success("Comment added");
-        } catch { toast.error("Message failed"); }
-    };
+	    const handleSendComment = async (e) => {
+	        e.preventDefault();
+	        if (!newComment.trim() || isSendingComment) return;
+	        setIsSendingComment(true);
+	        try {
+	            const { data } = await api.post('/comments', { content: newComment, taskId: task._id });
+	            setComments([...comments, data]);
+	            setNewComment('');
+	            if (socket) socket.emit('new_comment', { projectId, comment: data });
+	            toast.success("Comment added");
+	        } catch {
+	            toast.error("Message failed");
+	        } finally {
+	            setIsSendingComment(false);
+	        }
+	    };
 
-    const handleFileUpload = async (e) => {
-        const files = Array.from(e.target.files);
+    const uploadAttachmentFiles = async (files) => {
         if (files.length === 0) return;
+        const queuedFiles = files.map((file) => ({
+            id: `${file.name}-${file.size}-${file.lastModified}`,
+            name: file.name,
+            status: 'queued',
+        }));
+        setUploadQueue(queuedFiles);
         setIsUploading(true);
         try {
             for (const file of files) {
+                const queueId = `${file.name}-${file.size}-${file.lastModified}`;
+                setUploadQueue(prev => prev.map(item => item.id === queueId ? { ...item, status: 'uploading' } : item));
                 const formData = new FormData();
                 formData.append('file', file);
                 const uploadRes = await api.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
                 const { url, filename, type } = uploadRes.data;
                 const { data: updatedTask } = await api.post(`/tasks/${task._id}/attachments`, { url, filename, type });
                 setAttachments(updatedTask.attachments || []);
+                setUploadQueue(prev => prev.map(item => item.id === queueId ? { ...item, status: 'done' } : item));
             }
             toast.success(files.length > 1 ? `${files.length} files attached` : "File attached");
-        } catch { toast.error("Upload failed"); }
+        } catch {
+            setUploadQueue(prev => prev.map(item => item.status === 'uploading' ? { ...item, status: 'failed' } : item));
+            toast.error("Upload failed");
+        }
         finally {
             setIsUploading(false);
+        }
+    };
+
+    const handleFileUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        try {
+            await uploadAttachmentFiles(files);
+        } finally {
             // Reset file input so the same file(s) can be re-selected
             e.target.value = '';
         }
+    };
+
+    const handleAttachmentDrop = async (event) => {
+        event.preventDefault();
+        setIsDraggingFiles(false);
+        const files = Array.from(event.dataTransfer.files || []);
+        await uploadAttachmentFiles(files);
     };
 
     const handleDeleteAttachment = async (attachmentId) => {
@@ -519,12 +640,17 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
     };
 
     const handleDeleteTask = async () => {
-        if (!window.confirm("Delete this task permanently?")) return;
+        setIsDeletingTask(true);
         try {
             await api.delete(`/tasks/${task._id}`);
             toast.success("Task deleted");
+            setIsDeleteConfirmOpen(false);
             onClose();
-        } catch { toast.error("Failed to delete"); }
+        } catch {
+            toast.error("Failed to delete");
+        } finally {
+            setIsDeletingTask(false);
+        }
     };
 
     // --- 6. HELPER COMPONENT ---
@@ -596,17 +722,17 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                         </div>
 
                         <div className="flex items-center gap-2 mr-6 md:mr-8">
-                            <Button variant="ghost" size="icon" onClick={() => toast.info("Share link copied!")}><Link2 className="w-4 h-4 text-muted-foreground" /></Button>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></Button>
-                                </DropdownMenuTrigger>
+	                            <Button variant="ghost" size="icon" onClick={handleCopyTaskLink} aria-label="Copy task link"><Link2 className="w-4 h-4 text-muted-foreground" /></Button>
+	                            <DropdownMenu>
+	                                <DropdownMenuTrigger asChild>
+	                                    <Button variant="ghost" size="icon" aria-label="Task actions"><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></Button>
+	                                </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    {canDelete && (
-                                        <DropdownMenuItem onClick={handleDeleteTask} className="text-red-600 focus:text-red-600 focus:bg-red-50">
-                                            <Trash2 className="mr-2 h-4 w-4" /> Delete Task
-                                        </DropdownMenuItem>
-                                    )}
+	                                    {canDelete && (
+	                                        <DropdownMenuItem onClick={() => setIsDeleteConfirmOpen(true)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+	                                            <Trash2 className="mr-2 h-4 w-4" /> Delete Task
+	                                        </DropdownMenuItem>
+	                                    )}
                                     {!canDelete && (
                                         <DropdownMenuItem disabled className="text-muted-foreground">
                                             <Trash2 className="mr-2 h-4 w-4" /> Delete Restricted
@@ -632,25 +758,77 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                         <TabsContent value="details" forceMount={true} className="m-0 lg:flex-1 h-full lg:order-1 data-[state=inactive]:hidden lg:data-[state=inactive]:flex flex-col overflow-hidden focus-visible:outline-none">
                             <ScrollArea className="flex-1 h-full bg-background overflow-y-auto">
                                 <div className="p-4 md:p-6 lg:p-8 max-w-3xl mx-auto space-y-6 md:space-y-8 pb-32">
-                                    <DialogTitle className="text-xl md:text-3xl font-bold text-foreground leading-tight tracking-tight">{task.title}</DialogTitle>
+	                                    <div className="space-y-4">
+	                                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+	                                            <div className="min-w-0 space-y-2">
+	                                                <DialogTitle className="text-xl md:text-3xl font-bold text-foreground leading-tight tracking-tight">{task.title}</DialogTitle>
+	                                                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+	                                                    <Badge variant={isDone ? 'default' : 'outline'} className="rounded-md capitalize">
+	                                                        {String(currentStatus || 'todo').replace(/-/g, ' ')}
+	                                                    </Badge>
+	                                                    {blocked && (
+	                                                        <Badge variant="outline" className="rounded-md border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+	                                                            Blocked by {incompleteDependencies.length}
+	                                                        </Badge>
+	                                                    )}
+	                                                    {dueDate && <span>Due {format(dueDate, 'MMM d')}</span>}
+	                                                    {assignee && <span>Assigned to {assignee.name}</span>}
+	                                                </div>
+	                                            </div>
+	                                            <div className="flex shrink-0 flex-wrap items-center gap-2">
+	                                                <Button
+	                                                    size="sm"
+	                                                    onClick={handleMarkComplete}
+	                                                    disabled={!canComplete || isUpdatingStatus}
+	                                                    className="gap-2"
+	                                                >
+	                                                    {isUpdatingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : isDone ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+	                                                    {isUpdatingStatus ? 'Saving...' : isDone ? 'Complete' : 'Mark complete'}
+	                                                </Button>
+	                                                <Button variant="outline" size="sm" onClick={() => setOpenUserSelect(true)} className="gap-2">
+	                                                    <UserIcon className="h-4 w-4" /> Assign
+	                                                </Button>
+	                                                <Button variant="outline" size="sm" onClick={handleCopyTaskLink} className="gap-2">
+	                                                    <Link2 className="h-4 w-4" /> Copy link
+	                                                </Button>
+	                                            </div>
+	                                        </div>
+	                                        {blocked && (
+	                                            <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+	                                                Finish blocking tasks before completion: {incompleteDependencies.map(dep => dep.title).join(', ')}.
+	                                            </div>
+	                                        )}
+	                                    </div>
 
-                                    {/* --- COMPACT INLINE PROPERTIES HEADER --- */}
-                                    <div className="flex flex-wrap items-center gap-2 md:gap-4 p-3 md:p-4 bg-muted/10 border border-border/40 rounded-xl shadow-sm">
+	                                    {/* --- COMPACT INLINE PROPERTIES HEADER --- */}
+	                                    <div className="flex flex-wrap items-center gap-2 md:gap-4 p-3 md:p-4 bg-muted/10 border border-border/40 rounded-xl shadow-sm">
                                         
                                         {/* Status */}
                                         <div className="flex items-center">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="sm" className="h-8 font-medium capitalize bg-background shadow-sm border border-border/50 hover:bg-muted text-xs md:text-sm rounded-full px-3">
-                                                        <div className={`w-2 h-2 rounded-full mr-2 ${currentStatus === 'done' ? 'bg-green-500' : 'bg-slate-400'}`}></div>
-                                                        {String(currentStatus || 'todo').replace(/-/g, ' ')}
-                                                    </Button>
+	                                                    <Button variant="ghost" size="sm" disabled={isUpdatingStatus} className="h-8 font-medium capitalize bg-background shadow-sm border border-border/50 hover:bg-muted text-xs md:text-sm rounded-full px-3">
+	                                                        {isUpdatingStatus ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <div className={`w-2 h-2 rounded-full mr-2 ${currentStatus === 'done' ? 'bg-green-500' : 'bg-slate-400'}`}></div>}
+	                                                        {String(currentStatus || 'todo').replace(/-/g, ' ')}
+	                                                    </Button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="start" className="w-[180px]">
-                                                    {availableStatuses.map(s => (
-                                                        <DropdownMenuItem key={s.id} onClick={() => handleStatusChange(s.id)} className="capitalize">{s.label}</DropdownMenuItem>
-                                                    ))}
-                                                </DropdownMenuContent>
+	                                                <DropdownMenuContent align="start" className="w-[220px]">
+	                                                    {availableStatuses.map(s => {
+	                                                        const statusIsDone = s.isDone || s.id === 'done' || s.id === 'completed';
+	                                                        const disabled = blocked && statusIsDone;
+	                                                        return (
+	                                                            <DropdownMenuItem
+	                                                                key={s.id}
+	                                                                onClick={() => !disabled && handleStatusChange(s.id)}
+	                                                                disabled={disabled}
+	                                                                className="capitalize"
+	                                                            >
+	                                                                {s.label}
+	                                                                {disabled && <span className="ml-auto text-[10px] normal-case text-muted-foreground">blocked</span>}
+	                                                            </DropdownMenuItem>
+	                                                        );
+	                                                    })}
+	                                                </DropdownMenuContent>
                                             </DropdownMenu>
                                         </div>
 
@@ -658,14 +836,15 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                         <div className="flex items-center">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger className="focus:outline-none">
-                                                    <div className="bg-background shadow-sm border border-border/50 hover:bg-muted px-3 py-1.5 rounded-full flex items-center text-xs md:text-sm h-8 cursor-pointer transition-colors">
-                                                        <PriorityBadge priority={currentPriority} />
-                                                    </div>
+	                                                    <div className={`bg-background shadow-sm border border-border/50 px-3 py-1.5 rounded-full flex items-center text-xs md:text-sm h-8 transition-colors ${isUpdatingPriority ? 'cursor-wait opacity-70' : 'cursor-pointer hover:bg-muted'}`}>
+	                                                        {isUpdatingPriority ? <Loader2 className="w-3 h-3 mr-2 animate-spin text-muted-foreground" /> : null}
+	                                                        <PriorityBadge priority={currentPriority} />
+	                                                    </div>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="w-[180px]">
-                                                    {['urgent', 'high', 'medium', 'low'].map(p => (
-                                                        <DropdownMenuItem key={p} onClick={() => handlePriorityChange(p)} className="capitalize">{p}</DropdownMenuItem>
-                                                    ))}
+	                                                    {['urgent', 'high', 'medium', 'low'].map(p => (
+	                                                        <DropdownMenuItem key={p} disabled={isUpdatingPriority} onClick={() => handlePriorityChange(p)} className="capitalize">{p}</DropdownMenuItem>
+	                                                    ))}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </div>
@@ -821,14 +1000,18 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                             {dependencies?.length > 0 && (
                                                 <div className="flex items-center gap-1 flex-wrap">
                                                     {dependencies.map(dep => (
-                                                        <Badge key={dep._id} variant="secondary" className={`text-[10px] h-6 px-2 flex items-center gap-1 cursor-pointer transition-colors ${
-                                                            dep.status === 'done' ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' : 'hover:bg-red-100 hover:text-red-700'
-                                                        }`} title={dep.status === 'done' ? 'Completed dependency' : 'Click to remove'} onClick={() => handleRemoveDependency(dep._id)}>
-                                                            <div className={`w-1.5 h-1.5 rounded-full ${dep.status === 'done' ? 'bg-green-500' : 'bg-amber-500'}`} />
-                                                            {dep.title?.substring(0, 15)}{dep.title?.length > 15 ? '…' : ''}
-                                                            <X className="w-3 h-3 ml-0.5 opacity-40" />
-                                                        </Badge>
-                                                    ))}
+	                                                        <Badge key={dep._id} variant="secondary" className={`text-[10px] h-6 px-2 flex items-center gap-1 transition-colors ${
+	                                                            dep.status === 'done' ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+	                                                        }`}>
+	                                                            <button type="button" className="flex items-center gap-1 hover:underline" onClick={() => openRelatedTask(dep._id)} title="Open dependency">
+	                                                                <div className={`w-1.5 h-1.5 rounded-full ${dep.status === 'done' ? 'bg-green-500' : 'bg-amber-500'}`} />
+	                                                                {dep.title?.substring(0, 15)}{dep.title?.length > 15 ? '…' : ''}
+	                                                            </button>
+	                                                            <button type="button" onClick={() => handleRemoveDependency(dep._id)} className="ml-0.5 rounded-sm opacity-50 hover:opacity-100 hover:text-destructive" title="Remove dependency">
+	                                                                <X className="w-3 h-3" />
+	                                                            </button>
+	                                                        </Badge>
+	                                                    ))}
                                                 </div>
                                             )}
                                         </div>
@@ -922,20 +1105,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                         </div>
                                     )}
 
-                                    {/* Description */}
-                                    {blocked && (
-                                        <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                                            <div className="flex items-center gap-2 font-semibold">
-                                                <AlertCircle className="w-4 h-4" />
-                                                This task is blocked
-                                            </div>
-                                            <p className="mt-1 text-xs leading-relaxed">
-                                                Finish these dependencies before marking this task done: {incompleteDependencies.map(dep => dep.title).join(', ')}.
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {/* Description */}
+	                                    {/* Description */}
                                     <div className="group pt-2">
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2">
@@ -964,12 +1134,32 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                                     className="min-h-[150px] bg-card border-primary/30 focus-visible:ring-primary/30 shadow-sm resize-none"
                                                     autoFocus
                                                 />
-                                                <div className="flex gap-2">
-                                                    <Button size="sm" onClick={handleSaveDescription}>Save Description</Button>
-                                                    <Button size="sm" variant="ghost" onClick={() => setIsEditingDesc(false)}>Cancel</Button>
-                                                </div>
-                                            </div>
-                                        ) : (
+	                                                <div className="flex gap-2">
+		                                                    <Button size="sm" onClick={handleSaveDescription} disabled={isSavingDescription}>
+		                                                        {isSavingDescription ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Saving...</> : 'Save Description'}
+		                                                    </Button>
+		                                                    <Button size="sm" variant="ghost" onClick={() => setIsEditingDesc(false)} disabled={isSavingDescription}>Cancel</Button>
+		                                                </div>
+	                                                {aiDescriptionDraft && (
+	                                                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+	                                                        <div className="flex items-center justify-between gap-3">
+	                                                            <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
+	                                                                <Wand2 className="w-3.5 h-3.5" /> AI description draft
+	                                                            </p>
+	                                                            <div className="flex gap-2">
+	                                                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setAiDescriptionDraft('')}>
+	                                                                    Dismiss
+	                                                                </Button>
+	                                                                <Button size="sm" className="h-7 text-xs" onClick={handleInsertAiDescription}>
+	                                                                    Insert draft
+	                                                                </Button>
+	                                                            </div>
+	                                                        </div>
+	                                                        <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">{aiDescriptionDraft}</p>
+	                                                    </div>
+	                                                )}
+	                                            </div>
+	                                        ) : (
                                             <div
                                                 onClick={() => setIsEditingDesc(true)}
                                                 className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground p-5 rounded-xl border border-border/40 hover:border-primary/30 hover:bg-muted/30 cursor-text transition-all min-h-[100px] shadow-sm bg-card"
@@ -986,7 +1176,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                         <div className="flex justify-between items-center mb-4">
                                             <div className="flex items-center gap-2">
                                                 <div className="bg-muted p-1.5 rounded-md"><CheckCircle2 className="w-4 h-4 text-primary" /></div>
-                                                <h3 className="text-sm font-semibold text-foreground tracking-wide">Subtasks</h3>
+	                                                <div>
+	                                                    <h3 className="text-sm font-semibold text-foreground tracking-wide">Checklist</h3>
+	                                                    <p className="text-xs text-muted-foreground">Lightweight steps inside this task.</p>
+	                                                </div>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Button
@@ -1057,8 +1250,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                                         <ListChecks className="w-5 h-5 text-muted-foreground" />
                                                     </div>
                                                 </div>
-                                                <p className="text-sm font-medium text-foreground">No subtasks yet</p>
-                                                <p className="text-xs text-muted-foreground mt-1">Break down this task into smaller chunks.</p>
+	                                                <p className="text-sm font-medium text-foreground">No checklist items yet</p>
+	                                                <p className="text-xs text-muted-foreground mt-1">Add quick steps that do not need their own owner or status.</p>
                                             </div>
                                         ) : (
                                             <div className="space-y-2 mb-6">
@@ -1073,8 +1266,21 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                                         <span className={`text-sm flex-1 break-words transition-all duration-300 ${st.isCompleted ? 'text-muted-foreground line-through opacity-70' : 'text-foreground font-medium'}`}>
                                                             {st.title}
                                                         </span>
-                                                        <button onClick={() => handleDeleteSubtask(st._id)} className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-all"><Trash2 className="w-4 h-4" /></button>
-                                                    </div>
+	                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+	                                                            <Button
+	                                                                type="button"
+	                                                                variant="ghost"
+	                                                                size="sm"
+	                                                                onClick={() => handleConvertSubtaskToChildTask(st)}
+	                                                                disabled={convertingSubtaskId === st._id}
+	                                                                className="h-7 px-2 text-[10px] text-muted-foreground hover:text-primary"
+	                                                            >
+	                                                                {convertingSubtaskId === st._id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <GitBranch className="mr-1 h-3 w-3" />}
+	                                                                Make task
+	                                                            </Button>
+	                                                            <button onClick={() => handleDeleteSubtask(st._id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-all"><Trash2 className="w-4 h-4" /></button>
+	                                                        </div>
+	                                                    </div>
                                                 ))}
                                             </div>
                                         )}
@@ -1083,7 +1289,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                             <Plus className="h-4 w-4 text-muted-foreground ml-2" />
                                             <input
                                                 className="text-sm bg-transparent outline-none flex-1 placeholder:text-muted-foreground text-foreground border-b border-transparent focus:border-primary/50 py-1 transition-colors"
-                                                placeholder={subtasks.length === 0 ? "Add your first subtask..." : "Add another subtask..."}
+	                                                placeholder={subtasks.length === 0 ? "Add your first checklist item..." : "Add another checklist item..."}
                                                 value={newSubtask}
                                                 onChange={e => setNewSubtask(e.target.value)}
                                             />
@@ -1096,8 +1302,11 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                     <div>
                                         <div className="flex justify-between items-center mb-4">
                                             <div className="flex items-center gap-2">
-                                                <div className="bg-muted p-1.5 rounded-md"><GitBranch className="w-4 h-4 text-primary" /></div>
-                                                <h3 className="text-sm font-semibold text-foreground tracking-wide">Sub-tasks</h3>
+	                                                <div className="bg-muted p-1.5 rounded-md"><GitBranch className="w-4 h-4 text-primary" /></div>
+	                                                <div>
+	                                                    <h3 className="text-sm font-semibold text-foreground tracking-wide">Child tasks</h3>
+	                                                    <p className="text-xs text-muted-foreground">Separate tasks with their own status and assignee.</p>
+	                                                </div>
                                                 {childTasks.length > 0 && (
                                                     <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{childTasks.length}</span>
                                                 )}
@@ -1107,9 +1316,9 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                         {childTasks.length > 0 && (
                                             <div className="space-y-2 mb-4">
                                                 {childTasks.map(child => (
-                                                    <div key={child._id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all group ${
-                                                        child.status === 'done' ? 'bg-muted/30 border-transparent' : 'bg-card border-border/50 hover:border-primary/40 shadow-sm'
-                                                    }`}>
+	                                                    <button key={child._id} type="button" onClick={() => openRelatedTask(child._id)} className={`w-full text-left flex items-center gap-3 p-3 rounded-xl border transition-all group ${
+	                                                        child.status === 'done' ? 'bg-muted/30 border-transparent' : 'bg-card border-border/50 hover:border-primary/40 shadow-sm'
+	                                                    }`}>
                                                         <div className={`w-2 h-2 rounded-full shrink-0 ${
                                                             child.status === 'done' ? 'bg-green-500' : child.status === 'in-progress' ? 'bg-blue-500' : 'bg-slate-400'
                                                         }`} />
@@ -1123,8 +1332,9 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                                             </UIAvatar>
                                                         )}
                                                         <Badge variant="outline" className="text-[9px] capitalize h-5">{child.status?.replace('-', ' ')}</Badge>
-                                                    </div>
-                                                ))}
+	                                                        <Link2 className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+	                                                    </button>
+	                                                ))}
                                             </div>
                                         )}
 
@@ -1142,9 +1352,9 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
 
                                     <Separator className="bg-border/60" />
 
-                                    {/* Attachments */}
-                                    <div>
-                                        <div className="flex justify-between items-center mb-4">
+	                                    {/* Attachments */}
+	                                    <div>
+	                                        <div className="flex justify-between items-center mb-4">
                                             <div className="flex items-center gap-2">
                                                 <div className="bg-muted p-1.5 rounded-md"><Paperclip className="w-4 h-4 text-primary" /></div>
                                                 <h3 className="text-sm font-semibold text-foreground tracking-wide">Attachments</h3>
@@ -1152,13 +1362,56 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                                     <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{attachments.length}</span>
                                                 )}
                                             </div>
-                                            <label className="cursor-pointer text-xs font-medium px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2 active:scale-95">
-                                                {isUploading ? <span className="animate-pulse">Uploading...</span> : <><Plus className="w-3 h-3" /> Upload File</>}
-                                                <input type="file" className="hidden" onChange={handleFileUpload} multiple disabled={isUploading} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip" />
-                                            </label>
-                                        </div>
+	                                            <label className="cursor-pointer text-xs font-medium px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-all shadow-sm flex items-center gap-2 active:scale-95">
+	                                                {isUploading ? <span className="animate-pulse">Uploading...</span> : <><Plus className="w-3 h-3" /> Upload File</>}
+	                                                <input type="file" className="hidden" onChange={handleFileUpload} multiple disabled={isUploading} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip" />
+	                                            </label>
+	                                        </div>
 
-                                        {attachments.length === 0 ? (
+	                                        <div
+	                                            role="button"
+	                                            tabIndex={0}
+	                                            onDragOver={(event) => {
+	                                                event.preventDefault();
+	                                                setIsDraggingFiles(true);
+	                                            }}
+	                                            onDragLeave={(event) => {
+	                                                if (!event.currentTarget.contains(event.relatedTarget)) {
+	                                                    setIsDraggingFiles(false);
+	                                                }
+	                                            }}
+	                                            onDrop={handleAttachmentDrop}
+	                                            className={`mb-4 rounded-xl border border-dashed px-4 py-5 text-center transition-colors ${
+	                                                isDraggingFiles
+	                                                    ? 'border-primary bg-primary/10 text-primary'
+	                                                    : 'border-border/70 bg-muted/10 text-muted-foreground hover:bg-muted/20'
+	                                            }`}
+	                                        >
+	                                            <UploadCloud className="mx-auto mb-2 h-5 w-5" />
+	                                            <p className="text-sm font-medium">Drop files here to attach them</p>
+	                                            <p className="mt-1 text-xs">Images, PDFs, docs, spreadsheets, text files, and zip archives are supported.</p>
+	                                        </div>
+
+	                                        {uploadQueue.length > 0 && (
+	                                            <div className="mb-4 space-y-2 rounded-xl border border-border/50 bg-card p-3">
+	                                                {uploadQueue.map((item) => (
+	                                                    <div key={item.id} className="flex items-center justify-between gap-3 text-xs">
+	                                                        <span className="min-w-0 truncate text-foreground">{item.name}</span>
+	                                                        <span className={`shrink-0 rounded-full px-2 py-0.5 font-medium ${
+	                                                            item.status === 'done'
+	                                                                ? 'bg-green-500/10 text-green-700 dark:text-green-300'
+	                                                                : item.status === 'failed'
+	                                                                    ? 'bg-destructive/10 text-destructive'
+	                                                                    : 'bg-primary/10 text-primary'
+	                                                        }`}>
+	                                                            {item.status === 'uploading' ? 'Uploading' : item.status === 'done' ? 'Attached' : item.status === 'failed' ? 'Failed' : 'Queued'}
+	                                                        </span>
+	                                                    </div>
+	                                                ))}
+	                                            </div>
+	                                        )}
+
+	                                        {attachments.length === 0 ? (
                                             <div className="text-center py-8 border-2 border-dashed border-border/60 rounded-xl bg-muted/10 hover:bg-muted/30 transition-colors">
                                                 <div className="flex justify-center mb-3">
                                                     <div className="bg-background p-2.5 rounded-full border border-border shadow-sm">
@@ -1280,14 +1533,15 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                             className="pr-12 bg-background border-border focus-visible:ring-primary/40 shadow-sm transition-all text-sm rounded-xl py-2.5 md:py-3 min-h-[44px] md:min-h-[80px]"
                                             onSubmit={handleSendComment}
                                         />
-                                        <Button 
-                                            size="sm" 
-                                            type="submit" 
-                                            disabled={!newComment.trim()} 
-                                            className="absolute bottom-2.5 right-2.5 h-8 w-8 p-0 rounded-lg shadow-sm transition-all group-focus-within:bg-primary"
-                                        >
-                                            <div className="-rotate-90"><AlignLeft className="w-3.5 h-3.5" /></div>
-                                        </Button>
+	                                        <Button 
+	                                            size="sm" 
+	                                            type="submit" 
+	                                            disabled={!newComment.trim() || isSendingComment} 
+	                                            className="absolute bottom-2.5 right-2.5 h-8 w-8 p-0 rounded-lg shadow-sm transition-all group-focus-within:bg-primary"
+	                                            aria-label="Send comment"
+	                                        >
+	                                            {isSendingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <div className="-rotate-90"><AlignLeft className="w-3.5 h-3.5" /></div>}
+	                                        </Button>
                                     </form>
                                 </div>
                             </div>
@@ -1297,9 +1551,9 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
+	            <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+	                <AlertDialogContent>
+	                    <AlertDialogHeader>
                         <AlertDialogTitle>Change Assignee?</AlertDialogTitle>
                         <AlertDialogDescription>
                             Are you sure you want to assign this task to <strong>{pendingAssignee?.name}</strong>?
@@ -1308,9 +1562,30 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setPendingAssignee(null)}>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={confirmAssignment}>Confirm Assignment</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
-    );
-}
+	                    </AlertDialogFooter>
+	                </AlertDialogContent>
+	            </AlertDialog>
+
+	            <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+	                <AlertDialogContent>
+	                    <AlertDialogHeader>
+	                        <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+	                        <AlertDialogDescription>
+	                            This permanently removes <strong>{task.title}</strong>, including its checklist items, comments, activity context, and attachments from this workspace.
+	                        </AlertDialogDescription>
+	                    </AlertDialogHeader>
+	                    <AlertDialogFooter>
+	                        <AlertDialogCancel disabled={isDeletingTask}>Cancel</AlertDialogCancel>
+	                        <AlertDialogAction
+	                            onClick={handleDeleteTask}
+	                            disabled={isDeletingTask}
+	                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+	                        >
+	                            {isDeletingTask ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...</> : 'Delete task'}
+	                        </AlertDialogAction>
+	                    </AlertDialogFooter>
+	                </AlertDialogContent>
+	            </AlertDialog>
+	        </>
+	    );
+	}

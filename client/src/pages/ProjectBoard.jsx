@@ -194,7 +194,8 @@ export default function ProjectBoard() {
   }, [projectId]);
 
   useEffect(() => {
-    const taskId = location.state?.openTaskId;
+    const queryTaskId = new URLSearchParams(location.search).get('task');
+    const taskId = location.state?.openTaskId || queryTaskId;
     if (!taskId || openedNotificationTaskRef.current === taskId) return;
 
     openedNotificationTaskRef.current = taskId;
@@ -218,7 +219,7 @@ export default function ProjectBoard() {
       .finally(() => {
         navigate(location.pathname, { replace: true, state: {} });
       });
-  }, [location.pathname, location.state, navigate, tasks]);
+  }, [location.pathname, location.search, location.state, navigate, tasks]);
 
   const loadMoreTasks = useCallback(async () => {
     if (isLoadingMore || !hasMoreTasks) return;
