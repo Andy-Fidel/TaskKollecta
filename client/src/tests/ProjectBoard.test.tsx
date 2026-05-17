@@ -24,10 +24,13 @@ vi.mock('../hooks/useSocket', () => ({
 }));
 
 vi.mock('../components/KanbanColumn', () => ({
-  KanbanColumn: ({ column, tasks = [] }) => (
+  KanbanColumn: ({ column, tasks = [], onQuickCreate }) => (
     <div data-testid={`column-${column.id}`}>
       <span>{column.label}</span>
       <span>{tasks.length}</span>
+      <button type="button" onClick={() => onQuickCreate?.(column.id, `Quick task in ${column.label}`)}>
+        Quick add {column.label}
+      </button>
     </div>
   ),
 }));
@@ -115,6 +118,49 @@ describe('ProjectBoard', () => {
         projectId: 'project-1',
         orgId: 'org-1',
         status: 'todo',
+      }));
+    });
+  }, 10000);
+
+  it('creates a quick task directly in the selected board column', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return { data: { tasks: [], pagination: { hasMore: false } } };
+      }
+      if (url === '/organizations/org-1/members') {
+        return { data: [] };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    mockedApi.post.mockResolvedValue({
+      data: {
+        _id: 'task-quick-1',
+        title: 'Quick task in Review',
+        status: 'review',
+        priority: 'medium',
+        project: { _id: 'project-1', name: 'Core Product' },
+      },
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /quick add review/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith('/tasks', expect.objectContaining({
+        title: 'Quick task in Review',
+        projectId: 'project-1',
+        orgId: 'org-1',
+        status: 'review',
+        priority: 'medium',
       }));
     });
   }, 10000);

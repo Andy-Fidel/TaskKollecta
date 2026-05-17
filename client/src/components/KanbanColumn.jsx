@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableTask } from './SortableTask';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const COLUMN_COLORS = {
   'todo': {
@@ -34,7 +37,9 @@ const COLUMN_COLORS = {
   }
 };
 
-export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onToggleSelect, hasMore, onLoadMore, isLoadingMore }) {
+export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onToggleSelect, onQuickCreate, isQuickCreating, hasMore, onLoadMore, isLoadingMore }) {
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [quickTitle, setQuickTitle] = useState('');
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -44,6 +49,23 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
     borderTop: `3px solid ${column.color}`,
   } : {};
   const dotStyle = column.color ? { backgroundColor: column.color } : {};
+  const trimmedQuickTitle = quickTitle.trim();
+
+  const handleQuickSubmit = async (event) => {
+    event.preventDefault();
+    if (!trimmedQuickTitle || isQuickCreating) return;
+
+    const created = await onQuickCreate?.(column.id, trimmedQuickTitle);
+    if (created) {
+      setQuickTitle('');
+      setIsAddingTask(false);
+    }
+  };
+
+  const handleCancelQuickCreate = () => {
+    setQuickTitle('');
+    setIsAddingTask(false);
+  };
 
   return (
     <div
@@ -69,6 +91,45 @@ export function KanbanColumn({ column, tasks, onTaskClick, selectedTasks, onTogg
         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${colors.badge} tabular-nums`}>
           {tasks.length}
         </span>
+      </div>
+
+      <div className="border-b border-border/50 px-2.5 py-2">
+        {isAddingTask ? (
+          <form onSubmit={handleQuickSubmit} className="space-y-2">
+            <Input
+              value={quickTitle}
+              onChange={(event) => setQuickTitle(event.target.value)}
+              placeholder={`Add to ${column.label}`}
+              aria-label={`New task title for ${column.label}`}
+              className="h-8 bg-background text-sm"
+              autoFocus
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  handleCancelQuickCreate();
+                }
+              }}
+            />
+            <div className="flex items-center gap-2">
+              <Button type="submit" size="sm" className="h-7 px-2" disabled={!trimmedQuickTitle || isQuickCreating}>
+                {isQuickCreating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Add
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={handleCancelQuickCreate} disabled={isQuickCreating}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsAddingTask(true)}
+            className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background/70 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add task
+          </button>
+        )}
       </div>
 
       {/* Tasks Container */}

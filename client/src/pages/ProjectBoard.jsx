@@ -137,6 +137,7 @@ export default function ProjectBoard() {
   const [taskPage, setTaskPage] = useState(0);
   const [hasMoreTasks, setHasMoreTasks] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [quickCreatingStatus, setQuickCreatingStatus] = useState(null);
 
   const [view, setView] = useState('board');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -584,6 +585,34 @@ export default function ProjectBoard() {
     } catch { toast.error('Failed to create task'); }
   };
 
+  const handleQuickCreateTask = async (status, title) => {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle || quickCreatingStatus) return false;
+
+    setQuickCreatingStatus(status);
+    try {
+      const payload = {
+        title: trimmedTitle,
+        projectId,
+        orgId: projectDetails.organization,
+        status,
+        priority: 'medium',
+      };
+
+      const { data } = await api.post('/tasks', payload);
+      setTasks((current) => [data, ...current]);
+      if (socket) socket.emit('task_created', { task: data, projectId });
+      toast.success('Task created');
+      triggerRefresh();
+      return true;
+    } catch {
+      toast.error('Failed to create task');
+      return false;
+    } finally {
+      setQuickCreatingStatus(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col h-[calc(100vh-100px)] animate-in fade-in duration-500">
@@ -936,6 +965,8 @@ export default function ProjectBoard() {
                     onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
                     selectedTasks={selectedTasks}
                     onToggleSelect={toggleTaskSelection}
+                    onQuickCreate={handleQuickCreateTask}
+                    isQuickCreating={quickCreatingStatus === col.id}
                     hasMore={hasMoreTasks}
                     onLoadMore={loadMoreTasks}
                     isLoadingMore={isLoadingMore}

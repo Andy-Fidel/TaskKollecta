@@ -60,6 +60,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
 
     const [newComment, setNewComment] = useState('');
     const [newSubtask, setNewSubtask] = useState('');
+    const [taskTitle, setTaskTitle] = useState(task?.title || '');
+    const [titleInput, setTitleInput] = useState(task?.title || '');
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [isSavingTitle, setIsSavingTitle] = useState(false);
     const [assignee, setAssignee] = useState(task?.assignee);
     const [startDate, setStartDate] = useState(task?.startDate ? new Date(task.startDate) : null);
     const [dueDate, setDueDate] = useState(task?.dueDate ? new Date(task.dueDate) : null);
@@ -111,6 +115,9 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
             }
 
             setAssignee(task.assignee);
+            setTaskTitle(task.title || '');
+            setTitleInput(task.title || '');
+            setIsEditingTitle(false);
             setStartDate(task.startDate ? new Date(task.startDate) : null);
             setDueDate(task.dueDate ? new Date(task.dueDate) : null);
             setCurrentStatus(task.status || 'todo');
@@ -261,26 +268,61 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
         }
     };
 
-	    const handleAiDescribe = async () => {
-	        setIsAiDescribing(true);
-	        setIsEditingDesc(true);
-	        setAiDescriptionDraft('');
-	        try {
-	            const { data } = await api.post('/ai/describe', {
-	                title: task.title,
-	                projectName: task.project?.name || '',
+    const handleSaveTitle = async () => {
+        const nextTitle = titleInput.trim();
+        if (!nextTitle || nextTitle === taskTitle || isSavingTitle) {
+            setIsEditingTitle(false);
+            setTitleInput(taskTitle);
+            return;
+        }
+
+        const previousTitle = taskTitle;
+        setTaskTitle(nextTitle);
+        setIsSavingTitle(true);
+        try {
+            await api.put(`/tasks/${task._id}`, { title: nextTitle });
+            setIsEditingTitle(false);
+            toast.success('Title updated');
+        } catch {
+            setTaskTitle(previousTitle);
+            setTitleInput(previousTitle);
+            toast.error('Failed to update title');
+        } finally {
+            setIsSavingTitle(false);
+        }
+    };
+
+    const handleTitleKeyDown = (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            handleSaveTitle();
+        }
+        if (event.key === 'Escape') {
+            setTitleInput(taskTitle);
+            setIsEditingTitle(false);
+        }
+    };
+
+    const handleAiDescribe = async () => {
+        setIsAiDescribing(true);
+        setIsEditingDesc(true);
+        setAiDescriptionDraft('');
+        try {
+            const { data } = await api.post('/ai/describe', {
+                title: taskTitle,
+                projectName: task.project?.name || '',
             });
             let generated = data.description || '';
-	            if (data.acceptanceCriteria?.length) {
-	                generated += '\n\nAcceptance Criteria:\n' + data.acceptanceCriteria.map(c => `• ${c}`).join('\n');
-	            }
-	            setAiDescriptionDraft(generated);
-	        } catch {
-	            toast.error('AI generation failed');
-	        } finally {
-	            setIsAiDescribing(false);
-	        }
-	    };
+            if (data.acceptanceCriteria?.length) {
+                generated += '\n\nAcceptance Criteria:\n' + data.acceptanceCriteria.map(c => `• ${c}`).join('\n');
+            }
+            setAiDescriptionDraft(generated);
+        } catch {
+            toast.error('AI generation failed');
+        } finally {
+            setIsAiDescribing(false);
+        }
+    };
 
 	    const handleInsertAiDescription = () => {
 	        if (!aiDescriptionDraft.trim()) return;
@@ -471,7 +513,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
         setSuggestedSubtasks([]);
         try {
             const { data } = await api.post('/ai/generate-subtasks', {
-                title: task.title,
+                title: taskTitle,
                 description: task.description || descInput || '',
             });
             setSuggestedSubtasks(data.subtasks || []);
@@ -758,37 +800,79 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                         <TabsContent value="details" forceMount={true} className="m-0 lg:flex-1 h-full lg:order-1 data-[state=inactive]:hidden lg:data-[state=inactive]:flex flex-col overflow-hidden focus-visible:outline-none">
                             <ScrollArea className="flex-1 h-full bg-background overflow-y-auto">
                                 <div className="p-4 md:p-6 lg:p-8 max-w-3xl mx-auto space-y-6 md:space-y-8 pb-32">
-	                                    <div className="space-y-4">
-	                                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-	                                            <div className="min-w-0 space-y-2">
-	                                                <DialogTitle className="text-xl md:text-3xl font-bold text-foreground leading-tight tracking-tight">{task.title}</DialogTitle>
-	                                                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-	                                                    <Badge variant={isDone ? 'default' : 'outline'} className="rounded-md capitalize">
-	                                                        {String(currentStatus || 'todo').replace(/-/g, ' ')}
-	                                                    </Badge>
-	                                                    {blocked && (
-	                                                        <Badge variant="outline" className="rounded-md border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-	                                                            Blocked by {incompleteDependencies.length}
-	                                                        </Badge>
-	                                                    )}
-	                                                    {dueDate && <span>Due {format(dueDate, 'MMM d')}</span>}
-	                                                    {assignee && <span>Assigned to {assignee.name}</span>}
-	                                                </div>
-	                                            </div>
-	                                            <div className="flex shrink-0 flex-wrap items-center gap-2">
-	                                                <Button
-	                                                    size="sm"
-	                                                    onClick={handleMarkComplete}
-	                                                    disabled={!canComplete || isUpdatingStatus}
-	                                                    className="gap-2"
-	                                                >
-	                                                    {isUpdatingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : isDone ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
-	                                                    {isUpdatingStatus ? 'Saving...' : isDone ? 'Complete' : 'Mark complete'}
-	                                                </Button>
-	                                                <Button variant="outline" size="sm" onClick={() => setOpenUserSelect(true)} className="gap-2">
-	                                                    <UserIcon className="h-4 w-4" /> Assign
-	                                                </Button>
-	                                                <Button variant="outline" size="sm" onClick={handleCopyTaskLink} className="gap-2">
+                                    <div className="space-y-4">
+                                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                            <div className="min-w-0 space-y-2">
+                                                {isEditingTitle ? (
+                                                    <div className="space-y-2">
+                                                        <DialogTitle className="sr-only">Edit task title</DialogTitle>
+                                                        <Textarea
+                                                            value={titleInput}
+                                                            onChange={(event) => setTitleInput(event.target.value)}
+                                                            onKeyDown={handleTitleKeyDown}
+                                                            className="min-h-[76px] resize-none text-xl md:text-3xl font-bold leading-tight tracking-tight"
+                                                            autoFocus
+                                                        />
+                                                        <div className="flex gap-2">
+                                                            <Button size="sm" onClick={handleSaveTitle} disabled={isSavingTitle || !titleInput.trim()}>
+                                                                {isSavingTitle ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Saving...</> : 'Save title'}
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                disabled={isSavingTitle}
+                                                                onClick={() => {
+                                                                    setTitleInput(taskTitle);
+                                                                    setIsEditingTitle(false);
+                                                                }}
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <DialogTitle
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => setIsEditingTitle(true)}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                                event.preventDefault();
+                                                                setIsEditingTitle(true);
+                                                            }
+                                                        }}
+                                                        className="rounded-md text-xl md:text-3xl font-bold text-foreground leading-tight tracking-tight cursor-text hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                                                    >
+                                                        {taskTitle}
+                                                    </DialogTitle>
+                                                )}
+                                                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                                    <Badge variant={isDone ? 'default' : 'outline'} className="rounded-md capitalize">
+                                                        {String(currentStatus || 'todo').replace(/-/g, ' ')}
+                                                    </Badge>
+                                                    {blocked && (
+                                                        <Badge variant="outline" className="rounded-md border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+                                                            Blocked by {incompleteDependencies.length}
+                                                        </Badge>
+                                                    )}
+                                                    {dueDate && <span>Due {format(dueDate, 'MMM d')}</span>}
+                                                    {assignee && <span>Assigned to {assignee.name}</span>}
+                                                </div>
+                                            </div>
+                                            <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={handleMarkComplete}
+                                                    disabled={!canComplete || isUpdatingStatus}
+                                                    className="gap-2"
+                                                >
+                                                    {isUpdatingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : isDone ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+                                                    {isUpdatingStatus ? 'Saving...' : isDone ? 'Complete' : 'Mark complete'}
+                                                </Button>
+                                                <Button variant="outline" size="sm" onClick={() => setOpenUserSelect(true)} className="gap-2">
+                                                    <UserIcon className="h-4 w-4" /> Assign
+                                                </Button>
+                                                <Button variant="outline" size="sm" onClick={handleCopyTaskLink} className="gap-2">
 	                                                    <Link2 className="h-4 w-4" /> Copy link
 	                                                </Button>
 	                                            </div>
@@ -1571,7 +1655,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
 	                    <AlertDialogHeader>
 	                        <AlertDialogTitle>Delete this task?</AlertDialogTitle>
 	                        <AlertDialogDescription>
-	                            This permanently removes <strong>{task.title}</strong>, including its checklist items, comments, activity context, and attachments from this workspace.
+	                            This permanently removes <strong>{taskTitle}</strong>, including its checklist items, comments, activity context, and attachments from this workspace.
 	                        </AlertDialogDescription>
 	                    </AlertDialogHeader>
 	                    <AlertDialogFooter>

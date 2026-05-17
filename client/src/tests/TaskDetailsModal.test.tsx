@@ -88,6 +88,58 @@ describe('TaskDetailsModal', () => {
     });
   }, 10000);
 
+  it('edits and saves the task title', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/comments/task-1') return { data: { comments: [] } };
+      if (url === '/activities/task/task-1') return { data: [] };
+      if (url === '/organizations/org-1/members') {
+        return { data: [{ role: 'owner', user: { _id: 'user-1', name: 'Andy' } }] };
+      }
+      if (url === '/tasks/task-1/children') return { data: [] };
+      return { data: [] };
+    });
+    mockedApi.put.mockResolvedValue({ data: {} });
+
+    render(
+      <MemoryRouter>
+        <TaskDetailsModal
+          task={{
+            _id: 'task-1',
+            title: 'Old task title',
+            description: '',
+            project: { _id: 'project-1', name: 'Core Product' },
+            organization: 'org-1',
+            reporter: 'user-1',
+            status: 'todo',
+            priority: 'medium',
+            subtasks: [],
+            dependencies: [],
+            tags: [],
+            attachments: [],
+          }}
+          isOpen={true}
+          onClose={vi.fn()}
+          projectId="project-1"
+          orgId="org-1"
+          socket={null}
+        />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByText('Old task title'));
+    const input = screen.getByDisplayValue('Old task title');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Updated task title');
+    await userEvent.click(screen.getByRole('button', { name: /save title/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.put).toHaveBeenCalledWith('/tasks/task-1', {
+        title: 'Updated task title',
+      });
+    });
+    expect(screen.getByText('Updated task title')).toBeInTheDocument();
+  });
+
   it('prevents completing a task with unfinished dependencies', async () => {
     mockedApi.get.mockImplementation(async (url) => {
       if (url === '/comments/task-1') {
