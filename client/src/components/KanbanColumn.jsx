@@ -5,6 +5,7 @@ import { SortableTask } from './SortableTask';
 import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, MoreHorizontal, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,9 +51,13 @@ export function KanbanColumn({
   onTaskClick,
   selectedTasks,
   onToggleSelect,
+  onRenameTask,
   onSetPriority,
   onSetStatus,
   statusOptions,
+  members,
+  onSetAssignee,
+  onSetDueDate,
   onArchiveTask,
   onCopyTaskLink,
   isCollapsed,
@@ -60,9 +65,7 @@ export function KanbanColumn({
   onSetWipLimit,
   onQuickCreate,
   isQuickCreating,
-  hasMore,
-  onLoadMore,
-  isLoadingMore,
+  className,
 }) {
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [quickTitle, setQuickTitle] = useState('');
@@ -111,12 +114,15 @@ export function KanbanColumn({
         type="button"
         style={customColorStyle}
         onClick={() => onToggleCollapse?.(column.id)}
-        className={`
+        className={cn(
+          `
           flex min-h-[280px] w-14 shrink-0 flex-col items-center gap-3 rounded-2xl
           bg-muted/50 px-2 py-3 text-muted-foreground transition-all hover:bg-muted hover:text-foreground
           ${isOver ? `ring-2 ${colors.glow} ${colors.dropGlow}` : 'ring-0'}
           ${isOverWipLimit ? 'border border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300' : ''}
-        `}
+        `,
+          className,
+        )}
         aria-label={`Expand ${column.label} column`}
       >
         <span style={dotStyle} className={`h-2.5 w-2.5 rounded-full ${column.color ? '' : colors.dot}`} />
@@ -135,7 +141,8 @@ export function KanbanColumn({
     <div
       ref={setNodeRef}
       style={customColorStyle}
-      className={`
+      className={cn(
+        `
         flex-1 min-w-[280px] max-w-[320px] rounded-2xl 
         bg-muted/50 dark:bg-muted/20 
         transition-all duration-300 ease-out
@@ -145,7 +152,9 @@ export function KanbanColumn({
           ? `ring-2 ${colors.glow} ${colors.dropGlow} scale-[1.01] shadow-lg` 
           : 'ring-0 shadow-none'
         }
-      `}
+      `,
+        className,
+      )}
     >
       {/* Column Header */}
       <div className={`flex justify-between items-center p-3 rounded-t-2xl ${colors.header} transition-colors duration-200 shrink-0`}>
@@ -299,31 +308,19 @@ export function KanbanColumn({
                 onClick={() => onTaskClick(task)}
                 isSelected={selectedTasks?.has(task._id)}
                 onToggleSelect={onToggleSelect}
+                onRenameTask={onRenameTask}
                 onSetPriority={onSetPriority}
                 onSetStatus={onSetStatus}
                 statusOptions={statusOptions}
+                members={members}
+                onSetAssignee={onSetAssignee}
+                onSetDueDate={onSetDueDate}
                 onArchiveTask={onArchiveTask}
                 onCopyTaskLink={onCopyTaskLink}
               />
             ))}
           </div>
         </SortableContext>
-
-        {/* Load More */}
-        {hasMore && (
-          <button
-            onClick={onLoadMore}
-            disabled={isLoadingMore}
-            className="w-full mt-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/70 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-          >
-            {isLoadingMore ? (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Loading...
-              </>
-            ) : 'Load more tasks'}
-          </button>
-        )}
       </div>
     </div>
   );

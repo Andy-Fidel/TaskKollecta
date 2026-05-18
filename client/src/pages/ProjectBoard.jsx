@@ -11,7 +11,7 @@ import {
   Activity, CheckCircle2,
   Circle, ArrowLeft, Settings, FileText,
   Columns, Calendar as CalendarIcon, Zap, Archive, X, Clock, Trash2,
-  TrendingUp, AlertTriangle
+  TrendingUp, AlertTriangle, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,6 +79,13 @@ const reindexTasks = (items) => items.map((task, index) => ({
   index: (index + 1) * 1000,
 }));
 
+const getTaskAssigneeId = (task) => task.assignee?._id || task.assignee || null;
+
+const isTypingTarget = (target) => {
+  const tagName = target?.tagName?.toLowerCase();
+  return target?.isContentEditable || ['input', 'textarea', 'select'].includes(tagName);
+};
+
 export default function ProjectBoard() {
   const { user } = useAuth();
   const { projectId } = useParams();
@@ -87,6 +94,7 @@ export default function ProjectBoard() {
   const socket = useSocket(projectId);
   const { triggerRefresh } = useDataRefresh();
   const openedNotificationTaskRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   // State
   const [tasks, setTasks] = useState([]);
@@ -179,6 +187,7 @@ export default function ProjectBoard() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeViewers, setActiveViewers] = useState([]);
   const [collapsedColumns, setCollapsedColumns] = useState(new Set());
+  const [mobileBoardColumnId, setMobileBoardColumnId] = useState(null);
 
   // Advanced Filters State
   const [filters, setFilters] = useState({
@@ -193,6 +202,7 @@ export default function ProjectBoard() {
   const [filterPresets, setFilterPresets] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showBlockedOnly, setShowBlockedOnly] = useState(false);
+  const [activeQuickView, setActiveQuickView] = useState('all');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -208,6 +218,43 @@ export default function ProjectBoard() {
   const sortedCustomFields = useMemo(() => (
     [...(projectDetails?.customFields || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   ), [projectDetails]);
+
+  useEffect(() => {
+    if (workflowColumns.length === 0) return;
+    if (!mobileBoardColumnId || !workflowColumns.some((column) => column.id === mobileBoardColumnId)) {
+      setMobileBoardColumnId(workflowColumns[0].id);
+    }
+  }, [mobileBoardColumnId, workflowColumns]);
+
+  useEffect(() => {
+    const handleBoardShortcut = (event) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      const key = event.key.toLowerCase();
+      if (isTypingTarget(event.target) && event.key !== 'Escape') return;
+
+      if (key === 'n') {
+        event.preventDefault();
+        setIsCreateModalOpen(true);
+      }
+
+      if (key === '/') {
+        event.preventDefault();
+        setView((current) => (current === 'board' || current === 'list' ? current : 'board'));
+        window.requestAnimationFrame(() => searchInputRef.current?.focus());
+      }
+
+      if (event.key === 'Escape') {
+        setSelectedTasks(new Set());
+        setSearchQuery('');
+        setActiveQuickView('all');
+        setShowBlockedOnly(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleBoardShortcut);
+    return () => window.removeEventListener('keydown', handleBoardShortcut);
+  }, []);
 
   // Effects
   useEffect(() => {
@@ -374,13 +421,39 @@ export default function ProjectBoard() {
       result = result.filter((task) => isTaskBlocked(task));
     }
 
+    if (activeQuickView === 'mine') {
+      result = result.filter((task) => getTaskAssigneeId(task) === user?._id);
+    }
+
+    if (activeQuickView === 'blocked') {
+      result = result.filter((task) => isTaskBlocked(task));
+    }
+
+    if (activeQuickView === 'unassigned') {
+      result = result.filter((task) => !getTaskAssigneeId(task) && !task.assigneeEmail);
+    }
+
     return result;
-  }, [tasks, filters, searchQuery, showBlockedOnly]);
+  }, [tasks, filters, searchQuery, showBlockedOnly, activeQuickView, user?._id]);
 
   const blockedTaskCount = useMemo(
     () => tasks.filter((task) => isTaskBlocked(task)).length,
     [tasks],
   );
+
+  const quickViewCounts = useMemo(() => ({
+    all: tasks.length,
+    mine: tasks.filter((task) => getTaskAssigneeId(task) === user?._id).length,
+    blocked: blockedTaskCount,
+    unassigned: tasks.filter((task) => !getTaskAssigneeId(task) && !task.assigneeEmail).length,
+  }), [blockedTaskCount, tasks, user?._id]);
+
+  const quickViews = useMemo(() => [
+    { id: 'all', label: 'All', count: quickViewCounts.all },
+    { id: 'mine', label: 'My work', count: quickViewCounts.mine },
+    { id: 'blocked', label: 'Blocked', count: quickViewCounts.blocked },
+    { id: 'unassigned', label: 'Unassigned', count: quickViewCounts.unassigned },
+  ], [quickViewCounts]);
 
   const pinnedSavedViews = useMemo(() => filterPresets.slice(0, 5), [filterPresets]);
 
@@ -439,6 +512,7 @@ export default function ProjectBoard() {
     });
     setSearchQuery(savedView.filters?.query || '');
     setShowBlockedOnly(Boolean(savedView.filters?.blockedOnly));
+    setActiveQuickView('all');
     if (savedView.layout && ['board', 'list', 'calendar'].includes(savedView.layout)) {
       setView(savedView.layout);
     }
@@ -741,6 +815,25 @@ export default function ProjectBoard() {
     }
   };
 
+  const handleTaskTitleUpdate = async (task, title) => {
+    const nextTitle = title.trim();
+    if (!nextTitle || nextTitle === task.title) return true;
+
+    const previousTitle = task.title;
+    setTasks((current) => current.map((item) => item._id === task._id ? { ...item, title: nextTitle } : item));
+
+    try {
+      await api.put(`/tasks/${task._id}`, { title: nextTitle });
+      toast.success('Task renamed');
+      triggerRefresh();
+      return true;
+    } catch {
+      setTasks((current) => current.map((item) => item._id === task._id ? { ...item, title: previousTitle } : item));
+      toast.error('Failed to rename task');
+      return false;
+    }
+  };
+
   const handleTaskStatusUpdate = async (task, status) => {
     if (task.status === status) return;
 
@@ -774,6 +867,45 @@ export default function ProjectBoard() {
     }
   };
 
+  const handleTaskAssigneeUpdate = async (task, member) => {
+    const previousAssignee = task.assignee || null;
+    const nextAssignee = member?.user || null;
+    const nextAssigneeId = nextAssignee?._id || null;
+
+    if ((previousAssignee?._id || previousAssignee || null) === nextAssigneeId) return;
+
+    setTasks((current) => current.map((item) => (
+      item._id === task._id
+        ? { ...item, assignee: nextAssignee, assigneeEmail: nextAssignee ? undefined : item.assigneeEmail }
+        : item
+    )));
+
+    try {
+      await api.put(`/tasks/${task._id}`, { assignee: nextAssigneeId });
+      toast.success(nextAssignee ? `Assigned to ${nextAssignee.name}` : 'Task unassigned');
+      triggerRefresh();
+    } catch {
+      setTasks((current) => current.map((item) => item._id === task._id ? { ...item, assignee: previousAssignee } : item));
+      toast.error('Failed to update assignee');
+    }
+  };
+
+  const handleTaskDueDateUpdate = async (task, dueDate) => {
+    const previousDueDate = task.dueDate;
+    const nextDueDate = dueDate ? dueDate.toISOString() : null;
+
+    setTasks((current) => current.map((item) => item._id === task._id ? { ...item, dueDate: nextDueDate } : item));
+
+    try {
+      await api.put(`/tasks/${task._id}`, { dueDate: nextDueDate });
+      toast.success(nextDueDate ? 'Due date updated' : 'Due date cleared');
+      triggerRefresh();
+    } catch {
+      setTasks((current) => current.map((item) => item._id === task._id ? { ...item, dueDate: previousDueDate } : item));
+      toast.error('Failed to update due date');
+    }
+  };
+
   const handleTaskArchive = async (task) => {
     const previousTasks = tasks;
     setTasks((current) => current.filter((item) => item._id !== task._id));
@@ -781,7 +913,22 @@ export default function ProjectBoard() {
     try {
       await api.put(`/tasks/${task._id}/archive`);
       if (socket) socket.emit('task_deleted', { _id: task._id, projectId });
-      toast.success('Task archived');
+      toast.success('Task archived', {
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              await api.put(`/tasks/${task._id}/archive`);
+              setTasks((current) => current.some((item) => item._id === task._id) ? current : [task, ...current]);
+              if (socket) socket.emit('task_created', { task, projectId });
+              toast.success('Task restored');
+              triggerRefresh();
+            } catch {
+              toast.error('Failed to restore task');
+            }
+          },
+        },
+      });
       triggerRefresh();
     } catch {
       setTasks(previousTasks);
@@ -1058,6 +1205,7 @@ export default function ProjectBoard() {
           <div className="relative w-full md:w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
+              ref={searchInputRef}
               className="pl-9 h-9 bg-transparent border-transparent hover:bg-muted/50 focus:bg-background focus:border-border transition-all rounded-lg text-sm"
               placeholder="Search tasks..."
               value={searchQuery}
@@ -1066,18 +1214,30 @@ export default function ProjectBoard() {
           </div>
           <div className="hidden md:block h-6 w-[1px] bg-border"></div>
           <div className="flex items-center gap-3 overflow-x-auto">
-            <Button
-              variant={showBlockedOnly ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setShowBlockedOnly((current) => !current)}
-              className="shrink-0"
-            >
-              <AlertTriangle className="w-4 h-4 mr-1.5 text-amber-500" />
-              Blocked
-              <span className="ml-2 rounded-full bg-background/80 px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
-                {blockedTaskCount}
-              </span>
-            </Button>
+            <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-background p-1">
+              {quickViews.map((quickView) => (
+                <button
+                  key={quickView.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveQuickView(quickView.id);
+                    setShowBlockedOnly(false);
+                  }}
+                  className={`h-7 rounded-md px-2.5 text-xs font-medium transition ${
+                    activeQuickView === quickView.id
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  {quickView.label}
+                  <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                    activeQuickView === quickView.id ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {quickView.count}
+                  </span>
+                </button>
+              ))}
+            </div>
             <AdvancedFilters
               projectId={projectId}
               filters={filters}
@@ -1092,7 +1252,10 @@ export default function ProjectBoard() {
               blockedOnly={showBlockedOnly}
               currentLayout={view}
               onSearchQueryChange={setSearchQuery}
-              onBlockedOnlyChange={setShowBlockedOnly}
+              onBlockedOnlyChange={(value) => {
+                setShowBlockedOnly(value);
+                setActiveQuickView('all');
+              }}
               onLayoutChange={setView}
             />
             {pinnedSavedViews.length > 0 && (
@@ -1114,6 +1277,37 @@ export default function ProjectBoard() {
             <Button variant="ghost" size="sm" onClick={() => setIsArchiveOpen(true)} title="View Archive">
               <Archive className="w-4 h-4 text-muted-foreground" /> <span className="hidden sm:inline ml-1">Archived</span>
             </Button>
+          </div>
+        </div>
+      )}
+
+      {view === 'board' && (
+        <div className="border-b border-border bg-background px-4 py-2 md:hidden">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {workflowColumns.map((column) => {
+              const taskCount = filteredTasks.filter((task) => task.status === column.id).length;
+              const isActive = mobileBoardColumnId === column.id;
+
+              return (
+                <button
+                  key={column.id}
+                  type="button"
+                  onClick={() => setMobileBoardColumnId(column.id)}
+                  className={`h-8 shrink-0 rounded-full border px-3 text-xs font-semibold transition ${
+                    isActive
+                      ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                      : 'border-border bg-card text-muted-foreground'
+                  }`}
+                >
+                  {column.label}
+                  <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                    isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {taskCount}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1142,7 +1336,7 @@ export default function ProjectBoard() {
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >
-              <div className="flex gap-4 md:gap-8 min-w-max items-start">
+              <div className="flex gap-4 md:gap-8 md:min-w-max items-start">
                 {workflowColumns.map(col => (
                   <KanbanColumn
                     key={col.id}
@@ -1151,9 +1345,13 @@ export default function ProjectBoard() {
                     onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
                     selectedTasks={selectedTasks}
                     onToggleSelect={toggleTaskSelection}
+                    onRenameTask={handleTaskTitleUpdate}
                     onSetPriority={handleTaskPriorityUpdate}
                     onSetStatus={handleTaskStatusUpdate}
                     statusOptions={workflowColumns}
+                    members={projectMembers}
+                    onSetAssignee={handleTaskAssigneeUpdate}
+                    onSetDueDate={handleTaskDueDateUpdate}
                     onArchiveTask={handleTaskArchive}
                     onCopyTaskLink={handleTaskCopyLink}
                     isCollapsed={collapsedColumns.has(col.id)}
@@ -1161,9 +1359,7 @@ export default function ProjectBoard() {
                     onSetWipLimit={handleColumnWipLimitChange}
                     onQuickCreate={handleQuickCreateTask}
                     isQuickCreating={quickCreatingStatus === col.id}
-                    hasMore={hasMoreTasks}
-                    onLoadMore={loadMoreTasks}
-                    isLoadingMore={isLoadingMore}
+                    className={mobileBoardColumnId === col.id ? 'flex w-full max-w-none md:w-auto md:max-w-[320px]' : 'hidden md:flex'}
                   />
                 ))}
               </div>
@@ -1176,6 +1372,21 @@ export default function ProjectBoard() {
                 ) : null}
               </DragOverlay>
             </DndContext>
+            {hasMoreTasks && (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={loadMoreTasks}
+                  disabled={isLoadingMore}
+                  className="gap-2"
+                >
+                  {isLoadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {isLoadingMore ? 'Loading more tasks...' : 'Load more project tasks'}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       ) : view === 'list' ? (

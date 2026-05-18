@@ -24,8 +24,8 @@ vi.mock('../hooks/useSocket', () => ({
 }));
 
 vi.mock('../components/KanbanColumn', () => ({
-  KanbanColumn: ({ column, tasks = [], onQuickCreate, onToggleSelect, isCollapsed, onToggleCollapse, onSetWipLimit }) => (
-    <div data-testid={`column-${column.id}`}>
+  KanbanColumn: ({ column, tasks = [], onQuickCreate, onToggleSelect, isCollapsed, onToggleCollapse, onSetWipLimit, className }) => (
+    <div data-testid={`column-${column.id}`} className={className}>
       <span>{column.label}</span>
       <span>{tasks.length}</span>
       <span>{isCollapsed ? 'Collapsed' : 'Expanded'}</span>
@@ -304,5 +304,187 @@ describe('ProjectBoard', () => {
         ],
       });
     });
+  }, 10000);
+
+  it('filters the board with built-in quick views', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return {
+          data: {
+            tasks: [
+              {
+                _id: 'task-mine',
+                title: 'Assigned to me',
+                status: 'todo',
+                priority: 'medium',
+                assignee: { _id: 'user-1', name: 'Andy' },
+              },
+              {
+                _id: 'task-unassigned',
+                title: 'Needs owner',
+                status: 'todo',
+                priority: 'medium',
+              },
+              {
+                _id: 'task-other',
+                title: 'Assigned to someone else',
+                status: 'todo',
+                priority: 'medium',
+                assignee: { _id: 'user-2', name: 'Mina' },
+              },
+            ],
+            pagination: { hasMore: false },
+          },
+        };
+      }
+      if (url === '/organizations/org-1/members') {
+        return { data: [] };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /select assigned to me/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /select needs owner/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /my work/i }));
+    expect(screen.getByRole('button', { name: /select assigned to me/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /select needs owner/i })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /unassigned/i }));
+    expect(screen.queryByRole('button', { name: /select assigned to me/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /select needs owner/i })).toBeInTheDocument();
+  }, 10000);
+
+  it('uses a focused mobile board column picker', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return { data: { tasks: [], pagination: { hasMore: false } } };
+      }
+      if (url === '/organizations/org-1/members') {
+        return { data: [] };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+    expect(screen.getByTestId('column-todo')).toHaveClass('flex');
+    expect(screen.getByTestId('column-review')).toHaveClass('hidden');
+
+    await userEvent.click(screen.getByRole('button', { name: /^review0$/i }));
+    expect(screen.getByTestId('column-todo')).toHaveClass('hidden');
+    expect(screen.getByTestId('column-review')).toHaveClass('flex');
+  }, 10000);
+
+  it('loads more tasks from a single board-level control', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return {
+          data: {
+            tasks: [{
+              _id: 'task-1',
+              title: 'Initial task',
+              status: 'todo',
+              priority: 'medium',
+            }],
+            pagination: { hasMore: true },
+          },
+        };
+      }
+      if (url === '/tasks/project/project-1?page=1&limit=50') {
+        return {
+          data: {
+            tasks: [{
+              _id: 'task-2',
+              title: 'Loaded later',
+              status: 'review',
+              priority: 'medium',
+            }],
+            pagination: { hasMore: false },
+          },
+        };
+      }
+      if (url === '/organizations/org-1/members') {
+        return { data: [] };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /load more project tasks/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.get).toHaveBeenCalledWith('/tasks/project/project-1?page=1&limit=50');
+    });
+    expect(await screen.findByRole('button', { name: /select loaded later/i })).toBeInTheDocument();
+  }, 10000);
+
+  it('supports board keyboard shortcuts for create search and reset', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return {
+          data: {
+            tasks: [{
+              _id: 'task-1',
+              title: 'Searchable task',
+              status: 'todo',
+              priority: 'medium',
+            }],
+            pagination: { hasMore: false },
+          },
+        };
+      }
+      if (url === '/organizations/org-1/members') {
+        return { data: [] };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+    await userEvent.keyboard('n');
+    expect(await screen.findByText('Add New Task')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+    await userEvent.keyboard('/');
+    const searchInput = screen.getByPlaceholderText(/search tasks/i);
+    await waitFor(() => expect(searchInput).toHaveFocus());
+    await userEvent.type(searchInput, 'missing');
+    expect(screen.queryByRole('button', { name: /select searchable task/i })).not.toBeInTheDocument();
+
+    await userEvent.keyboard('{Escape}');
+    expect(searchInput).toHaveValue('');
+    expect(screen.getByRole('button', { name: /select searchable task/i })).toBeInTheDocument();
   }, 10000);
 });

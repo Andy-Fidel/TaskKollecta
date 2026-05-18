@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AlertTriangle, Archive, Calendar, Copy, MoreHorizontal, User as UserIcon, Repeat, Check, Diamond, Link2 } from 'lucide-react';
-import { format, isPast, isToday } from 'date-fns';
+import { addDays, differenceInCalendarDays, format, isPast, isToday } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,9 +26,13 @@ export function SortableTask({
   onClick,
   isSelected,
   onToggleSelect,
+  onRenameTask,
   onSetPriority,
   onSetStatus,
   statusOptions = [],
+  members = [],
+  onSetAssignee,
+  onSetDueDate,
   onArchiveTask,
   onCopyTaskLink,
 }) {
@@ -38,6 +44,9 @@ export function SortableTask({
     transition,
     isDragging,
   } = useSortable({ id: task._id });
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState(task.title || '');
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -54,8 +63,31 @@ export function SortableTask({
 
   const incompleteDependencies = getIncompleteDependencies(task);
   const blocked = isTaskBlocked(task);
+  const currentAssigneeId = task.assignee?._id || task.assignee || null;
+  const currentStatus = statusOptions.find((status) => status.id === task.status);
+  const isDone = currentStatus?.isDone || task.status === 'done' || task.status === 'completed';
+  const daysWithoutUpdate = task.updatedAt ? differenceInCalendarDays(new Date(), new Date(task.updatedAt)) : 0;
+  const isAging = !isDone && daysWithoutUpdate >= 7;
   const stopCardInteraction = (event) => {
     event.stopPropagation();
+  };
+
+  const handleTitleSubmit = async (event) => {
+    event.preventDefault();
+    const nextTitle = titleInput.trim();
+    if (!nextTitle || isSavingTitle) return;
+
+    setIsSavingTitle(true);
+    const saved = await onRenameTask?.(task, nextTitle);
+    setIsSavingTitle(false);
+    if (saved !== false) {
+      setIsEditingTitle(false);
+    }
+  };
+
+  const cancelTitleEdit = () => {
+    setTitleInput(task.title || '');
+    setIsEditingTitle(false);
   };
 
   return (
@@ -115,6 +147,12 @@ export function SortableTask({
           <DropdownMenuItem onClick={() => onClick?.()}>
             Open details
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => {
+            setTitleInput(task.title || '');
+            setIsEditingTitle(true);
+          }}>
+            Rename
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onCopyTaskLink?.(task)}>
             <Copy className="h-4 w-4" />
             Copy link
@@ -151,6 +189,51 @@ export function SortableTask({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           )}
+          {members.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Assignee</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                <DropdownMenuItem onClick={() => onSetAssignee?.(task, null)}>
+                  {!currentAssigneeId && <Check className="h-4 w-4" />}
+                  Unassigned
+                </DropdownMenuItem>
+                {members.map((member) => {
+                  const memberUser = member.user || member;
+                  return (
+                    <DropdownMenuItem
+                      key={memberUser._id}
+                      onClick={() => onSetAssignee?.(task, { ...member, user: memberUser })}
+                    >
+                      {currentAssigneeId === memberUser._id && <Check className="h-4 w-4" />}
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={memberUser.avatar} />
+                        <AvatarFallback className="text-[9px]">{memberUser.name?.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <span className="truncate">{memberUser.name}</span>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Due date</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={() => onSetDueDate?.(task, new Date())}>
+                Today
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSetDueDate?.(task, addDays(new Date(), 1))}>
+                Tomorrow
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSetDueDate?.(task, addDays(new Date(), 7))}>
+                Next week
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onSetDueDate?.(task, null)}>
+                Clear due date
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuSeparator />
           <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onArchiveTask?.(task)}>
             <Archive className="h-4 w-4" />
@@ -169,6 +252,11 @@ export function SortableTask({
             Blocked
           </Badge>
         )}
+        {isAging && (
+          <Badge variant="outline" className="text-[10px] uppercase tracking-wider font-bold border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300">
+            No update {daysWithoutUpdate}d
+          </Badge>
+        )}
         {task.isMilestone && (
           <Diamond className="h-3.5 w-3.5 text-amber-500 fill-amber-500" title="Milestone" />
         )}
@@ -181,9 +269,51 @@ export function SortableTask({
       </div>
 
       {/* Title */}
-      <h4 className="font-semibold text-foreground text-sm leading-snug mb-2">
-        {task.title}
-      </h4>
+      {isEditingTitle ? (
+        <form
+          onSubmit={handleTitleSubmit}
+          onClick={stopCardInteraction}
+          onPointerDown={stopCardInteraction}
+          className="mb-2 space-y-2"
+        >
+          <Input
+            value={titleInput}
+            onChange={(event) => setTitleInput(event.target.value)}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                cancelTitleEdit();
+              }
+            }}
+            aria-label={`Rename ${task.title}`}
+            className="h-8 text-sm font-semibold"
+            autoFocus
+            disabled={isSavingTitle}
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={isSavingTitle || !titleInput.trim()}
+              className="rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              {isSavingTitle ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={cancelTitleEdit}
+              disabled={isSavingTitle}
+              className="rounded-md px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <h4 className="font-semibold text-foreground text-sm leading-snug mb-2">
+          {task.title}
+        </h4>
+      )}
 
       {blocked && (
         <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-2 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
