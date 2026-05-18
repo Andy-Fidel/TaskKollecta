@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AlertTriangle, Archive, Calendar, Copy, MoreHorizontal, User as UserIcon, Repeat, Check, Diamond, Link2 } from 'lucide-react';
@@ -21,7 +21,7 @@ import { getIncompleteDependencies, isTaskBlocked } from '../utils/taskState';
 
 import { motion as Motion } from 'framer-motion';
 
-export function SortableTask({
+export const SortableTask = memo(function SortableTask({
   task,
   onClick,
   isSelected,
@@ -383,4 +383,4 @@ export function SortableTask({
       </div>
     </Motion.div>
   );
-}
+});

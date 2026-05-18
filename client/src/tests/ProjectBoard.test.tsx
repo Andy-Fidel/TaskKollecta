@@ -58,6 +58,13 @@ vi.mock('../components/ProjectAnalytics', () => ({ ProjectAnalytics: () => null 
 vi.mock('../components/ProjectUpdates', () => ({ ProjectUpdates: () => null }));
 vi.mock('../components/ProjectList', () => ({ ProjectList: () => null }));
 vi.mock('../components/ProjectCalendar', () => ({ ProjectCalendar: () => null }));
+vi.mock('../components/ProjectTimeline', () => ({
+  ProjectTimeline: ({ tasks = [] }) => (
+    <div data-testid="project-timeline">
+      {tasks.map((task) => <span key={task._id}>{task.title}</span>)}
+    </div>
+  ),
+}));
 vi.mock('../components/ProjectHealthModal', () => ({ ProjectHealthModal: () => null }));
 vi.mock('../components/RealtimeRisksSheet', () => ({ RealtimeRisksSheet: () => null }));
 vi.mock('../components/ProjectSettingsDialog', () => ({ ProjectSettingsDialog: () => null }));
@@ -364,6 +371,70 @@ describe('ProjectBoard', () => {
     expect(screen.getByRole('button', { name: /select needs owner/i })).toBeInTheDocument();
   }, 10000);
 
+  it('groups board swimlanes by priority and assignee', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return {
+          data: {
+            tasks: [
+              {
+                _id: 'task-high',
+                title: 'High priority task',
+                status: 'todo',
+                priority: 'high',
+                assignee: { _id: 'user-1', name: 'Andy' },
+              },
+              {
+                _id: 'task-low',
+                title: 'Low priority task',
+                status: 'review',
+                priority: 'low',
+                assignee: { _id: 'user-2', name: 'Mina' },
+              },
+              {
+                _id: 'task-unassigned',
+                title: 'Unassigned task',
+                status: 'todo',
+                priority: 'medium',
+              },
+            ],
+            pagination: { hasMore: false },
+          },
+        };
+      }
+      if (url === '/organizations/org-1/members') {
+        return {
+          data: [
+            { user: { _id: 'user-1', name: 'Andy' } },
+            { user: { _id: 'user-2', name: 'Mina' } },
+          ],
+        };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText(/group board by/i), 'priority');
+    expect(screen.getByRole('heading', { name: 'High' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Medium' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Low' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Urgent' })).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText(/group board by/i), 'assignee');
+    expect(screen.getByRole('heading', { name: 'Andy' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Mina' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Unassigned' })).toBeInTheDocument();
+  }, 10000);
+
   it('uses a focused mobile board column picker', async () => {
     mockedApi.get.mockImplementation(async (url) => {
       if (url === '/projects/single/project-1') {
@@ -441,6 +512,55 @@ describe('ProjectBoard', () => {
       expect(mockedApi.get).toHaveBeenCalledWith('/tasks/project/project-1?page=1&limit=50');
     });
     expect(await screen.findByRole('button', { name: /select loaded later/i })).toBeInTheDocument();
+  }, 10000);
+
+  it('opens a filtered roadmap timeline view', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return {
+          data: {
+            tasks: [
+              {
+                _id: 'task-roadmap',
+                title: 'Plan launch roadmap',
+                status: 'todo',
+                priority: 'high',
+                startDate: '2026-05-18T00:00:00.000Z',
+                dueDate: '2026-05-25T00:00:00.000Z',
+              },
+              {
+                _id: 'task-hidden',
+                title: 'Hidden from search',
+                status: 'todo',
+                priority: 'medium',
+              },
+            ],
+            pagination: { hasMore: false },
+          },
+        };
+      }
+      if (url === '/organizations/org-1/members') {
+        return { data: [] };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('button', { name: /roadmap/i })[0]);
+    expect(screen.getByTestId('project-timeline')).toBeInTheDocument();
+    expect(screen.getByText('Plan launch roadmap')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByPlaceholderText(/search tasks/i), 'launch');
+    expect(screen.getByText('Plan launch roadmap')).toBeInTheDocument();
+    expect(screen.queryByText('Hidden from search')).not.toBeInTheDocument();
   }, 10000);
 
   it('supports board keyboard shortcuts for create search and reset', async () => {

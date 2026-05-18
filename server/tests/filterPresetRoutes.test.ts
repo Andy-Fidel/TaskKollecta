@@ -117,6 +117,63 @@ describe('Filter presets API', () => {
     expect(teammateListRes.body[0].name).toBe('Blocked team work');
   });
 
+  it('should update, default, and duplicate saved views', async () => {
+    const firstRes = await request(app)
+      .post('/api/filter-presets')
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        name: 'Owner triage',
+        projectId,
+        visibility: 'private',
+        layout: 'board',
+        filters: { blockedOnly: true },
+      });
+
+    const secondRes = await request(app)
+      .post('/api/filter-presets')
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        name: 'Timeline plan',
+        projectId,
+        visibility: 'private',
+        layout: 'timeline',
+        filters: { priorities: ['high'] },
+      });
+
+    const updateRes = await request(app)
+      .put(`/api/filter-presets/${secondRes.body._id}`)
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        name: 'Launch roadmap',
+        visibility: 'team',
+        isDefault: true,
+      });
+
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.name).toBe('Launch roadmap');
+    expect(updateRes.body.visibility).toBe('team');
+    expect(updateRes.body.isDefault).toBe(true);
+
+    const listRes = await request(app)
+      .get(`/api/filter-presets/project/${projectId}`)
+      .set('Cookie', [`jwt=${userToken}`]);
+
+    expect(listRes.status).toBe(200);
+    expect(listRes.body[0].name).toBe('Launch roadmap');
+    expect(listRes.body.find((view: any) => view._id === firstRes.body._id).isDefault).toBe(false);
+
+    const duplicateRes = await request(app)
+      .post(`/api/filter-presets/${secondRes.body._id}/duplicate`)
+      .set('Cookie', [`jwt=${teammateToken}`])
+      .send({ name: 'My launch roadmap' });
+
+    expect(duplicateRes.status).toBe(201);
+    expect(duplicateRes.body.name).toBe('My launch roadmap');
+    expect(duplicateRes.body.visibility).toBe('private');
+    expect(duplicateRes.body.layout).toBe('timeline');
+    expect(duplicateRes.body.isDefault).toBe(false);
+  });
+
   it('should save and list My Tasks saved views by organization', async () => {
     const createRes = await request(app)
       .post('/api/filter-presets')

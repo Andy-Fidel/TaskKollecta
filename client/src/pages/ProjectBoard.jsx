@@ -11,7 +11,7 @@ import {
   Activity, CheckCircle2,
   Circle, ArrowLeft, Settings, FileText,
   Columns, Calendar as CalendarIcon, Zap, Archive, X, Clock, Trash2,
-  TrendingUp, AlertTriangle, Loader2
+  TrendingUp, AlertTriangle, Loader2, GanttChartSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +50,7 @@ import { ProjectAnalytics } from '../components/ProjectAnalytics';
 import { ProjectUpdates } from '../components/ProjectUpdates';
 import { ProjectList } from '../components/ProjectList';
 import { ProjectCalendar } from '../components/ProjectCalendar';
+import { ProjectTimeline } from '../components/ProjectTimeline';
 import { ProjectHealthModal } from '../components/ProjectHealthModal';
 import { RealtimeRisksSheet } from '../components/RealtimeRisksSheet';
 import { SetupChecklist } from '../components/SetupChecklist';
@@ -81,6 +82,26 @@ const reindexTasks = (items) => items.map((task, index) => ({
 
 const getTaskAssigneeId = (task) => task.assignee?._id || task.assignee || null;
 
+const getTaskGroupId = (task, groupBy) => {
+  if (groupBy === 'priority') return task.priority || 'none';
+  if (groupBy === 'assignee') return getTaskAssigneeId(task) || (task.assigneeEmail ? `email:${task.assigneeEmail}` : 'unassigned');
+  return 'all';
+};
+
+const BOARD_GROUP_OPTIONS = [
+  { id: 'none', label: 'None' },
+  { id: 'assignee', label: 'Assignee' },
+  { id: 'priority', label: 'Priority' },
+];
+
+const PRIORITY_GROUPS = [
+  { id: 'urgent', label: 'Urgent' },
+  { id: 'high', label: 'High' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'low', label: 'Low' },
+  { id: 'none', label: 'No priority' },
+];
+
 const isTypingTarget = (target) => {
   const tagName = target?.tagName?.toLowerCase();
   return target?.isContentEditable || ['input', 'textarea', 'select'].includes(tagName);
@@ -95,6 +116,7 @@ export default function ProjectBoard() {
   const { triggerRefresh } = useDataRefresh();
   const openedNotificationTaskRef = useRef(null);
   const searchInputRef = useRef(null);
+  const defaultSavedViewAppliedRef = useRef(false);
 
   // State
   const [tasks, setTasks] = useState([]);
@@ -188,6 +210,7 @@ export default function ProjectBoard() {
   const [activeViewers, setActiveViewers] = useState([]);
   const [collapsedColumns, setCollapsedColumns] = useState(new Set());
   const [mobileBoardColumnId, setMobileBoardColumnId] = useState(null);
+  const [boardGroupBy, setBoardGroupBy] = useState('none');
 
   // Advanced Filters State
   const [filters, setFilters] = useState({
@@ -457,6 +480,65 @@ export default function ProjectBoard() {
 
   const pinnedSavedViews = useMemo(() => filterPresets.slice(0, 5), [filterPresets]);
 
+  const filteredTaskCountsByStatus = useMemo(() => filteredTasks.reduce((counts, task) => {
+    counts[task.status] = (counts[task.status] || 0) + 1;
+    return counts;
+  }, {}), [filteredTasks]);
+
+  const withStatusBuckets = useCallback((group) => ({
+    ...group,
+    tasksByStatus: group.tasks.reduce((buckets, task) => {
+      if (!buckets[task.status]) buckets[task.status] = [];
+      buckets[task.status].push(task);
+      return buckets;
+    }, {}),
+  }), []);
+
+  const boardGroups = useMemo(() => {
+    if (filteredTasks.length === 0) {
+      return [withStatusBuckets({ id: 'all', label: 'All tasks', tasks: [] })];
+    }
+
+    if (boardGroupBy === 'priority') {
+      return PRIORITY_GROUPS
+        .map((group) => ({
+          ...group,
+          tasks: filteredTasks.filter((task) => (task.priority || 'none') === group.id),
+        }))
+        .filter((group) => group.tasks.length > 0)
+        .map(withStatusBuckets);
+    }
+
+    if (boardGroupBy === 'assignee') {
+      const memberOrder = new Map(projectMembers.map((member, index) => [
+        member.user?._id || member._id,
+        index,
+      ]));
+      const groups = new Map();
+
+      filteredTasks.forEach((task) => {
+        const assigneeId = getTaskAssigneeId(task) || (task.assigneeEmail ? `email:${task.assigneeEmail}` : 'unassigned');
+        const assigneeName = task.assignee?.name || task.assigneeEmail || 'Unassigned';
+        if (!groups.has(assigneeId)) {
+          groups.set(assigneeId, {
+            id: assigneeId,
+            label: assigneeName,
+            order: assigneeId === 'unassigned' ? Number.MAX_SAFE_INTEGER : memberOrder.get(assigneeId) ?? 1000,
+            tasks: [],
+          });
+        }
+        groups.get(assigneeId).tasks.push(task);
+      });
+
+      return Array.from(groups.values()).sort((a, b) => {
+        if (a.order !== b.order) return a.order - b.order;
+        return a.label.localeCompare(b.label);
+      }).map(withStatusBuckets);
+    }
+
+    return [withStatusBuckets({ id: 'all', label: 'All tasks', tasks: filteredTasks })];
+  }, [boardGroupBy, filteredTasks, projectMembers, withStatusBuckets]);
+
   useEffect(() => {
     const organizationId = projectDetails?.organization || localStorage.getItem('activeOrgId');
     if (!organizationId || filterPresets.length === 0) return;
@@ -500,7 +582,7 @@ export default function ProjectBoard() {
     },
   ], [filterPresets.length, hasOpenedHealth, tasks.length]);
 
-  const loadProjectSavedView = (savedView) => {
+  const loadProjectSavedView = (savedView, options = {}) => {
     setFilters({
       statuses: savedView.filters?.statuses || [],
       priorities: savedView.filters?.priorities || [],
@@ -513,11 +595,24 @@ export default function ProjectBoard() {
     setSearchQuery(savedView.filters?.query || '');
     setShowBlockedOnly(Boolean(savedView.filters?.blockedOnly));
     setActiveQuickView('all');
-    if (savedView.layout && ['board', 'list', 'calendar'].includes(savedView.layout)) {
+    if (savedView.layout && ['board', 'list', 'calendar', 'timeline'].includes(savedView.layout)) {
       setView(savedView.layout);
     }
-    toast.success(`Loaded "${savedView.name}"`);
+    if (!options.silent) toast.success(`Loaded "${savedView.name}"`);
   };
+
+  useEffect(() => {
+    defaultSavedViewAppliedRef.current = false;
+  }, [projectId]);
+
+  useEffect(() => {
+    if (defaultSavedViewAppliedRef.current) return;
+    const defaultSavedView = filterPresets.find((savedView) => savedView.isDefault);
+    if (!defaultSavedView) return;
+
+    defaultSavedViewAppliedRef.current = true;
+    loadProjectSavedView(defaultSavedView, { silent: true });
+  }, [filterPresets]);
 
   const toggleColumnCollapse = (columnId) => {
     setCollapsedColumns((current) => {
@@ -560,10 +655,28 @@ export default function ProjectBoard() {
     const activeTask = tasks.find(t => t._id === active.id);
     if (!activeTask) return;
 
-    const overId = over.id;
+    const overId = String(over.id);
     const overTask = tasks.find(t => t._id === overId);
-    const isOverColumn = workflowColumns.some(col => col.id === overId);
-    const newStatus = isOverColumn ? overId : overTask?.status || activeTask.status;
+    const overDropParts = overId.includes('::') ? overId.split('::') : null;
+    const overGroupId = overDropParts ? overDropParts[0] : overTask ? getTaskGroupId(overTask, boardGroupBy) : getTaskGroupId(activeTask, boardGroupBy);
+    const overColumnId = overDropParts ? overDropParts[1] : overId;
+    const isOverColumn = workflowColumns.some(col => col.id === overColumnId);
+    const newStatus = isOverColumn ? overColumnId : overTask?.status || activeTask.status;
+    const activeGroupId = getTaskGroupId(activeTask, boardGroupBy);
+    const nextGroupUpdates = {};
+
+    if (boardGroupBy === 'priority' && overGroupId !== activeGroupId) {
+      nextGroupUpdates.priority = overGroupId === 'none' ? null : overGroupId;
+    }
+
+    if (boardGroupBy === 'assignee' && overGroupId !== activeGroupId && !overGroupId.startsWith('email:')) {
+      nextGroupUpdates.assignee = overGroupId === 'unassigned' ? null : overGroupId;
+    }
+
+    if (boardGroupBy === 'assignee' && overGroupId !== activeGroupId && overGroupId.startsWith('email:')) {
+      toast.error('External assignee lanes are read-only for drag reassignment');
+      return;
+    }
     const targetColumn = workflowColumns.find((col) => col.id === newStatus);
 
     if ((newStatus === 'done' || targetColumn?.isDone) && activeTask.status !== newStatus && isTaskBlocked(activeTask)) {
@@ -576,20 +689,26 @@ export default function ProjectBoard() {
     }
 
     const visibleTasks = sortTasksForBoard(filteredTasks);
-    const sourceColumnTasks = visibleTasks.filter((task) => task.status === activeTask.status);
-    const targetColumnTasks = visibleTasks.filter((task) => task.status === newStatus);
+    const sourceColumnTasks = visibleTasks.filter((task) => (
+      task.status === activeTask.status &&
+      (boardGroupBy === 'none' || getTaskGroupId(task, boardGroupBy) === activeGroupId)
+    ));
+    const targetColumnTasks = visibleTasks.filter((task) => (
+      task.status === newStatus &&
+      (boardGroupBy === 'none' || getTaskGroupId(task, boardGroupBy) === overGroupId)
+    ));
 
     let nextSourceColumnTasks = sourceColumnTasks;
     let nextTargetColumnTasks = targetColumnTasks;
 
-    if (activeTask.status === newStatus) {
+    if (activeTask.status === newStatus && activeGroupId === overGroupId) {
       const oldIndex = sourceColumnTasks.findIndex((task) => task._id === activeTask._id);
       const newIndex = overTask ? sourceColumnTasks.findIndex((task) => task._id === overTask._id) : sourceColumnTasks.length - 1;
       if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
       nextTargetColumnTasks = arrayMove(sourceColumnTasks, oldIndex, newIndex);
     } else {
       nextSourceColumnTasks = sourceColumnTasks.filter((task) => task._id !== activeTask._id);
-      const movedTask = { ...activeTask, status: newStatus };
+      const movedTask = { ...activeTask, status: newStatus, ...nextGroupUpdates };
       const insertIndex = overTask
         ? Math.max(targetColumnTasks.findIndex((task) => task._id === overTask._id), 0)
         : targetColumnTasks.length;
@@ -604,7 +723,12 @@ export default function ProjectBoard() {
     const reindexedTarget = reindexTasks(nextTargetColumnTasks);
     const changedTasks = [...reindexedSource, ...reindexedTarget].filter((nextTask) => {
       const currentTask = tasks.find((task) => task._id === nextTask._id);
-      return currentTask && (currentTask.status !== nextTask.status || Number(currentTask.index || 0) !== nextTask.index);
+      return currentTask && (
+        currentTask.status !== nextTask.status ||
+        Number(currentTask.index || 0) !== nextTask.index ||
+        currentTask.priority !== nextTask.priority ||
+        getTaskAssigneeId(currentTask) !== getTaskAssigneeId(nextTask)
+      );
     });
 
     if (changedTasks.length === 0) return;
@@ -613,7 +737,15 @@ export default function ProjectBoard() {
 
     setTasks((current) => current.map((task) => {
       const changedTask = changedTasks.find((item) => item._id === task._id);
-      return changedTask ? { ...task, status: changedTask.status, index: changedTask.index } : task;
+      if (!changedTask) return task;
+      const nextTask = { ...task, status: changedTask.status, index: changedTask.index };
+      if (Object.prototype.hasOwnProperty.call(changedTask, 'priority')) nextTask.priority = changedTask.priority;
+      if (Object.prototype.hasOwnProperty.call(changedTask, 'assignee')) {
+        const member = projectMembers.find((item) => (item.user?._id || item._id) === changedTask.assignee);
+        nextTask.assignee = changedTask.assignee ? member?.user || changedTask.assignee : null;
+        if (!changedTask.assignee) nextTask.assigneeEmail = undefined;
+      }
+      return nextTask;
     }));
 
     if (activeTask.status !== newStatus && socket) {
@@ -637,9 +769,10 @@ export default function ProjectBoard() {
     try {
       await Promise.all(changedTasks.map((task) => {
         const currentTask = tasks.find((item) => item._id === task._id);
-        const payload = currentTask?.status !== task.status
-          ? { status: task.status, index: task.index }
-          : { index: task.index };
+        const payload = { index: task.index };
+        if (currentTask?.status !== task.status) payload.status = task.status;
+        if (currentTask?.priority !== task.priority) payload.priority = task.priority;
+        if (getTaskAssigneeId(currentTask) !== getTaskAssigneeId(task)) payload.assignee = getTaskAssigneeId(task);
 
         return api.put(`/tasks/${task._id}`, payload);
       }));
@@ -1051,6 +1184,13 @@ export default function ProjectBoard() {
               <CalendarIcon className="w-4 h-4" />
               <span className="hidden md:inline">Calendar</span>
             </button>
+            <button
+              onClick={() => setView('timeline')}
+              className={`p-1.5 md:px-3 rounded-md flex items-center gap-2 text-sm transition-all ${view === 'timeline' ? 'bg-background shadow text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <GanttChartSquare className="w-4 h-4" />
+              <span className="hidden md:inline">Roadmap</span>
+            </button>
 
             {/* Forms Button */}
             <Button
@@ -1164,6 +1304,21 @@ export default function ProjectBoard() {
                 <ListIcon className="w-4 h-4" /> <span className="hidden sm:inline">List</span>
               </span>
             </button>
+            <button
+              onClick={() => setView('timeline')}
+              className={`relative p-1.5 px-2.5 md:px-3 rounded-md flex items-center gap-1.5 md:gap-2 text-sm transition-all whitespace-nowrap ${view === 'timeline' ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {view === 'timeline' && (
+                <motion.div
+                  layoutId="active-view-bg"
+                  className="absolute inset-0 bg-background shadow rounded-md"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5 md:gap-2">
+                <GanttChartSquare className="w-4 h-4" /> <span className="hidden sm:inline">Roadmap</span>
+              </span>
+            </button>
           </div>
 
             {/* Project Health Button */}
@@ -1200,7 +1355,7 @@ export default function ProjectBoard() {
       </div>
 
       {/* 2. Filter Bar (Only show on Board/List views) */}
-      {(view === 'board' || view === 'list') && (
+      {(view === 'board' || view === 'list' || view === 'timeline') && (
         <div className="h-auto md:h-14 border-b border-border flex flex-col md:flex-row items-stretch md:items-center px-4 md:px-8 py-3 md:py-0 bg-card/50 backdrop-blur-sm shrink-0 gap-3 md:gap-4">
           <div className="relative w-full md:w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1274,6 +1429,22 @@ export default function ProjectBoard() {
                 ))}
               </div>
             )}
+            {view === 'board' && (
+              <label className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground">
+                <Columns className="h-3.5 w-3.5" />
+                <span>Group</span>
+                <select
+                  aria-label="Group board by"
+                  value={boardGroupBy}
+                  onChange={(event) => setBoardGroupBy(event.target.value)}
+                  className="h-6 bg-transparent text-xs font-semibold text-foreground outline-none"
+                >
+                  {BOARD_GROUP_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <Button variant="ghost" size="sm" onClick={() => setIsArchiveOpen(true)} title="View Archive">
               <Archive className="w-4 h-4 text-muted-foreground" /> <span className="hidden sm:inline ml-1">Archived</span>
             </Button>
@@ -1285,7 +1456,7 @@ export default function ProjectBoard() {
         <div className="border-b border-border bg-background px-4 py-2 md:hidden">
           <div className="flex items-center gap-2 overflow-x-auto">
             {workflowColumns.map((column) => {
-              const taskCount = filteredTasks.filter((task) => task.status === column.id).length;
+              const taskCount = filteredTaskCountsByStatus[column.id] || 0;
               const isActive = mobileBoardColumnId === column.id;
 
               return (
@@ -1312,7 +1483,7 @@ export default function ProjectBoard() {
         </div>
       )}
 
-      {(view === 'board' || view === 'list') && (
+      {(view === 'board' || view === 'list' || view === 'timeline') && (
         <div className="border-b border-border bg-background/80 px-4 py-3 md:px-8">
           <SetupChecklist
             title="Project setup"
@@ -1336,31 +1507,46 @@ export default function ProjectBoard() {
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >
-              <div className="flex gap-4 md:gap-8 md:min-w-max items-start">
-                {workflowColumns.map(col => (
-                  <KanbanColumn
-                    key={col.id}
-                    column={col}
-                    tasks={sortTasksForBoard(filteredTasks.filter(t => t.status === col.id))}
-                    onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
-                    selectedTasks={selectedTasks}
-                    onToggleSelect={toggleTaskSelection}
-                    onRenameTask={handleTaskTitleUpdate}
-                    onSetPriority={handleTaskPriorityUpdate}
-                    onSetStatus={handleTaskStatusUpdate}
-                    statusOptions={workflowColumns}
-                    members={projectMembers}
-                    onSetAssignee={handleTaskAssigneeUpdate}
-                    onSetDueDate={handleTaskDueDateUpdate}
-                    onArchiveTask={handleTaskArchive}
-                    onCopyTaskLink={handleTaskCopyLink}
-                    isCollapsed={collapsedColumns.has(col.id)}
-                    onToggleCollapse={toggleColumnCollapse}
-                    onSetWipLimit={handleColumnWipLimitChange}
-                    onQuickCreate={handleQuickCreateTask}
-                    isQuickCreating={quickCreatingStatus === col.id}
-                    className={mobileBoardColumnId === col.id ? 'flex w-full max-w-none md:w-auto md:max-w-[320px]' : 'hidden md:flex'}
-                  />
+              <div className="space-y-5 md:min-w-max">
+                {boardGroups.map((group) => (
+                  <section key={group.id} aria-label={`${group.label} swimlane`} className="min-w-0">
+                    {boardGroupBy !== 'none' && (
+                      <div className="mb-3 flex items-center gap-2">
+                        <h2 className="text-sm font-semibold text-foreground">{group.label}</h2>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground tabular-nums">
+                          {group.tasks.length}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex gap-4 md:gap-8 items-start">
+                      {workflowColumns.map(col => (
+                        <KanbanColumn
+                          key={`${group.id}-${col.id}`}
+                          column={col}
+                          droppableId={`${group.id}::${col.id}`}
+                          tasks={sortTasksForBoard(group.tasksByStatus[col.id] || [])}
+                          onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
+                          selectedTasks={selectedTasks}
+                          onToggleSelect={toggleTaskSelection}
+                          onRenameTask={handleTaskTitleUpdate}
+                          onSetPriority={handleTaskPriorityUpdate}
+                          onSetStatus={handleTaskStatusUpdate}
+                          statusOptions={workflowColumns}
+                          members={projectMembers}
+                          onSetAssignee={handleTaskAssigneeUpdate}
+                          onSetDueDate={handleTaskDueDateUpdate}
+                          onArchiveTask={handleTaskArchive}
+                          onCopyTaskLink={handleTaskCopyLink}
+                          isCollapsed={collapsedColumns.has(col.id)}
+                          onToggleCollapse={toggleColumnCollapse}
+                          onSetWipLimit={handleColumnWipLimitChange}
+                          onQuickCreate={handleQuickCreateTask}
+                          isQuickCreating={quickCreatingStatus === col.id}
+                          className={mobileBoardColumnId === col.id ? 'flex w-full max-w-none md:w-auto md:max-w-[320px]' : 'hidden md:flex'}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 ))}
               </div>
 
@@ -1406,6 +1592,15 @@ export default function ProjectBoard() {
         <div className="flex-1 overflow-y-auto bg-background p-4 md:p-8">
           <ProjectCalendar
             tasks={filteredTasks}
+            onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
+          />
+        </div>
+      ) : view === 'timeline' ? (
+        // VIEW: ROADMAP TIMELINE
+        <div className="flex-1 overflow-hidden bg-background p-4 md:p-8">
+          <ProjectTimeline
+            tasks={filteredTasks}
+            statusOptions={workflowColumns}
             onTaskClick={(t) => { setSelectedTask(t); setIsDetailsOpen(true); }}
           />
         </div>

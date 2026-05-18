@@ -47,7 +47,7 @@ const getPresets = async (req, res) => {
             userId: req.user._id,
             scope: 'project',
             projectId: req.params.projectId
-        })).sort({ visibility: 1, updatedAt: -1 });
+        })).sort({ isDefault: -1, order: 1, visibility: 1, updatedAt: -1 });
 
         res.json(presets);
     } catch (error) {
@@ -69,7 +69,7 @@ const getMyTaskPresets = async (req, res) => {
             userId: req.user._id,
             scope: 'my_tasks',
             orgId
-        })).sort({ visibility: 1, updatedAt: -1 });
+        })).sort({ isDefault: -1, order: 1, visibility: 1, updatedAt: -1 });
 
         res.json(presets);
     } catch (error) {
@@ -118,7 +118,9 @@ const createPreset = async (req, res) => {
             visibility = 'private',
             filters,
             layout,
-            sort
+            sort,
+            isDefault = false,
+            order = 0
         } = req.body;
 
         if (!name?.trim()) {
@@ -158,6 +160,14 @@ const createPreset = async (req, res) => {
             return res.status(400).json({ message: 'A saved view with this name already exists' });
         }
 
+        if (isDefault) {
+            await FilterPreset.updateMany({
+                user: req.user._id,
+                scope,
+                ...(scope === 'project' ? { project: projectId } : { organization: organizationId }),
+            }, { isDefault: false });
+        }
+
         const preset = await FilterPreset.create({
             name: name.trim(),
             user: req.user._id,
@@ -165,6 +175,8 @@ const createPreset = async (req, res) => {
             project: scope === 'project' ? projectId : null,
             scope,
             visibility,
+            isDefault: Boolean(isDefault),
+            order: Number.isFinite(Number(order)) ? Number(order) : 0,
             layout: layout || (scope === 'project' ? 'board' : 'my_tasks'),
             sort: {
                 field: sort?.field || 'updatedAt',
@@ -180,20 +192,118 @@ const createPreset = async (req, res) => {
     }
 };
 
+const assertPresetOwner = async (presetId, userId) => {
+    const preset = await FilterPreset.findById(presetId);
+
+    if (!preset) {
+        const error = new Error('Preset not found');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (preset.user.toString() !== userId.toString()) {
+        const error = new Error('Not authorized to manage this preset');
+        error.statusCode = 403;
+        throw error;
+    }
+
+    return preset;
+};
+
+// @desc    Update a saved view
+// @route   PUT /api/filter-presets/:id
+// @access  Private
+const updatePreset = async (req, res) => {
+    try {
+        const preset = await assertPresetOwner(req.params.id, req.user._id);
+        const updates = {};
+
+        if (req.body.name !== undefined) {
+            if (!req.body.name?.trim()) return res.status(400).json({ message: 'Name is required' });
+            updates.name = req.body.name.trim();
+        }
+
+        if (req.body.visibility !== undefined) {
+            if (!['private', 'team'].includes(req.body.visibility)) {
+                return res.status(400).json({ message: 'Invalid saved view visibility' });
+            }
+            updates.visibility = req.body.visibility;
+        }
+
+        if (req.body.layout !== undefined) updates.layout = req.body.layout;
+        if (req.body.filters !== undefined) updates.filters = normalizeFilters(req.body.filters);
+        if (req.body.order !== undefined) updates.order = Number.isFinite(Number(req.body.order)) ? Number(req.body.order) : 0;
+        if (req.body.sort !== undefined) {
+            updates.sort = {
+                field: req.body.sort?.field || preset.sort?.field || 'updatedAt',
+                direction: req.body.sort?.direction || preset.sort?.direction || 'desc'
+            };
+        }
+
+        if (req.body.isDefault !== undefined) {
+            updates.isDefault = Boolean(req.body.isDefault);
+            if (updates.isDefault) {
+                await FilterPreset.updateMany({
+                    user: req.user._id,
+                    scope: preset.scope,
+                    ...(preset.scope === 'project' ? { project: preset.project } : { organization: preset.organization }),
+                    _id: { $ne: preset._id }
+                }, { isDefault: false });
+            }
+        }
+
+        const updatedPreset = await FilterPreset.findByIdAndUpdate(preset._id, updates, { new: true });
+        res.json(updatedPreset);
+    } catch (error) {
+        console.error('Error updating filter preset:', error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Failed to update saved view' });
+    }
+};
+
+// @desc    Duplicate a saved view
+// @route   POST /api/filter-presets/:id/duplicate
+// @access  Private
+const duplicatePreset = async (req, res) => {
+    try {
+        const source = await FilterPreset.findById(req.params.id);
+
+        if (!source) {
+            return res.status(404).json({ message: 'Preset not found' });
+        }
+
+        if (source.user.toString() !== req.user._id.toString() && source.visibility !== 'team') {
+            return res.status(403).json({ message: 'Not authorized to duplicate this preset' });
+        }
+
+        await ensureMembership(req.user._id, source.organization);
+
+        const duplicate = await FilterPreset.create({
+            name: req.body.name?.trim() || `${source.name} copy`,
+            user: req.user._id,
+            organization: source.organization,
+            project: source.project,
+            scope: source.scope,
+            visibility: 'private',
+            layout: source.layout,
+            sort: source.sort,
+            filters: source.filters,
+            isDefault: false,
+            order: 0
+        });
+
+        res.status(201).json(duplicate);
+    } catch (error) {
+        console.error('Error duplicating filter preset:', error);
+        res.status(error.statusCode || 500).json({ message: error.message || 'Failed to duplicate saved view' });
+    }
+};
+
 // @desc    Delete a filter preset
 // @route   DELETE /api/filter-presets/:id
 // @access  Private
 const deletePreset = async (req, res) => {
     try {
-        const preset = await FilterPreset.findById(req.params.id);
-
-        if (!preset) {
-            return res.status(404).json({ message: 'Preset not found' });
-        }
-
-        if (preset.user.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'Not authorized to delete this preset' });
-        }
+        const preset = await assertPresetOwner(req.params.id, req.user._id);
 
         await preset.deleteOne();
         res.json({ message: 'Preset deleted successfully' });
@@ -208,5 +318,7 @@ module.exports = {
     getMyTaskPresets,
     getWorkspacePresets,
     createPreset,
+    updatePreset,
+    duplicatePreset,
     deletePreset
 };

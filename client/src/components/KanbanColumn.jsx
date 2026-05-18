@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableTask } from './SortableTask';
@@ -13,6 +13,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+const INITIAL_RENDERED_TASKS = 40;
+const RENDER_INCREMENT = 40;
 
 const COLUMN_COLORS = {
   'todo': {
@@ -66,13 +69,15 @@ export function KanbanColumn({
   onQuickCreate,
   isQuickCreating,
   className,
+  droppableId,
 }) {
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [quickTitle, setQuickTitle] = useState('');
   const [isEditingWipLimit, setIsEditingWipLimit] = useState(false);
   const [wipLimitInput, setWipLimitInput] = useState(column.wipLimit ? String(column.wipLimit) : '');
+  const [visibleTaskLimit, setVisibleTaskLimit] = useState(INITIAL_RENDERED_TASKS);
   const { setNodeRef, isOver } = useDroppable({
-    id: column.id,
+    id: droppableId || column.id,
   });
 
   const colors = COLUMN_COLORS[column.id] || COLUMN_COLORS['todo'];
@@ -83,6 +88,8 @@ export function KanbanColumn({
   const trimmedQuickTitle = quickTitle.trim();
   const wipLimit = Number.isFinite(Number(column.wipLimit)) && Number(column.wipLimit) > 0 ? Number(column.wipLimit) : null;
   const isOverWipLimit = Boolean(wipLimit && tasks.length > wipLimit);
+  const visibleTasks = useMemo(() => tasks.slice(0, visibleTaskLimit), [tasks, visibleTaskLimit]);
+  const hiddenTaskCount = Math.max(0, tasks.length - visibleTasks.length);
 
   const handleQuickSubmit = async (event) => {
     event.preventDefault();
@@ -282,7 +289,7 @@ export function KanbanColumn({
       <div className="p-2.5 overflow-y-auto flex-1">
         <SortableContext
           id={column.id}
-          items={tasks.map((t) => t._id)}
+          items={visibleTasks.map((t) => t._id)}
           strategy={verticalListSortingStrategy}
         >
           <div className={`flex-1 space-y-3 min-h-[100px] transition-all duration-200 rounded-xl ${isOver ? 'border-2 border-dashed border-primary/20 p-2' : 'border-2 border-transparent p-0'}`}>
@@ -301,7 +308,7 @@ export function KanbanColumn({
                 <p className="text-sm font-semibold animate-pulse">Drop here</p>
               </div>
             )}
-            {tasks.map((task) => (
+            {visibleTasks.map((task) => (
               <SortableTask
                 key={task._id}
                 task={task}
@@ -319,6 +326,16 @@ export function KanbanColumn({
                 onCopyTaskLink={onCopyTaskLink}
               />
             ))}
+            {hiddenTaskCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setVisibleTaskLimit((current) => current + RENDER_INCREMENT)}
+                className="w-full rounded-lg border border-dashed border-border bg-background/70 px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+              >
+                Show {Math.min(RENDER_INCREMENT, hiddenTaskCount)} more tasks
+                <span className="ml-1 font-normal">({visibleTasks.length} of {tasks.length})</span>
+              </button>
+            )}
           </div>
         </SortableContext>
       </div>

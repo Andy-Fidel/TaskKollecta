@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
     Filter, X, Save, ChevronDown, Calendar as CalendarIcon,
-    User, Tag, CheckSquare, AlertTriangle, Layout
+    User, Tag, CheckSquare, AlertTriangle, Layout, Copy, Edit2, Star, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +58,9 @@ export function AdvancedFilters({
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+    const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
+    const [editingPresetId, setEditingPresetId] = useState(null);
+    const [editingPresetName, setEditingPresetName] = useState('');
     const [presetName, setPresetName] = useState('');
     const [presetVisibility, setPresetVisibility] = useState('private');
     const [dateFromOpen, setDateFromOpen] = useState(false);
@@ -199,6 +202,49 @@ export function AdvancedFilters({
         }
     };
 
+    const updatePreset = async (presetId, updates) => {
+        try {
+            const { data } = await api.put(`/filter-presets/${presetId}`, updates);
+            onPresetsChange(presets.map((preset) => {
+                if (updates.isDefault && preset._id !== presetId) return { ...preset, isDefault: false };
+                return preset._id === presetId ? data : preset;
+            }));
+            toast.success('Saved view updated');
+            return true;
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to update view');
+            return false;
+        }
+    };
+
+    const duplicatePreset = async (preset) => {
+        try {
+            const { data } = await api.post(`/filter-presets/${preset._id}/duplicate`, {
+                name: `${preset.name} copy`
+            });
+            onPresetsChange([...presets, data]);
+            toast.success('Saved view duplicated');
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to duplicate view');
+        }
+    };
+
+    const startRenamePreset = (preset) => {
+        setEditingPresetId(preset._id);
+        setEditingPresetName(preset.name);
+    };
+
+    const savePresetName = async (preset) => {
+        const nextName = editingPresetName.trim();
+        if (!nextName || nextName === preset.name) {
+            setEditingPresetId(null);
+            return;
+        }
+
+        const saved = await updatePreset(preset._id, { name: nextName });
+        if (saved) setEditingPresetId(null);
+    };
+
     return (
         <>
             <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -253,9 +299,20 @@ export function AdvancedFilters({
                             {/* Saved Views */}
                             {presets.length > 0 && (
                                 <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                                        Saved Views
-                                    </Label>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                                            Saved Views
+                                        </Label>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 px-2 text-xs"
+                                            onClick={() => setIsManageDialogOpen(true)}
+                                        >
+                                            Manage
+                                        </Button>
+                                    </div>
                                     <div className="flex flex-wrap gap-1.5">
                                         {presets.map(preset => (
                                             <Badge
@@ -264,6 +321,7 @@ export function AdvancedFilters({
                                                 className="cursor-pointer hover:bg-accent flex items-center gap-1 group pr-1.5"
                                                 onClick={() => loadPreset(preset)}
                                             >
+                                                {preset.isDefault && <Star className="h-3 w-3 fill-primary text-primary" />}
                                                 {preset.name}
                                                 {preset.visibility === 'team' && (
                                                     <span className="rounded-full bg-primary/10 px-1 text-[10px] text-primary">Team</span>
@@ -521,6 +579,119 @@ export function AdvancedFilters({
                     </ScrollArea>
                 </PopoverContent>
             </Popover>
+
+            {/* Manage Views Dialog */}
+            <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
+                <DialogContent className="sm:max-w-[560px]">
+                    <DialogHeader>
+                        <DialogTitle>Manage Saved Views</DialogTitle>
+                        <DialogDescription>
+                            Rename, duplicate, share, delete, or choose the default view for this workspace.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[420px] overflow-y-auto py-2">
+                        {presets.length === 0 ? (
+                            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                                No saved views yet.
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {presets.map((preset) => (
+                                    <div key={preset._id} className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="min-w-0 flex-1">
+                                            {editingPresetId === preset._id ? (
+                                                <Input
+                                                    value={editingPresetName}
+                                                    onChange={(event) => setEditingPresetName(event.target.value)}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter') savePresetName(preset);
+                                                        if (event.key === 'Escape') setEditingPresetId(null);
+                                                    }}
+                                                    onBlur={() => savePresetName(preset)}
+                                                    className="h-8"
+                                                    autoFocus
+                                                />
+                                            ) : (
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    {preset.isDefault && <Star className="h-3.5 w-3.5 shrink-0 fill-primary text-primary" />}
+                                                    <button
+                                                        type="button"
+                                                        className="truncate text-left text-sm font-semibold text-foreground hover:underline"
+                                                        onClick={() => loadPreset(preset)}
+                                                    >
+                                                        {preset.name}
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                                <span className="capitalize">{preset.layout?.replace('_', ' ') || 'board'}</span>
+                                                <span>·</span>
+                                                <span>{preset.visibility === 'team' ? 'Shared with team' : 'Private'}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2"
+                                                onClick={() => updatePreset(preset._id, { isDefault: !preset.isDefault })}
+                                                title={preset.isDefault ? 'Unset default view' : 'Set as default view'}
+                                            >
+                                                <Star className={`h-3.5 w-3.5 ${preset.isDefault ? 'fill-primary text-primary' : ''}`} />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2"
+                                                onClick={() => startRenamePreset(preset)}
+                                                title="Rename view"
+                                            >
+                                                <Edit2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2"
+                                                onClick={() => duplicatePreset(preset)}
+                                                title="Duplicate view"
+                                            >
+                                                <Copy className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <select
+                                                aria-label={`Visibility for ${preset.name}`}
+                                                value={preset.visibility}
+                                                onChange={(event) => updatePreset(preset._id, { visibility: event.target.value })}
+                                                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+                                            >
+                                                <option value="private">Private</option>
+                                                <option value="team">Team</option>
+                                            </select>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2 text-muted-foreground hover:text-destructive"
+                                                onClick={(event) => deletePreset(preset._id, event)}
+                                                title="Delete view"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsManageDialogOpen(false)}>
+                            Done
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Save View Dialog */}
             <Dialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>

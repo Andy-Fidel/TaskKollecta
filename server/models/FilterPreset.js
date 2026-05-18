@@ -40,6 +40,14 @@ const filterPresetSchema = new mongoose.Schema({
         field: { type: String, default: 'updatedAt' },
         direction: { type: String, enum: ['asc', 'desc'], default: 'desc' }
     },
+    isDefault: {
+        type: Boolean,
+        default: false
+    },
+    order: {
+        type: Number,
+        default: 0
+    },
     filters: {
         statuses: [{
             type: String
@@ -67,5 +75,6 @@ const filterPresetSchema = new mongoose.Schema({
 // Compound index for efficient querying
 filterPresetSchema.index({ user: 1, project: 1, scope: 1 });
 filterPresetSchema.index({ organization: 1, scope: 1, visibility: 1 });
+filterPresetSchema.index({ user: 1, scope: 1, isDefault: 1 });
 
 module.exports = mongoose.models.FilterPreset || mongoose.model('FilterPreset', filterPresetSchema);
