@@ -142,6 +142,54 @@ describe('ProjectBoard', () => {
     });
   }, 10000);
 
+  it('guards blank task creation and supports create another', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return { data: { tasks: [], pagination: { hasMore: false } } };
+      }
+      if (url === '/organizations/org-1/members') {
+        return { data: [] };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    mockedApi.post.mockResolvedValue({
+      data: {
+        _id: 'task-1',
+        title: 'Plan release',
+        status: 'todo',
+        priority: 'medium',
+      },
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /new task/i }));
+
+    const titleInput = screen.getByLabelText('Title');
+    await userEvent.type(titleInput, '   ');
+    expect(screen.getByRole('button', { name: /^create task$/i })).toBeDisabled();
+
+    await userEvent.clear(titleInput);
+    await userEvent.type(titleInput, '  Plan release  ');
+    await userEvent.click(screen.getByRole('button', { name: /create another/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith('/tasks', expect.objectContaining({
+        title: 'Plan release',
+      }));
+    });
+    expect(await screen.findByText('Add New Task')).toBeInTheDocument();
+    expect(screen.getByLabelText('Title')).toHaveValue('');
+  }, 10000);
+
   it('creates a quick task directly in the selected board column', async () => {
     mockedApi.get.mockImplementation(async (url) => {
       if (url === '/projects/single/project-1') {

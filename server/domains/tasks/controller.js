@@ -52,7 +52,7 @@ const getMyTasks = async (req, res) => {
     const tasks = await Task.find(query)
       .populate('assignee', 'name email avatar')
       .populate('project', 'name')
-      .populate('dependencies', 'title status')
+      .populate('dependencies', 'title status startDate dueDate')
       .populate('projectMemberships.project', 'name color')
       .sort({ dueDate: 1 });
 
@@ -177,7 +177,7 @@ const addDependency = async (req, res) => {
       req.params.id,
       { $addToSet: { dependencies: dependencyId } },
       { new: true }
-    ).populate('dependencies', 'title status');
+    ).populate('dependencies', 'title status startDate dueDate');
 
     res.json(task);
   } catch (error) { res.status(500).json({ message: error.message }); }
@@ -191,7 +191,7 @@ const removeDependency = async (req, res) => {
       req.params.id,
       { $pull: { dependencies: req.params.dependencyId } },
       { new: true }
-    ).populate('dependencies', 'title status');
+    ).populate('dependencies', 'title status startDate dueDate');
     res.json(task);
   } catch (error) { res.status(500).json({ message: error.message }); }
 };
@@ -377,7 +377,7 @@ const bulkUpdateTasks = async (req, res) => {
 
     const updatedTasks = await Task.find({ _id: { $in: taskIds } })
       .populate('assignee', 'name avatar')
-      .populate('dependencies', 'title status');
+      .populate('dependencies', 'title status startDate dueDate');
 
     res.status(200).json(updatedTasks);
   } catch (error) {

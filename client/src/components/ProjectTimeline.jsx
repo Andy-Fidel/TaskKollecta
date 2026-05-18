@@ -14,6 +14,7 @@ import {
 import { CalendarDays, ChevronLeft, ChevronRight, Diamond, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getBlockingDependents, getDependencyScheduleConflicts } from '../utils/taskState';
 
 const PRIORITY_COLORS = {
   urgent: 'bg-red-600',
@@ -50,6 +51,13 @@ export function ProjectTimeline({ tasks, onTaskClick, statusOptions = [] }) {
   const rangeEnd = useMemo(() => endOfDay(addDays(rangeStart, 34)), [rangeStart]);
   const days = useMemo(() => eachDayOfInterval({ start: rangeStart, end: rangeEnd }), [rangeStart, rangeEnd]);
   const statusMap = useMemo(() => new Map(statusOptions.map((status) => [status.id, status])), [statusOptions]);
+  const dependencyMeta = useMemo(() => tasks.reduce((meta, task) => {
+    meta[task._id] = {
+      blockingCount: getBlockingDependents(task, tasks).length,
+      scheduleConflicts: getDependencyScheduleConflicts(task),
+    };
+    return meta;
+  }, {}), [tasks]);
 
   const scheduledTasks = useMemo(() => tasks
     .map((task) => {
@@ -137,6 +145,7 @@ export function ProjectTimeline({ tasks, onTaskClick, statusOptions = [] }) {
             <div>
               {scheduledTasks.map((task) => {
                 const status = statusMap.get(task.status);
+                const meta = dependencyMeta[task._id] || { blockingCount: 0, scheduleConflicts: [] };
                 const barColor = STATUS_COLORS[task.status] || PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium;
                 const dateLabel = task.timelineStart.toDateString() === task.timelineEnd.toDateString()
                   ? format(task.timelineEnd, 'MMM d')
@@ -153,6 +162,8 @@ export function ProjectTimeline({ tasks, onTaskClick, statusOptions = [] }) {
                       <span className="flex max-w-full items-center gap-1.5 text-xs text-muted-foreground">
                         {task.isMilestone && <Diamond className="h-3 w-3 fill-amber-500 text-amber-500" />}
                         {task.dependencies?.length > 0 && <Link2 className="h-3 w-3 text-blue-500" />}
+                        {meta.blockingCount > 0 && <span>{`Blocking ${meta.blockingCount}`}</span>}
+                        {meta.scheduleConflicts.length > 0 && <span className="font-semibold text-red-600">Date risk</span>}
                         <span className="truncate">{dateLabel}</span>
                       </span>
                     </button>
@@ -172,6 +183,7 @@ export function ProjectTimeline({ tasks, onTaskClick, statusOptions = [] }) {
                           width: task.isMilestone ? '24px' : `calc(${task.duration} * (100% / ${days.length}) - 8px)`,
                         }}
                         aria-label={`Open ${task.title}`}
+                        title={meta.scheduleConflicts.length > 0 ? `Starts before ${meta.scheduleConflicts.length} blocker${meta.scheduleConflicts.length === 1 ? '' : 's'} finish` : undefined}
                       >
                         {!task.isMilestone && (
                           <>

@@ -16,13 +16,27 @@ const ensureNotificationOwnership = async ({ notificationId, userId }) => {
 };
 
 const getNotifications = async ({ userId }) => {
-  const notifications = await Notification.find({ recipient: userId })
+  const now = new Date();
+  await Notification.updateMany(
+    { recipient: userId, status: 'snoozed', snoozedUntil: { $lte: now } },
+    { $set: { status: 'unread', isRead: false }, $unset: { snoozedUntil: '' } },
+  );
+
+  const notifications = await Notification.find({
+    recipient: userId,
+    $or: [
+      { status: { $ne: 'snoozed' } },
+      { snoozedUntil: { $lte: now } },
+      { snoozedUntil: null },
+    ],
+  })
     .sort({ createdAt: -1 })
     .limit(20)
     .populate('sender', 'name avatar');
 
   const unreadCount = await Notification.countDocuments({
     recipient: userId,
+    status: { $ne: 'snoozed' },
     $or: [{ status: 'unread' }, { isRead: false, status: { $ne: 'archived' } }],
   });
 
@@ -49,15 +63,24 @@ const clearAllNotifications = async ({ userId }) => {
   return { message: 'All notifications cleared' };
 };
 
-const updateNotificationStatus = async ({ notificationId, userId, status }) => {
+const updateNotificationStatus = async ({ notificationId, userId, status, snoozedUntil }) => {
   const notification = await ensureNotificationOwnership({ notificationId, userId });
 
-  if (!['unread', 'read', 'archived'].includes(status)) {
+  if (!['unread', 'read', 'archived', 'snoozed'].includes(status)) {
     throw createDomainError(400, 'Invalid notification status');
   }
 
+  let parsedSnoozedUntil = null;
+  if (status === 'snoozed') {
+    parsedSnoozedUntil = snoozedUntil ? new Date(snoozedUntil) : null;
+    if (!parsedSnoozedUntil || Number.isNaN(parsedSnoozedUntil.getTime()) || parsedSnoozedUntil <= new Date()) {
+      throw createDomainError(400, 'Valid future snoozedUntil is required');
+    }
+  }
+
   notification.status = status;
-  notification.isRead = status === 'read' || status === 'archived';
+  notification.isRead = status === 'read' || status === 'archived' || status === 'snoozed';
+  notification.snoozedUntil = status === 'snoozed' ? parsedSnoozedUntil : null;
   await notification.save();
 
   return notification;

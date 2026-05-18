@@ -140,6 +140,58 @@ describe('TaskDetailsModal', () => {
     expect(screen.getByText('Updated task title')).toBeInTheDocument();
   });
 
+  it('exposes clear workflow sections and keyboard tab switching', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/comments/task-1') return { data: { comments: [] } };
+      if (url === '/activities/task/task-1') return { data: [] };
+      if (url === '/organizations/org-1/members') {
+        return { data: [{ role: 'owner', user: { _id: 'user-1', name: 'Andy' } }] };
+      }
+      if (url === '/tasks/task-1/children') return { data: [] };
+      if (url === '/tasks/project/project-1') return { data: [] };
+      return { data: [] };
+    });
+
+    render(
+      <MemoryRouter>
+        <TaskDetailsModal
+          task={{
+            _id: 'task-1',
+            title: 'Structure modal workflow',
+            description: '',
+            project: { _id: 'project-1', name: 'Core Product' },
+            organization: 'org-1',
+            reporter: 'user-1',
+            status: 'todo',
+            priority: 'medium',
+            subtasks: [],
+            dependencies: [],
+            tags: [],
+            attachments: [],
+          }}
+          isOpen={true}
+          onClose={vi.fn()}
+          projectId="project-1"
+          orgId="org-1"
+          socket={null}
+        />
+      </MemoryRouter>,
+    );
+
+    const title = await screen.findByText('Structure modal workflow');
+    await waitFor(() => expect(title).toHaveFocus());
+    expect(screen.getByRole('navigation', { name: /task detail sections/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /task properties/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /execution/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /collaboration files/i })).toBeInTheDocument();
+
+    await userEvent.keyboard('{Alt>}2{/Alt}');
+    expect(screen.getByText(/Activity & Chat/i)).toBeInTheDocument();
+
+    await userEvent.keyboard('{Alt>}1{/Alt}');
+    await waitFor(() => expect(title).toHaveFocus());
+  });
+
   it('prevents completing a task with unfinished dependencies', async () => {
     mockedApi.get.mockImplementation(async (url) => {
       if (url === '/comments/task-1') {
@@ -457,5 +509,67 @@ describe('TaskDetailsModal', () => {
     });
     expect(screen.getByText('Attached')).toBeInTheDocument();
     expect(screen.getAllByText('brief.pdf').length).toBeGreaterThan(0);
+  });
+
+  it('shows blocking impact and schedule risks in dependency details', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/comments/task-1') return { data: { comments: [] } };
+      if (url === '/activities/task/task-1') return { data: [] };
+      if (url === '/organizations/org-1/members') {
+        return { data: [{ role: 'owner', user: { _id: 'user-1', name: 'Andy' } }] };
+      }
+      if (url === '/tasks/task-1/children') return { data: [] };
+      if (url === '/tasks/project/project-1') {
+        return {
+          data: [
+            {
+              _id: 'dependent-1',
+              title: 'Launch email',
+              status: 'todo',
+              dependencies: [{ _id: 'task-1', title: 'Build launch plan', status: 'todo' }],
+            },
+          ],
+        };
+      }
+      return { data: [] };
+    });
+
+    render(
+      <MemoryRouter>
+        <TaskDetailsModal
+          task={{
+            _id: 'task-1',
+            title: 'Build launch plan',
+            description: '',
+            project: { _id: 'project-1', name: 'Core Product' },
+            organization: 'org-1',
+            reporter: 'user-1',
+            status: 'todo',
+            priority: 'high',
+            startDate: '2026-05-20T00:00:00.000Z',
+            subtasks: [],
+            dependencies: [{
+              _id: 'dependency-1',
+              title: 'Finish QA',
+              status: 'todo',
+              dueDate: '2026-05-22T00:00:00.000Z',
+            }],
+            tags: [],
+            attachments: [],
+          }}
+          isOpen={true}
+          onClose={vi.fn()}
+          projectId="project-1"
+          orgId="org-1"
+          socket={null}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Build launch plan')).toBeInTheDocument();
+    expect(await screen.findByText(/Blocking 1 task/i)).toBeInTheDocument();
+    expect(screen.getByText('Launch email')).toBeInTheDocument();
+    expect(screen.getByText(/Date risk:/i)).toBeInTheDocument();
+    expect(screen.getByText(/starts before 1 unfinished blocker/i)).toBeInTheDocument();
   });
 });

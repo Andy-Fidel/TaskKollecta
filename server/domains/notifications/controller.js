@@ -52,6 +52,7 @@ const updateNotificationStatus = async (req, res) => {
       notificationId: req.params.id,
       userId: req.user._id,
       status: req.body.status,
+      snoozedUntil: req.body.snoozedUntil,
     });
     res.json(notification);
   } catch (error) {

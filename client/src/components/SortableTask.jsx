@@ -35,6 +35,8 @@ export const SortableTask = memo(function SortableTask({
   onSetDueDate,
   onArchiveTask,
   onCopyTaskLink,
+  blockingCount = 0,
+  scheduleConflictCount = 0,
 }) {
   const {
     attributes,
@@ -265,6 +267,16 @@ export const SortableTask = memo(function SortableTask({
         )}
         {task.dependencies?.length > 0 && (
           <Link2 className="h-3 w-3 text-blue-500" title={`${task.dependencies.length} dependenc${task.dependencies.length === 1 ? 'y' : 'ies'}`} />
+        )}
+        {blockingCount > 0 && (
+          <Badge variant="outline" className="text-[10px] uppercase tracking-wider font-bold border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
+            Blocking {blockingCount}
+          </Badge>
+        )}
+        {scheduleConflictCount > 0 && (
+          <Badge variant="outline" className="text-[10px] uppercase tracking-wider font-bold border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            Date risk
+          </Badge>
         )}
       </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -37,11 +37,17 @@ import { PriorityBadge } from './PriorityBadge';
 import { TagPicker } from './TagPicker';
 import { RecurrencePicker } from './RecurrencePicker';
 import { MentionInput, renderMentions } from './MentionInput';
-import { getIncompleteDependencies, isTaskBlocked } from '../utils/taskState';
+import {
+    getBlockingDependents,
+    getDependencyScheduleConflicts,
+    getIncompleteDependencies,
+    isTaskBlocked
+} from '../utils/taskState';
 
 export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, statusOptions = [], customFields = [], socket }) {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const titleRef = useRef(null);
 
     // --- 1. HOOKS (Always run first) ---
     const [comments, setComments] = useState([]);
@@ -101,10 +107,12 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
     const [isAiSubtasks, setIsAiSubtasks] = useState(false);
     const [suggestedSubtasks, setSuggestedSubtasks] = useState([]);
     const [isSendingComment, setIsSendingComment] = useState(false);
+    const [activeTab, setActiveTab] = useState('details');
 
     // --- 2. EFFECTS ---
     useEffect(() => {
         if (isOpen && task) {
+            setActiveTab('details');
             api.get(`/comments/${task._id}`).then(({ data }) => setComments(data.comments || [])).catch(() => { });
             api.get(`/activities/task/${task._id}`).then(({ data }) => setActivities(data)).catch(() => { });
 
@@ -136,11 +144,23 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
             // Fetch child tasks (real sub-task documents)
             api.get(`/tasks/${task._id}/children`).then(({ data }) => setChildTasks(data)).catch(() => {});
             api.get('/projects').then(({ data }) => setAvailableProjects(data)).catch(() => {});
+            if (projectId) {
+                api.get(`/tasks/project/${projectId}`).then(({ data }) => {
+                    const tasks = Array.isArray(data) ? data : data.tasks || [];
+                    setProjectTasks(tasks.filter(t => t._id !== task._id));
+                }).catch(() => {});
+            }
         }
-    }, [isOpen, task, orgId]);
+    }, [isOpen, task, orgId, projectId]);
 
     useEffect(() => {
-        if (isDependencySearchOpen && projectTasks.length === 0 && task) {
+        if (!isOpen || !task || isEditingTitle) return;
+        const frame = window.requestAnimationFrame(() => titleRef.current?.focus());
+        return () => window.cancelAnimationFrame(frame);
+    }, [isOpen, task, isEditingTitle]);
+
+    useEffect(() => {
+        if (isDependencySearchOpen && projectTasks.length === 0 && task && projectId) {
                 api.get(`/tasks/project/${projectId}`).then(({ data }) => {
 	                const tasks = Array.isArray(data) ? data : data.tasks || [];
 	                setProjectTasks(tasks.filter(t => t._id !== task._id));
@@ -238,6 +258,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
 	    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 	    const incompleteDependencies = getIncompleteDependencies({ ...task, dependencies });
 	    const blocked = isTaskBlocked({ ...task, status: currentStatus, dependencies });
+        const blockingDependents = getBlockingDependents(task, projectTasks);
+        const scheduleConflicts = getDependencyScheduleConflicts({ ...task, dependencies, startDate });
 	    const availableStatuses = statusOptions.length ? statusOptions : [
 	        { id: 'todo', label: 'To Do' },
         { id: 'in-progress', label: 'In Progress' },
@@ -340,6 +362,23 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
 	            toast.error('Could not copy task link');
 	        }
 	    };
+
+    const handleModalKeyDown = (event) => {
+        if (!event.altKey || event.metaKey || event.ctrlKey) return;
+        if (event.key === '1') {
+            event.preventDefault();
+            setActiveTab('details');
+            titleRef.current?.focus();
+        }
+        if (event.key === '2') {
+            event.preventDefault();
+            setActiveTab('activity');
+        }
+    };
+
+    const scrollToSection = (sectionId) => {
+        document.getElementById(sectionId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    };
 
     const initiateAssignment = (memberUser) => {
         setPendingAssignee(memberUser);
@@ -715,7 +754,10 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent className="w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
+                <DialogContent
+                    className="w-full max-w-6xl h-[100dvh] md:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background"
+                    onKeyDown={handleModalKeyDown}
+                >
                     
                     {/* --- COMPLETION ANIMATION OVERLAY --- */}
                     <AnimatePresence>
@@ -786,7 +828,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                     </div>
 
                     {/* ENHANCED LAYOUT - Tabs on Mobile, Split View on Desktop */}
-                    <Tabs defaultValue="details" className="flex flex-col lg:flex-row flex-1 overflow-hidden w-full h-full">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col lg:flex-row flex-1 overflow-hidden w-full h-full">
 
                         {/* MOBILE TABS HEADER - Hidden on large screens */}
                         <div className="lg:hidden border-b border-border bg-card px-4 py-2 shrink-0">
@@ -832,6 +874,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                                     </div>
                                                 ) : (
                                                     <DialogTitle
+                                                        ref={titleRef}
                                                         role="button"
                                                         tabIndex={0}
                                                         onClick={() => setIsEditingTitle(true)}
@@ -884,7 +927,32 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
 	                                        )}
 	                                    </div>
 
+                                    <nav aria-label="Task detail sections" className="sticky top-0 z-10 -mx-4 border-y border-border/60 bg-background/95 px-4 py-2 backdrop-blur md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+                                        <div className="flex gap-2 overflow-x-auto">
+                                            {[
+                                                ['task-properties-section', 'Properties'],
+                                                ['task-execution-section', 'Execution'],
+                                                ['task-collaboration-section', 'Collaboration'],
+                                            ].map(([sectionId, label]) => (
+                                                <button
+                                                    key={sectionId}
+                                                    type="button"
+                                                    onClick={() => scrollToSection(sectionId)}
+                                                    className="h-8 shrink-0 rounded-md border border-border bg-card px-3 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                                                >
+                                                    {label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </nav>
+
 	                                    {/* --- COMPACT INLINE PROPERTIES HEADER --- */}
+                                    <section id="task-properties-section" className="scroll-mt-16 space-y-4 rounded-2xl border border-border/50 bg-card/40 p-4 shadow-sm">
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-foreground">Task properties</h3>
+                                            <p className="mt-1 text-xs text-muted-foreground">Ownership, priority, dates, workflow state, blockers, and project context.</p>
+                                        </div>
+
 	                                    <div className="flex flex-wrap items-center gap-2 md:gap-4 p-3 md:p-4 bg-muted/10 border border-border/40 rounded-xl shadow-sm">
                                         
                                         {/* Status */}
@@ -1099,6 +1167,26 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                                 </div>
                                             )}
                                         </div>
+                                        {(blockingDependents.length > 0 || scheduleConflicts.length > 0) && (
+                                            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                                                {blockingDependents.length > 0 && (
+                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                        <span className="font-semibold">Blocking {blockingDependents.length} task{blockingDependents.length === 1 ? '' : 's'}:</span>
+                                                        {blockingDependents.slice(0, 3).map((dependent) => (
+                                                            <button key={dependent._id} type="button" className="font-medium underline-offset-2 hover:underline" onClick={() => openRelatedTask(dependent._id)}>
+                                                                {dependent.title}
+                                                            </button>
+                                                        ))}
+                                                        {blockingDependents.length > 3 && <span>+{blockingDependents.length - 3} more</span>}
+                                                    </div>
+                                                )}
+                                                {scheduleConflicts.length > 0 && (
+                                                    <div className={blockingDependents.length > 0 ? 'mt-2' : ''}>
+                                                        <span className="font-semibold">Date risk:</span> this task starts before {scheduleConflicts.length} unfinished blocker{scheduleConflicts.length === 1 ? '' : 's'} finish.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {customFields.length > 0 && (
@@ -1188,6 +1276,13 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                             </div>
                                         </div>
                                     )}
+                                    </section>
+
+                                    <section id="task-execution-section" className="scroll-mt-16 space-y-6 rounded-2xl border border-border/50 bg-card/40 p-4 shadow-sm">
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-foreground">Execution</h3>
+                                            <p className="mt-1 text-xs text-muted-foreground">Define the work, break it into checklist items, and create tracked sub-tasks.</p>
+                                        </div>
 
 	                                    {/* Description */}
                                     <div className="group pt-2">
@@ -1434,7 +1529,13 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                         </form>
                                     </div>
 
-                                    <Separator className="bg-border/60" />
+                                    </section>
+
+                                    <section id="task-collaboration-section" className="scroll-mt-16 space-y-6 rounded-2xl border border-border/50 bg-card/40 p-4 shadow-sm">
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-foreground">Collaboration files</h3>
+                                            <p className="mt-1 text-xs text-muted-foreground">Keep supporting files attached to the task conversation.</p>
+                                        </div>
 
 	                                    {/* Attachments */}
 	                                    <div>
@@ -1530,6 +1631,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, projectId, orgId, stat
                                             </div>
                                         )}
                                     </div>
+                                    </section>
                                 </div>
                             </ScrollArea>
                         </TabsContent>

@@ -18,9 +18,11 @@ const notificationSchema = new mongoose.Schema({
   
   message: { type: String, required: true },
   isRead: { type: Boolean, default: false },
-  status: { type: String, enum: ['unread', 'read', 'archived'], default: 'unread' }
+  status: { type: String, enum: ['unread', 'read', 'archived', 'snoozed'], default: 'unread' },
+  snoozedUntil: { type: Date, default: null }
 }, { timestamps: true });
 
 notificationSchema.index({ dedupeKey: 1 }, { unique: true, sparse: true });
+notificationSchema.index({ recipient: 1, status: 1, snoozedUntil: 1 });
 
 module.exports = mongoose.models.Notification || mongoose.model('Notification', notificationSchema);

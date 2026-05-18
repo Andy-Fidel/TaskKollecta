@@ -111,4 +111,14 @@ describe('SortableTask', () => {
 
     expect(screen.getByText(/no update 10d/i)).toBeInTheDocument();
   });
+
+  it('shows dependency impact indicators on cards', () => {
+    renderSortableTask({
+      blockingCount: 2,
+      scheduleConflictCount: 1,
+    });
+
+    expect(screen.getByText(/blocking 2/i)).toBeInTheDocument();
+    expect(screen.getByText(/date risk/i)).toBeInTheDocument();
+  });
 });

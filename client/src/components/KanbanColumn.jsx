@@ -63,6 +63,7 @@ export function KanbanColumn({
   onSetDueDate,
   onArchiveTask,
   onCopyTaskLink,
+  taskDependencyMeta = {},
   isCollapsed,
   onToggleCollapse,
   onSetWipLimit,
@@ -324,6 +325,8 @@ export function KanbanColumn({
                 onSetDueDate={onSetDueDate}
                 onArchiveTask={onArchiveTask}
                 onCopyTaskLink={onCopyTaskLink}
+                blockingCount={taskDependencyMeta[task._id]?.blockingCount || 0}
+                scheduleConflictCount={taskDependencyMeta[task._id]?.scheduleConflictCount || 0}
               />
             ))}
             {hiddenTaskCount > 0 && (

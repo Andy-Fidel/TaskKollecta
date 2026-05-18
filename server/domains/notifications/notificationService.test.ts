@@ -102,4 +102,66 @@ describe('notificationService', () => {
       message: 'Invalid notification status',
     });
   });
+
+  it('snoozes notifications until a future time and restores expired snoozes', async () => {
+    const active = await Notification.create({
+      recipient: recipient._id,
+      sender: sender._id,
+      type: 'new_comment',
+      relatedId: recipient._id,
+      relatedModel: 'Task',
+      message: 'Snooze me',
+      status: 'unread',
+      isRead: false,
+    });
+
+    const snoozedUntil = new Date(Date.now() + 60 * 60 * 1000);
+    const snoozed = await notificationService.updateNotificationStatus({
+      notificationId: active._id.toString(),
+      userId: recipient._id,
+      status: 'snoozed',
+      snoozedUntil,
+    });
+
+    expect(snoozed.status).toBe('snoozed');
+    expect(snoozed.isRead).toBe(true);
+
+    const hidden = await notificationService.getNotifications({ userId: recipient._id });
+    expect(hidden.notifications).toHaveLength(0);
+    expect(hidden.unreadCount).toBe(0);
+
+    await Notification.findByIdAndUpdate(active._id, {
+      status: 'snoozed',
+      isRead: true,
+      snoozedUntil: new Date(Date.now() - 60 * 1000),
+    });
+
+    const restored = await notificationService.getNotifications({ userId: recipient._id });
+    expect(restored.notifications).toHaveLength(1);
+    expect(restored.notifications[0].status).toBe('unread');
+    expect(restored.unreadCount).toBe(1);
+  });
+
+  it('requires a future snooze time', async () => {
+    const notification = await Notification.create({
+      recipient: recipient._id,
+      sender: sender._id,
+      type: 'new_comment',
+      relatedId: recipient._id,
+      relatedModel: 'Task',
+      message: 'Protected',
+    });
+
+    await expect(
+      notificationService.updateNotificationStatus({
+        notificationId: notification._id.toString(),
+        userId: recipient._id,
+        status: 'snoozed',
+        snoozedUntil: new Date(Date.now() - 1000),
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: 'Valid future snoozedUntil is required',
+    });
+  });
 });

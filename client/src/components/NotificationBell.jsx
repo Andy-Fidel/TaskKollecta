@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, useContext } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Archive,
@@ -7,8 +7,10 @@ import {
   CalendarClock,
   CheckCheck,
   CheckCircle2,
+  Clock,
   MessageCircle,
   Reply,
+  RefreshCw,
   Send,
   Trash2,
   UserPlus,
@@ -93,6 +95,7 @@ export function NotificationBell() {
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -106,8 +109,7 @@ export function NotificationBell() {
     return () => socket.off('new_notification', handleNewNotification);
   }, [user, socket]);
 
-  useEffect(() => {
-    (async () => {
+  const fetchNotifications = useCallback(async () => {
       try {
         setIsLoading(true);
         setError('');
@@ -119,8 +121,11 @@ export function NotificationBell() {
       } finally {
         setIsLoading(false);
       }
-    })();
   }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const handleOpenChange = (open) => {
     setIsOpen(open);
@@ -144,6 +149,20 @@ export function NotificationBell() {
       } catch { console.error("Failed to update status"); }
   };
 
+  const handleSnooze = async (e, id, snoozedUntil) => {
+      e.stopPropagation();
+      try {
+          const notif = notifications.find(n => n._id === id);
+          const wasUnread = notif.status === 'unread' || (!notif.status && !notif.isRead);
+
+          await api.put(`/notifications/${id}/status`, { status: 'snoozed', snoozedUntil: snoozedUntil.toISOString() });
+          setNotifications(prev => prev.map(n => n._id === id ? { ...n, status: 'snoozed', isRead: true, snoozedUntil: snoozedUntil.toISOString() } : n));
+          if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch {
+          setError('Notification could not be snoozed.');
+      }
+  };
+
   const handleClearOne = async (e, id) => {
       e.stopPropagation(); 
       try {
@@ -165,6 +184,36 @@ export function NotificationBell() {
           )));
           setUnreadCount(0);
       } catch { console.error("Failed to mark notifications as read"); }
+  };
+
+  const handleArchiveDisplayed = async () => {
+      const targets = displayedNotifications.filter((notification) => notification.status !== 'archived');
+      if (targets.length === 0) return;
+      setIsBulkUpdating(true);
+      try {
+          await Promise.all(targets.map((notification) => api.put(`/notifications/${notification._id}/status`, { status: 'archived' })));
+          const unreadArchived = targets.filter((notification) => notification.status === 'unread' || (!notification.status && !notification.isRead)).length;
+          setNotifications(prev => prev.map(n => targets.some(target => target._id === n._id) ? { ...n, status: 'archived', isRead: true } : n));
+          setUnreadCount(prev => Math.max(0, prev - unreadArchived));
+      } catch {
+          setError('Some notifications could not be archived.');
+      } finally {
+          setIsBulkUpdating(false);
+      }
+  };
+
+  const handleClearAll = async () => {
+      if (notifications.length === 0) return;
+      setIsBulkUpdating(true);
+      try {
+          await api.delete('/notifications');
+          setNotifications([]);
+          setUnreadCount(0);
+      } catch {
+          setError('Notifications could not be cleared.');
+      } finally {
+          setIsBulkUpdating(false);
+      }
   };
 
   const navigateToNotificationTarget = async (notif) => {
@@ -238,9 +287,15 @@ export function NotificationBell() {
       
       if (activeTab === 'unread') return isUnread;
       if (activeTab === 'archived') return isArchived;
-      if (activeTab === 'all') return !isArchived; 
+      if (activeTab === 'all') return !isArchived && n.status !== 'snoozed'; 
       return true;
   });
+
+  const tabCounts = useMemo(() => ({
+      unread: notifications.filter(n => n.status === 'unread' || (!n.status && !n.isRead)).length,
+      all: notifications.filter(n => n.status !== 'archived' && n.status !== 'snoozed').length,
+      archived: notifications.filter(n => n.status === 'archived').length,
+  }), [notifications]);
 
   const groupedNotifications = useMemo(() => {
       const groups = [];
@@ -288,12 +343,53 @@ export function NotificationBell() {
            )}
         </div>
 
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-card px-4 py-2">
+          <div className="text-[11px] font-medium text-muted-foreground">
+            {displayedNotifications.length} visible
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground"
+              onClick={fetchNotifications}
+              disabled={isLoading || isBulkUpdating}
+            >
+              <RefreshCw className={`mr-1 h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground"
+              onClick={handleArchiveDisplayed}
+              disabled={displayedNotifications.length === 0 || activeTab === 'archived' || isBulkUpdating}
+            >
+              <Archive className="mr-1 h-3 w-3" />
+              Archive visible
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+              onClick={handleClearAll}
+              disabled={notifications.length === 0 || isBulkUpdating}
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              Clear all
+            </Button>
+          </div>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col min-h-0">
           <div className="px-4 py-2 border-b border-border bg-card shrink-0">
             <TabsList className="grid w-full grid-cols-3 bg-muted/50 h-8">
-              <TabsTrigger value="unread" className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">Unread</TabsTrigger>
-              <TabsTrigger value="all" className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">All</TabsTrigger>
-              <TabsTrigger value="archived" className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">Archived</TabsTrigger>
+              <TabsTrigger value="unread" className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">Unread {tabCounts.unread}</TabsTrigger>
+              <TabsTrigger value="all" className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">All {tabCounts.all}</TabsTrigger>
+              <TabsTrigger value="archived" className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">Archived {tabCounts.archived}</TabsTrigger>
             </TabsList>
           </div>
           
@@ -301,12 +397,23 @@ export function NotificationBell() {
              {isLoading ? (
                  <div className="p-8 text-center text-sm text-muted-foreground">Loading notifications...</div>
              ) : error ? (
-                 <div className="p-8 text-center text-sm text-destructive">{error}</div>
+                 <div className="flex h-full flex-col items-center justify-center p-8 text-center text-sm text-destructive">
+                    <Bell className="mb-3 h-10 w-10 opacity-20" />
+                    <p className="font-medium">{error}</p>
+                    <Button type="button" variant="outline" size="sm" className="mt-4" onClick={fetchNotifications}>
+                      <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                      Retry
+                    </Button>
+                 </div>
              ) : displayedNotifications.length === 0 ? (
                  <div className="p-8 text-center flex flex-col items-center justify-center h-full text-muted-foreground/60">
                     <CheckCheck className="w-10 h-10 mb-3 opacity-20" />
-                    <span className="text-sm font-medium">No notifications here</span>
-                    <span className="text-xs mt-1">You're all caught up!</span>
+                    <span className="text-sm font-medium">
+                      {activeTab === 'unread' ? 'No unread notifications' : activeTab === 'archived' ? 'No archived notifications' : 'No notifications yet'}
+                    </span>
+                    <span className="text-xs mt-1">
+                      {activeTab === 'unread' ? "You're all caught up." : activeTab === 'archived' ? 'Archived updates will appear here.' : 'Task assignments, mentions, and comments will appear here.'}
+                    </span>
                  </div>
              ) : (
 	                 <div className="divide-y divide-border">
@@ -358,6 +465,49 @@ export function NotificationBell() {
                                     <p className="text-[10px] text-muted-foreground/70 font-medium">
                                         {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
                                     </p>
+
+                                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 px-2 text-xs"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          handleOpenNotification(notif);
+                                        }}
+                                      >
+                                        Open
+                                      </Button>
+                                      {notif.type === 'new_comment' && notif.relatedModel === 'Task' && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 px-2 text-xs text-muted-foreground"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            setReplyingTo(replyingTo === notif._id ? null : notif._id);
+                                            setReplyText('');
+                                          }}
+                                        >
+                                          <Reply className="mr-1 h-3 w-3" />
+                                          Reply
+                                        </Button>
+                                      )}
+                                      {notif.status !== 'archived' && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 px-2 text-xs text-muted-foreground"
+                                          onClick={(event) => handleSnooze(event, notif._id, new Date(Date.now() + 4 * 60 * 60 * 1000))}
+                                        >
+                                          <Clock className="mr-1 h-3 w-3" />
+                                          Later
+                                        </Button>
+                                      )}
+                                    </div>
 
                                     {/* Inline Reply for new_comment */}
                                     {notif.type === 'new_comment' && replyingTo === notif._id && (
@@ -413,6 +563,19 @@ export function NotificationBell() {
                                                   </Button>
                                               </TooltipTrigger>
                                               <TooltipContent side="bottom" className="text-xs">Archive</TooltipContent>
+                                          </Tooltip>
+                                      </TooltipProvider>
+                                  )}
+
+                                  {notif.status !== 'archived' && (
+                                      <TooltipProvider>
+                                          <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10" onClick={(e) => handleSnooze(e, notif._id, new Date(Date.now() + 24 * 60 * 60 * 1000))}>
+                                                      <Clock className="w-3.5 h-3.5" />
+                                                  </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent side="bottom" className="text-xs">Snooze until tomorrow</TooltipContent>
                                           </Tooltip>
                                       </TooltipProvider>
                                   )}

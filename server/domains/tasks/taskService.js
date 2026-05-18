@@ -132,7 +132,7 @@ const getProjectTasks = async ({ projectId, userId, query }) => {
     const total = await Task.countDocuments(filters);
     const tasks = await Task.find(filters)
       .populate('assignee', 'name avatar')
-      .populate('dependencies', 'title status')
+      .populate('dependencies', 'title status startDate dueDate')
       .populate('projectMemberships.project', 'name color')
       .sort({ index: 1 })
       .skip(page * limit)
@@ -152,7 +152,7 @@ const getProjectTasks = async ({ projectId, userId, query }) => {
 
   return Task.find(filters)
     .populate('assignee', 'name avatar')
-    .populate('dependencies', 'title status')
+    .populate('dependencies', 'title status startDate dueDate')
     .populate('projectMemberships.project', 'name color')
     .sort({ index: 1 });
 };
@@ -160,7 +160,7 @@ const getProjectTasks = async ({ projectId, userId, query }) => {
 const getTask = async ({ taskId, userId }) => {
   const task = await Task.findById(taskId)
     .populate('assignee', 'name avatar')
-    .populate('dependencies', 'title status')
+    .populate('dependencies', 'title status startDate dueDate')
     .populate('projectMemberships.project', 'name color');
 
   await requireTaskAccess(userId, task);
@@ -198,7 +198,7 @@ const updateTask = async ({ taskId, body, user, io }) => {
   }
 
   const updatedTask = await Task.findByIdAndUpdate(taskId, updateData, { new: true })
-    .populate('dependencies', 'title status')
+    .populate('dependencies', 'title status startDate dueDate')
     .populate('assignee', 'name avatar')
     .populate('project', 'name')
     .populate('projectMemberships.project', 'name color');

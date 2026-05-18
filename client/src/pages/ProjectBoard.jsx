@@ -23,6 +23,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -55,7 +63,7 @@ import { ProjectHealthModal } from '../components/ProjectHealthModal';
 import { RealtimeRisksSheet } from '../components/RealtimeRisksSheet';
 import { SetupChecklist } from '../components/SetupChecklist';
 import { useDataRefresh } from '../context/useDataRefresh';
-import { isTaskBlocked } from '../utils/taskState';
+import { getBlockingDependents, getDependencyScheduleConflicts, isTaskBlocked } from '../utils/taskState';
 import { trackProductEvent } from '../utils/productAnalytics';
 import { markOnboardingMilestone } from '../utils/onboardingProgress';
 
@@ -126,12 +134,14 @@ export default function ProjectBoard() {
   const [loading, setLoading] = useState(true);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [isAutoOpen, setIsAutoOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskStartDate, setNewTaskStartDate] = useState(null);
   const [newTaskDueDate, setNewTaskDueDate] = useState(null);
   const [newTaskDueTime, setNewTaskDueTime] = useState('');
+  const [newTaskStatus, setNewTaskStatus] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
   const [newTaskEffort, setNewTaskEffort] = useState('');
   const [newTaskCustomFields, setNewTaskCustomFields] = useState({});
@@ -479,6 +489,15 @@ export default function ProjectBoard() {
   ], [quickViewCounts]);
 
   const pinnedSavedViews = useMemo(() => filterPresets.slice(0, 5), [filterPresets]);
+
+  const taskDependencyMeta = useMemo(() => tasks.reduce((meta, task) => {
+    const blockingCount = getBlockingDependents(task, tasks).length;
+    const scheduleConflictCount = getDependencyScheduleConflicts(task).length;
+    if (blockingCount > 0 || scheduleConflictCount > 0) {
+      meta[task._id] = { blockingCount, scheduleConflictCount };
+    }
+    return meta;
+  }, {}), [tasks]);
 
   const filteredTaskCountsByStatus = useMemo(() => filteredTasks.reduce((counts, task) => {
     counts[task.status] = (counts[task.status] || 0) + 1;
@@ -843,9 +862,26 @@ export default function ProjectBoard() {
     }
   };
 
+  const resetCreateTaskForm = () => {
+    setNewTaskTitle('');
+    setNewTaskDescription('');
+    setNewTaskStartDate(null);
+    setNewTaskDueDate(null);
+    setNewTaskDueTime('');
+    setNewTaskStatus('');
+    setNewTaskPriority('medium');
+    setNewTaskEffort('');
+    setNewTaskCustomFields({});
+    setNewTaskAssignee(null);
+    setAssigneeSearch('');
+    setSuggestedSubtasks([]);
+  };
+
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    if (!newTaskTitle) return;
+    const intent = e.nativeEvent?.submitter?.value || 'close';
+    const trimmedTitle = newTaskTitle.trim();
+    if (!trimmedTitle || isCreatingTask) return;
 
     // Combine date and time if both provided
     let dueDate = newTaskDueDate;
@@ -855,13 +891,14 @@ export default function ProjectBoard() {
       dueDate.setHours(hours, minutes, 0, 0);
     }
 
+    setIsCreatingTask(true);
     try {
       const payload = {
-        title: newTaskTitle,
-        description: newTaskDescription || undefined,
+        title: trimmedTitle,
+        description: newTaskDescription.trim() || undefined,
         projectId,
         orgId: projectDetails.organization,
-        status: workflowColumns[0]?.id || 'todo',
+        status: newTaskStatus || workflowColumns[0]?.id || 'todo',
         priority: newTaskPriority,
         startDate: newTaskStartDate || undefined,
         dueDate: dueDate || undefined,
@@ -881,23 +918,26 @@ export default function ProjectBoard() {
       }
 
       const { data } = await api.post('/tasks', payload);
-      setTasks([data, ...tasks]);
+      setTasks((current) => [data, ...current]);
       if (socket) socket.emit('task_created', { task: data, projectId });
       toast.success('Task created successfully');
       triggerRefresh();
-      setNewTaskTitle('');
-      setNewTaskDescription('');
-      setNewTaskStartDate(null);
-      setNewTaskDueDate(null);
-      setNewTaskDueTime('');
-      setNewTaskPriority('medium');
-      setNewTaskEffort('');
-      setNewTaskCustomFields({});
-      setNewTaskAssignee(null);
-      setAssigneeSearch('');
-      setSuggestedSubtasks([]);
-      setIsCreateModalOpen(false);
-    } catch { toast.error('Failed to create task'); }
+      resetCreateTaskForm();
+
+      if (intent === 'open') {
+        setSelectedTask(data);
+        setIsDetailsOpen(true);
+        setIsCreateModalOpen(false);
+      } else if (intent === 'another') {
+        setIsCreateModalOpen(true);
+      } else {
+        setIsCreateModalOpen(false);
+      }
+    } catch {
+      toast.error('Failed to create task');
+    } finally {
+      setIsCreatingTask(false);
+    }
   };
 
   const handleQuickCreateTask = async (status, title) => {
@@ -1537,6 +1577,7 @@ export default function ProjectBoard() {
                           onSetDueDate={handleTaskDueDateUpdate}
                           onArchiveTask={handleTaskArchive}
                           onCopyTaskLink={handleTaskCopyLink}
+                          taskDependencyMeta={taskDependencyMeta}
                           isCollapsed={collapsedColumns.has(col.id)}
                           onToggleCollapse={toggleColumnCollapse}
                           onSetWipLimit={handleColumnWipLimitChange}
@@ -1626,12 +1667,34 @@ export default function ProjectBoard() {
       )}
 
       {/* Modals */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-card text-card-foreground p-4 md:p-6 rounded-2xl w-[calc(100%-2rem)] sm:w-[420px] max-h-[90vh] overflow-y-auto shadow-2xl border border-border mx-4 sm:mx-0">
-            <h3 className="font-bold text-lg mb-1">Add New Task</h3>
-            <p className="text-muted-foreground text-sm mb-4">Create a card for your team.</p>
-            <form onSubmit={handleCreateTask} className="space-y-4">
+      <Dialog
+        open={isCreateModalOpen}
+        onOpenChange={(open) => {
+          if (isCreatingTask) return;
+          setIsCreateModalOpen(open);
+        }}
+      >
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Add New Task</DialogTitle>
+            <DialogDescription>Create a card for your team.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={handleCreateTask}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                event.preventDefault();
+                event.currentTarget.requestSubmit();
+              }
+            }}
+            className="space-y-4"
+          >
+              <section className="space-y-4 rounded-xl border border-border/50 bg-card p-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">Basics</h4>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Name the work and choose where it should land.</p>
+                </div>
+
               <div>
                 <Label htmlFor="task-title">Title</Label>
                 <Input
@@ -1639,8 +1702,27 @@ export default function ProjectBoard() {
                   autoFocus
                   placeholder="What needs to be done?"
                   value={newTaskTitle}
+                  aria-invalid={!newTaskTitle.trim() && newTaskTitle.length > 0}
+                  aria-describedby="task-title-help"
                   onChange={(e) => setNewTaskTitle(e.target.value)}
                 />
+                <p id="task-title-help" className="mt-1 text-xs text-muted-foreground">
+                  Required. Press Ctrl+Enter or Cmd+Enter to create.
+                </p>
+              </div>
+
+              <div>
+                <Label>Status</Label>
+                <Select value={newTaskStatus || workflowColumns[0]?.id || 'todo'} onValueChange={setNewTaskStatus}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Choose status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workflowColumns.map((status) => (
+                      <SelectItem key={status.id} value={status.id}>{status.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -1688,6 +1770,13 @@ export default function ProjectBoard() {
                   </p>
                 </div>
               )}
+              </section>
+
+              <section className="space-y-4 rounded-xl border border-border/50 bg-card p-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">Schedule</h4>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Set planning dates for calendar and roadmap views.</p>
+                </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Start Date */}
@@ -1779,6 +1868,13 @@ export default function ProjectBoard() {
                   />
                 </div>
               </div>
+              </section>
+
+              <section className="space-y-4 rounded-xl border border-border/50 bg-card p-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">Ownership</h4>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Assign responsibility and estimate the work.</p>
+                </div>
 
               {/* Priority */}
               <div>
@@ -1920,11 +2016,15 @@ export default function ProjectBoard() {
                   </div>
                 )}
               </div>
+              </section>
 
               {/* Custom Fields */}
               {sortedCustomFields.length > 0 && (
-                <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Custom Fields</p>
+                <section className="space-y-3 rounded-xl border border-border/50 bg-card p-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground">Advanced</h4>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Project-specific fields for reporting and saved views.</p>
+                  </div>
                   {sortedCustomFields.map((field) => (
                     <div key={field.key}>
                       <Label>{field.name}</Label>
@@ -1962,17 +2062,25 @@ export default function ProjectBoard() {
                       )}
                     </div>
                   ))}
-                </div>
+                </section>
               )}
 
-              <div className="flex gap-2 justify-end pt-2">
-                <Button type="button" variant="ghost" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
-                <Button type="submit">Create Task</Button>
-              </div>
+              <DialogFooter className="gap-2 pt-2 sm:space-x-0">
+                <Button type="button" variant="ghost" onClick={() => setIsCreateModalOpen(false)} disabled={isCreatingTask}>Cancel</Button>
+                <Button type="submit" name="intent" value="another" variant="outline" disabled={!newTaskTitle.trim() || isCreatingTask}>
+                  {isCreatingTask ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Create another
+                </Button>
+                <Button type="submit" name="intent" value="open" variant="outline" disabled={!newTaskTitle.trim() || isCreatingTask}>
+                  Create & open
+                </Button>
+                <Button type="submit" name="intent" value="close" disabled={!newTaskTitle.trim() || isCreatingTask}>
+                  {isCreatingTask ? 'Creating...' : 'Create Task'}
+                </Button>
+              </DialogFooter>
             </form>
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Project Health Modal */}
       <ProjectHealthModal 
