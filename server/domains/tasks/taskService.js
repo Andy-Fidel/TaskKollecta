@@ -18,7 +18,7 @@ const requireTaskAccess = async (userId, task) => {
 };
 
 const createTask = async ({ body, user, io }) => {
-  const { title, description, status, priority, startDate, dueDate, projectId, orgId, assignee, assigneeEmail, customFieldValues, index } = body;
+  const { title, description, status, priority, startDate, dueDate, projectId, orgId, assignee, assigneeEmail, customFieldValues, index, subtasks, dependencies } = body;
 
   await ensureMembership(user._id, orgId);
 
@@ -76,6 +76,22 @@ const createTask = async ({ body, user, io }) => {
     }
   }
 
+  const dependencyIds = Array.isArray(dependencies)
+    ? [...new Set(dependencies.map((dependencyId) => dependencyId?.toString()).filter(Boolean))]
+    : [];
+
+  if (dependencyIds.length > 0) {
+    const accessibleDependencies = await Task.find({
+      _id: { $in: dependencyIds },
+      organization: orgId,
+      archived: { $ne: true },
+    }).select('_id');
+
+    if (accessibleDependencies.length !== dependencyIds.length) {
+      throw createDomainError(400, 'One or more dependencies are invalid');
+    }
+  }
+
   const task = await Task.create({
     title,
     description,
@@ -91,10 +107,18 @@ const createTask = async ({ body, user, io }) => {
     assigneeEmail: storedAssigneeEmail,
     reporter: user._id,
     customFieldValues: Array.isArray(customFieldValues) ? customFieldValues : [],
+    dependencies: dependencyIds,
+    subtasks: Array.isArray(subtasks)
+      ? subtasks
+        .map((subtask) => ({ title: subtask.title?.trim(), isCompleted: false }))
+        .filter((subtask) => subtask.title)
+        .slice(0, 25)
+      : [],
   });
 
   const populatedTask = await Task.findById(task._id)
     .populate('assignee', 'name email avatar')
+    .populate('dependencies', 'title status startDate dueDate')
     .populate('project', 'name')
     .populate('projectMemberships.project', 'name color');
 

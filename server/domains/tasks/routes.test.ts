@@ -59,6 +59,54 @@ describe('Tasks API — CRUD, subtasks, and board management', () => {
     expect(res.body.projectMemberships[0].project._id).toBe(projectId);
   });
 
+  it('should create a task with embedded checklist subtasks', async () => {
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        title: 'Plan launch',
+        projectId,
+        orgId,
+        subtasks: [
+          { title: 'Draft announcement' },
+          { title: 'Review timeline' },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.subtasks).toHaveLength(2);
+    expect(res.body.subtasks.map((subtask: any) => subtask.title)).toEqual([
+      'Draft announcement',
+      'Review timeline',
+    ]);
+    expect(res.body.subtasks.every((subtask: any) => subtask.isCompleted === false)).toBe(true);
+  });
+
+  it('should create a task with dependencies', async () => {
+    const dependency = await Task.create({
+      title: 'Finish setup',
+      project: projectId,
+      organization: orgId,
+      reporter: userId,
+      createdBy: userId,
+    });
+
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        title: 'Launch campaign',
+        projectId,
+        orgId,
+        dependencies: [dependency._id.toString()],
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.dependencies).toHaveLength(1);
+    expect(res.body.dependencies[0]._id).toBe(dependency._id.toString());
+    expect(res.body.dependencies[0].title).toBe('Finish setup');
+  });
+
   it('should fail task creation without required fields', async () => {
     const res = await request(app)
       .post('/api/tasks')

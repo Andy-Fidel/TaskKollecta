@@ -11,7 +11,7 @@ import {
   Activity, CheckCircle2,
   Circle, ArrowLeft, Settings, FileText,
   Columns, Calendar as CalendarIcon, Zap, Archive, X, Clock, Trash2,
-  TrendingUp, AlertTriangle, Loader2, GanttChartSquare
+  TrendingUp, AlertTriangle, Loader2, GanttChartSquare, Link2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -146,10 +146,13 @@ export default function ProjectBoard() {
   const [newTaskEffort, setNewTaskEffort] = useState('');
   const [newTaskCustomFields, setNewTaskCustomFields] = useState({});
   const [newTaskAssignee, setNewTaskAssignee] = useState(null);  // { id, name, email } or null
+  const [newTaskDependencies, setNewTaskDependencies] = useState([]);
   const [suggestedSubtasks, setSuggestedSubtasks] = useState([]);
   const [loadingAiSuggestions, setLoadingAiSuggestions] = useState({});
   const [assigneeSearch, setAssigneeSearch] = useState('');
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
+  const [dependencySearch, setDependencySearch] = useState('');
+  const [showDependencyDropdown, setShowDependencyDropdown] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isRiskPanelOpen, setIsRiskPanelOpen] = useState(false);
   const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
@@ -489,6 +492,26 @@ export default function ProjectBoard() {
   ], [quickViewCounts]);
 
   const pinnedSavedViews = useMemo(() => filterPresets.slice(0, 5), [filterPresets]);
+
+  const dependencyOptions = useMemo(() => (
+    tasks
+      .filter((task) => !task.archived)
+      .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+  ), [tasks]);
+
+  const selectedDependencyTasks = useMemo(() => {
+    const selectedIds = new Set(newTaskDependencies);
+    return dependencyOptions.filter((task) => selectedIds.has(task._id));
+  }, [dependencyOptions, newTaskDependencies]);
+
+  const filteredDependencyOptions = useMemo(() => {
+    const selectedIds = new Set(newTaskDependencies);
+    const query = dependencySearch.trim().toLowerCase();
+    return dependencyOptions
+      .filter((task) => !selectedIds.has(task._id))
+      .filter((task) => !query || task.title?.toLowerCase().includes(query))
+      .slice(0, 8);
+  }, [dependencyOptions, dependencySearch, newTaskDependencies]);
 
   const taskDependencyMeta = useMemo(() => tasks.reduce((meta, task) => {
     const blockingCount = getBlockingDependents(task, tasks).length;
@@ -851,7 +874,7 @@ export default function ProjectBoard() {
         title: newTaskTitle,
         description: newTaskDescription
       });
-      setSuggestedSubtasks(data.subtasks || []);
+      setSuggestedSubtasks((data.subtasks || []).map((subtask) => ({ ...subtask, selected: true })));
       if (data.subtasks?.length > 0) {
         toast.success(`${data.subtasks.length} subtasks generated`);
       }
@@ -873,7 +896,10 @@ export default function ProjectBoard() {
     setNewTaskEffort('');
     setNewTaskCustomFields({});
     setNewTaskAssignee(null);
+    setNewTaskDependencies([]);
     setAssigneeSearch('');
+    setDependencySearch('');
+    setShowDependencyDropdown(false);
     setSuggestedSubtasks([]);
   };
 
@@ -903,6 +929,10 @@ export default function ProjectBoard() {
         startDate: newTaskStartDate || undefined,
         dueDate: dueDate || undefined,
         effortEstimate: newTaskEffort || undefined,
+        dependencies: newTaskDependencies,
+        subtasks: suggestedSubtasks
+          .filter((subtask) => subtask.selected !== false && subtask.title?.trim())
+          .map((subtask) => ({ title: subtask.title.trim() })),
         customFieldValues: Object.entries(newTaskCustomFields)
           .filter(([, value]) => value !== undefined && value !== null && value !== '')
           .map(([key, value]) => ({ key, value }))
@@ -1726,6 +1756,80 @@ export default function ProjectBoard() {
               </div>
 
               <div>
+                <Label htmlFor="task-dependencies">Blocked by</Label>
+                <div className="space-y-2">
+                  {selectedDependencyTasks.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedDependencyTasks.map((dependency) => (
+                        <span
+                          key={dependency._id}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs"
+                        >
+                          <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{dependency.title}</span>
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-foreground"
+                            aria-label={`Remove dependency ${dependency.title}`}
+                            onClick={() => setNewTaskDependencies((current) => current.filter((id) => id !== dependency._id))}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Input
+                      id="task-dependencies"
+                      placeholder={dependencyOptions.length ? 'Search tasks this work depends on...' : 'No existing tasks available'}
+                      className="h-9"
+                      value={dependencySearch}
+                      disabled={dependencyOptions.length === 0}
+                      onChange={(e) => {
+                        setDependencySearch(e.target.value);
+                        setShowDependencyDropdown(true);
+                      }}
+                      onFocus={() => setShowDependencyDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowDependencyDropdown(false), 200)}
+                    />
+                    {showDependencyDropdown && dependencyOptions.length > 0 && (
+                      <div className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-border bg-popover shadow-lg">
+                        {filteredDependencyOptions.length > 0 ? (
+                          filteredDependencyOptions.map((task) => (
+                            <button
+                              key={task._id}
+                              type="button"
+                              className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setNewTaskDependencies((current) => [...current, task._id]);
+                                setDependencySearch('');
+                                setShowDependencyDropdown(false);
+                              }}
+                            >
+                              <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate font-medium">{task.title}</span>
+                                <span className="block text-[11px] text-muted-foreground">
+                                  {workflowColumns.find((column) => column.id === task.status)?.label || task.status || 'Task'}
+                                </span>
+                              </span>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">No matching tasks</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The task will stay blocked until these dependencies are done.
+                  </p>
+                </div>
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label htmlFor="task-desc">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
                   <Button
@@ -1751,12 +1855,29 @@ export default function ProjectBoard() {
               {/* Suggested Subtasks */}
               {suggestedSubtasks.length > 0 && (
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                  <p className="text-xs font-semibold text-primary mb-2">💡 Suggested subtasks:</p>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-primary">Suggested checklist</p>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                      onClick={() => setSuggestedSubtasks((current) => current.map((subtask) => ({ ...subtask, selected: !current.every((item) => item.selected !== false) })))}
+                    >
+                      {suggestedSubtasks.every((subtask) => subtask.selected !== false) ? 'Deselect all' : 'Select all'}
+                    </button>
+                  </div>
                   <ul className="space-y-2">
                     {suggestedSubtasks.map((subtask, idx) => (
                       <li key={idx} className="text-xs text-foreground/80">
                         <div className="flex gap-2">
-                          <span className="font-semibold text-primary flex-shrink-0">{idx + 1}.</span>
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-primary"
+                            checked={subtask.selected !== false}
+                            aria-label={`Include ${subtask.title}`}
+                            onChange={(event) => setSuggestedSubtasks((current) => current.map((item, itemIndex) => (
+                              itemIndex === idx ? { ...item, selected: event.target.checked } : item
+                            )))}
+                          />
                           <div>
                             <p className="font-medium">{subtask.title}</p>
                             <p className="text-muted-foreground text-[11px] mt-0.5">{subtask.description}</p>
@@ -1766,7 +1887,7 @@ export default function ProjectBoard() {
                     ))}
                   </ul>
                   <p className="text-xs text-muted-foreground mt-3">
-                    💡 Create subtasks after creating the main task. You can link them on the task detail page.
+                    Selected items will be added as checklist subtasks when the task is created.
                   </p>
                 </div>
               )}

@@ -190,6 +190,123 @@ describe('ProjectBoard', () => {
     expect(screen.getByLabelText('Title')).toHaveValue('');
   }, 10000);
 
+  it('creates selected AI suggested subtasks as checklist items', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return { data: { tasks: [], pagination: { hasMore: false } } };
+      }
+      if (url === '/organizations/org-1/members') {
+        return { data: [] };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    mockedApi.post.mockImplementation(async (url) => {
+      if (url === '/ai/generate-subtasks') {
+        return {
+          data: {
+            subtasks: [
+              { title: 'Draft launch copy', description: 'Write the first pass' },
+              { title: 'Review launch copy', description: 'Get stakeholder approval' },
+            ],
+          },
+        };
+      }
+      if (url === '/tasks') {
+        return {
+          data: {
+            _id: 'task-1',
+            title: 'Launch campaign',
+            status: 'todo',
+            priority: 'medium',
+          },
+        };
+      }
+      return { data: {} };
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /new task/i }));
+    await userEvent.type(screen.getByLabelText('Title'), 'Launch campaign');
+    await userEvent.click(screen.getByRole('button', { name: /generate subtasks/i }));
+
+    expect(await screen.findByText('Draft launch copy')).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText(/include review launch copy/i));
+    await userEvent.click(screen.getByRole('button', { name: /^create task$/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith('/tasks', expect.objectContaining({
+        title: 'Launch campaign',
+        subtasks: [{ title: 'Draft launch copy' }],
+      }));
+    });
+  }, 10000);
+
+  it('creates a task with selected dependencies', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return {
+          data: {
+            tasks: [
+              {
+                _id: 'task-blocker',
+                title: 'Foundation task',
+                description: '',
+                status: 'todo',
+                priority: 'medium',
+              },
+            ],
+            pagination: { hasMore: false },
+          },
+        };
+      }
+      if (url === '/organizations/org-1/members') {
+        return { data: [] };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    mockedApi.post.mockResolvedValue({
+      data: {
+        _id: 'task-1',
+        title: 'Build launch flow',
+        status: 'todo',
+        priority: 'medium',
+        dependencies: [{ _id: 'task-blocker', title: 'Foundation task', status: 'todo' }],
+      },
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /new task/i }));
+    await userEvent.type(screen.getByLabelText('Title'), 'Build launch flow');
+    await userEvent.type(screen.getByLabelText('Blocked by'), 'foundation');
+    await userEvent.click(screen.getByRole('button', { name: /foundation taskto do/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create task$/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith('/tasks', expect.objectContaining({
+        title: 'Build launch flow',
+        dependencies: ['task-blocker'],
+      }));
+    });
+  }, 10000);
+
   it('creates a quick task directly in the selected board column', async () => {
     mockedApi.get.mockImplementation(async (url) => {
       if (url === '/projects/single/project-1') {

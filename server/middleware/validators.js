@@ -33,6 +33,10 @@ const validateCreateTask = [
     body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid priority'),
     body('status').optional().trim().isLength({ min: 1, max: 80 }).withMessage('Invalid status'),
     body('index').optional().isNumeric().withMessage('Invalid task index'),
+    body('dependencies').optional().isArray({ max: 50 }).withMessage('Dependencies must be a list'),
+    body('dependencies.*').optional().isMongoId().withMessage('Invalid dependency ID'),
+    body('subtasks').optional().isArray({ max: 25 }).withMessage('Subtasks must be a list'),
+    body('subtasks.*.title').optional().trim().isLength({ min: 1, max: 200 }).withMessage('Subtask title must be 1-200 characters'),
     body('projectId').isMongoId().withMessage('Invalid project ID'),
     body('orgId').isMongoId().withMessage('Invalid organization ID'),
     handleValidation
