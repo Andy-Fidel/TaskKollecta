@@ -20,6 +20,9 @@ const projectSchema = new mongoose.Schema({
     enum: ['active', 'completed', 'paused', 'archived'],
     default: 'active'
   },
+  startDate: {
+    type: Date
+  },
   dueDate: {
     type: Date
   },
@@ -32,6 +35,19 @@ const projectSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  members: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    role: {
+      type: String,
+      enum: ['owner', 'admin', 'editor', 'viewer'],
+      default: 'editor'
+    },
+    addedAt: { type: Date, default: Date.now }
+  }],
   color: {
     type: String,
     default: '#0f172a'

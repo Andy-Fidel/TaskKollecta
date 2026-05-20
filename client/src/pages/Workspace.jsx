@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, MoreHorizontal, Calendar as CalendarIcon,
@@ -83,18 +83,28 @@ export default function Workspace() {
   const [activeTab, setActiveTab] = useState('all');
   const [viewMode, setViewMode] = useState('card');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [privacyFilter, setPrivacyFilter] = useState('all');
+  const [leadFilter, setLeadFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('updatedAt');
   const [pinnedIds, setPinnedIds] = useState(getPinned);
   const { refreshKey, triggerRefresh } = useDataRefresh();
   const activeOrgId = localStorage.getItem('activeOrgId');
 
   // Fetch Data
-  useEffect(() => { fetchData(); }, [refreshKey]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      const projectParams = new URLSearchParams();
+      if (activeTab !== 'all' && activeTab !== 'pinned') projectParams.set('status', activeTab);
+      if (privacyFilter !== 'all') projectParams.set('privacy', privacyFilter);
+      if (leadFilter !== 'all') projectParams.set('lead', leadFilter);
+      if (searchQuery.trim()) projectParams.set('q', searchQuery.trim());
+      if (sortBy) projectParams.set('sort', sortBy);
+      const projectUrl = projectParams.toString() ? `/projects?${projectParams.toString()}` : '/projects';
+
       const [projRes, orgRes] = await Promise.all([
-        api.get('/projects'),
+        api.get(projectUrl),
         api.get('/organizations')
       ]);
 
@@ -130,7 +140,9 @@ export default function Workspace() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, leadFilter, privacyFilter, searchQuery, sortBy]);
+
+  useEffect(() => { fetchData(); }, [fetchData, refreshKey]);
 
   const handleProjectCreated = () => { triggerRefresh(); fetchData(); };
 
@@ -199,6 +211,16 @@ export default function Workspace() {
       result = result.filter(p => p.status === activeTab);
     }
 
+    // Privacy filter
+    if (privacyFilter !== 'all') {
+      result = result.filter(p => p.privacy === privacyFilter);
+    }
+
+    // Lead filter
+    if (leadFilter !== 'all') {
+      result = result.filter(p => (p.lead?._id || p.lead) === leadFilter);
+    }
+
     // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -210,11 +232,16 @@ export default function Workspace() {
       const aPinned = pinnedIds.includes(a._id) ? 1 : 0;
       const bPinned = pinnedIds.includes(b._id) ? 1 : 0;
       if (bPinned !== aPinned) return bPinned - aPinned;
+      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
+      if (sortBy === 'dueDate') return new Date(a.dueDate || '9999-12-31') - new Date(b.dueDate || '9999-12-31');
+      if (sortBy === 'dueDate-desc') return new Date(b.dueDate || 0) - new Date(a.dueDate || 0);
+      if (sortBy === 'createdAt') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
       return new Date(b.updatedAt) - new Date(a.updatedAt);
     });
 
     return result;
-  }, [projects, activeTab, searchQuery, pinnedIds]);
+  }, [projects, activeTab, privacyFilter, leadFilter, searchQuery, pinnedIds, sortBy]);
 
   const setupItems = useMemo(() => [
     {
@@ -367,11 +394,56 @@ export default function Workspace() {
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button variant="outline" size="sm" className="shrink-0 h-9">
+          <Button variant="outline" size="sm" className="shrink-0 h-9" onClick={() => setShowFilters((current) => !current)}>
             <Filter className="w-4 h-4 mr-1.5" /> Filter
           </Button>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="grid gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-3">
+          <label className="space-y-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Privacy</span>
+            <select
+              value={privacyFilter}
+              onChange={(event) => setPrivacyFilter(event.target.value)}
+              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="all">All privacy</option>
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+            </select>
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lead</span>
+            <select
+              value={leadFilter}
+              onChange={(event) => setLeadFilter(event.target.value)}
+              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="all">Any lead</option>
+              {members.map((member) => member.user).filter(Boolean).map((user) => (
+                <option key={user._id} value={user._id}>{user.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sort</span>
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value)}
+              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="updatedAt">Recently updated</option>
+              <option value="createdAt">Recently created</option>
+              <option value="name">Name A-Z</option>
+              <option value="name-desc">Name Z-A</option>
+              <option value="dueDate">Due date soonest</option>
+              <option value="dueDate-desc">Due date latest</option>
+            </select>
+          </label>
+        </div>
+      )}
 
       {/* ── PROJECT CARDS GRID ── */}
       {filteredProjects.length === 0 ? (

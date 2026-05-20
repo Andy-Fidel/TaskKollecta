@@ -5,10 +5,13 @@ import User from '../../models/User';
 import Organization from '../../models/Organization';
 import Membership from '../../models/Membership';
 import Project from '../../models/Project';
+import Task from '../../models/Task';
 
 describe('Projects API — CRUD and management', () => {
   let userToken: string;
   let userId: string;
+  let memberToken: string;
+  let memberId: string;
   let orgId: string;
 
   beforeEach(async () => {
@@ -20,20 +23,27 @@ describe('Projects API — CRUD and management', () => {
     userId = user._id.toString();
     userToken = getTestToken(userId);
 
+    const member = await User.create({
+      name: 'Project Member',
+      email: 'project-member@test.com',
+      password: 'password123',
+    });
+    memberId = member._id.toString();
+    memberToken = getTestToken(memberId);
+
     const org = await Organization.create({
       name: 'Project Org',
       createdBy: userId,
     });
     orgId = org._id.toString();
 
-    await Membership.create({
-      user: userId,
-      organization: orgId,
-      role: 'owner',
-    });
+    await Membership.create([
+      { user: userId, organization: orgId, role: 'owner' },
+      { user: memberId, organization: orgId, role: 'member' },
+    ]);
   });
 
-  it('should create a new project successfully', async () => {
+  it('should create a new project with members, dates, and seed tasks successfully', async () => {
     const res = await request(app)
       .post('/api/projects')
       .set('Cookie', [`jwt=${userToken}`])
@@ -41,11 +51,23 @@ describe('Projects API — CRUD and management', () => {
         name: 'New Project',
         description: 'Test project description',
         orgId,
+        startDate: '2026-06-01T00:00:00.000Z',
+        dueDate: '2026-06-30T00:00:00.000Z',
+        members: [memberId],
+        seedTasks: [
+          { title: 'Kickoff', priority: 'high' },
+          { title: 'Launch checklist', priority: 'medium' },
+        ],
       });
 
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('New Project');
+    expect(res.body.startDate).toBeTruthy();
+    expect(res.body.members.map((member: any) => member.user._id)).toEqual(expect.arrayContaining([userId, memberId]));
     expect(res.body.workflowStatuses.map((status: any) => status.id)).toEqual(['todo', 'in-progress', 'review', 'done']);
+
+    const tasks = await Task.find({ project: res.body._id });
+    expect(tasks).toHaveLength(2);
   });
 
   it('should get projects by organization', async () => {
@@ -85,6 +107,82 @@ describe('Projects API — CRUD and management', () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body).toHaveLength(2);
+  });
+
+  it('should enforce private project access for regular organization members', async () => {
+    const publicProject = await Project.create({
+      name: 'Visible Public Project',
+      organization: orgId,
+      createdBy: userId,
+      privacy: 'public',
+    });
+    const privateProject = await Project.create({
+      name: 'Hidden Private Project',
+      organization: orgId,
+      createdBy: userId,
+      privacy: 'private',
+      members: [{ user: userId, role: 'owner' }],
+    });
+    const sharedPrivateProject = await Project.create({
+      name: 'Shared Private Project',
+      organization: orgId,
+      createdBy: userId,
+      privacy: 'private',
+      members: [{ user: userId, role: 'owner' }, { user: memberId, role: 'editor' }],
+    });
+
+    const listRes = await request(app)
+      .get('/api/projects')
+      .set('Cookie', [`jwt=${memberToken}`])
+      .set('x-active-org', orgId);
+
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.map((project: any) => project._id)).toEqual(expect.arrayContaining([
+      publicProject._id.toString(),
+      sharedPrivateProject._id.toString(),
+    ]));
+    expect(listRes.body.map((project: any) => project._id)).not.toContain(privateProject._id.toString());
+
+    const hiddenDetails = await request(app)
+      .get(`/api/projects/single/${privateProject._id}`)
+      .set('Cookie', [`jwt=${memberToken}`]);
+    expect(hiddenDetails.status).toBe(404);
+  });
+
+  it('should filter and sort projects on the server', async () => {
+    await Project.create([
+      {
+        name: 'Zulu Private',
+        organization: orgId,
+        createdBy: userId,
+        privacy: 'private',
+        lead: userId,
+        members: [{ user: userId, role: 'owner' }],
+      },
+      {
+        name: 'Alpha Private',
+        organization: orgId,
+        createdBy: userId,
+        privacy: 'private',
+        lead: userId,
+        members: [{ user: userId, role: 'owner' }],
+      },
+      {
+        name: 'Public Other Lead',
+        organization: orgId,
+        createdBy: userId,
+        privacy: 'public',
+        lead: memberId,
+      },
+    ]);
+
+    const res = await request(app)
+      .get(`/api/projects?privacy=private&lead=${userId}&sort=name`)
+      .set('Cookie', [`jwt=${userToken}`])
+      .set('x-active-org', orgId);
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((project: any) => project.name)).toEqual(['Alpha Private', 'Zulu Private']);
   });
 
   it('should get project details', async () => {
@@ -175,5 +273,61 @@ describe('Projects API — CRUD and management', () => {
     expect(res.status).toBe(200);
     const deletedProject = await Project.findById(project._id);
     expect(deletedProject).toBeNull();
+  });
+
+  it('should duplicate task dependencies and planning fields from a template project', async () => {
+    const source = await Project.create({
+      name: 'Template Source',
+      organization: orgId,
+      createdBy: userId,
+      startDate: new Date('2026-07-01T00:00:00.000Z'),
+      dueDate: new Date('2026-07-31T00:00:00.000Z'),
+      privacy: 'private',
+      members: [{ user: userId, role: 'owner' }, { user: memberId, role: 'editor' }],
+      isTemplate: true,
+    });
+    const firstTask = await Task.create({
+      title: 'First template task',
+      organization: orgId,
+      project: source._id,
+      reporter: userId,
+      status: 'todo',
+      startDate: new Date('2026-07-02T00:00:00.000Z'),
+      dueDate: new Date('2026-07-03T00:00:00.000Z'),
+      subtasks: [{ title: 'Subtask', isCompleted: false }],
+      isMilestone: true,
+    });
+    await Task.create({
+      title: 'Second template task',
+      organization: orgId,
+      project: source._id,
+      reporter: userId,
+      status: 'todo',
+      dependencies: [firstTask._id],
+    });
+
+    const res = await request(app)
+      .post(`/api/projects/${source._id}/duplicate`)
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        name: 'Template Copy',
+        startDate: '2026-08-01T00:00:00.000Z',
+        dueDate: '2026-08-31T00:00:00.000Z',
+        lead: memberId,
+        members: [memberId],
+      });
+
+    expect(res.status).toBe(201);
+    expect(new Date(res.body.startDate).toISOString()).toBe('2026-08-01T00:00:00.000Z');
+    expect(new Date(res.body.dueDate).toISOString()).toBe('2026-08-31T00:00:00.000Z');
+    expect(res.body.lead?.toString?.() || res.body.lead).toBe(memberId);
+
+    const copiedTasks = await Task.find({ project: res.body._id }).sort({ title: 1 });
+    expect(copiedTasks).toHaveLength(2);
+    expect(copiedTasks[0].isMilestone).toBe(true);
+    expect(copiedTasks[0].subtasks).toHaveLength(1);
+    expect(copiedTasks[0].startDate?.toISOString()).toBe('2026-08-02T00:00:00.000Z');
+    expect(copiedTasks[0].dueDate?.toISOString()).toBe('2026-08-03T00:00:00.000Z');
+    expect(copiedTasks[1].dependencies.map((dependencyId) => dependencyId.toString())).toEqual([copiedTasks[0]._id.toString()]);
   });
 });

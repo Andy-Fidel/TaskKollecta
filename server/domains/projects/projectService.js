@@ -47,7 +47,19 @@ const normalizeCustomFields = (fields) =>
     }))
     .filter((field) => field.key && field.name);
 
-const PROJECT_UPDATE_FIELDS = ['name', 'description', 'color', 'dueDate', 'lead', 'status', 'defaultView', 'privacy', 'isTemplate', 'workflowStatuses', 'customFields'];
+const PROJECT_UPDATE_FIELDS = ['name', 'description', 'color', 'startDate', 'dueDate', 'lead', 'status', 'defaultView', 'privacy', 'isTemplate', 'members', 'workflowStatuses', 'customFields'];
+
+const toDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const shiftDate = (value, offsetMs) => {
+  const date = toDate(value);
+  if (!date || !Number.isFinite(offsetMs)) return value || null;
+  return new Date(date.getTime() + offsetMs);
+};
 
 const ensureProjectAccess = async (userId, projectId, message = 'Project not found') => {
   const project = await Project.findById(projectId);
@@ -56,35 +68,103 @@ const ensureProjectAccess = async (userId, projectId, message = 'Project not fou
   }
 
   const membership = await ensureMembership(userId, project.organization);
+  const projectMember = project.members?.find((member) => member.user?.toString() === userId.toString());
+  const canAccessPrivateProject = project.privacy !== 'private'
+    || ['owner', 'admin'].includes(membership.role)
+    || Boolean(projectMember)
+    || project.lead?.toString() === userId.toString();
+
+  if (!canAccessPrivateProject) {
+    throw createDomainError(404, message);
+  }
+
   return { project, membership };
 };
 
 const createProject = async ({ body, userId }) => {
-  const { name, description, orgId, lead, dueDate, color, defaultView, privacy } = body;
+  const { name, description, orgId, lead, startDate, dueDate, color, defaultView, privacy } = body;
+  await ensureMembership(userId, orgId);
 
-  const project = await Project.create({
-    name,
-    description,
-    organization: orgId,
-    lead: lead || userId,
-    dueDate,
-    color,
-    defaultView,
-    privacy,
-    workflowStatuses: normalizeWorkflowStatuses(body.workflowStatuses),
-    customFields: normalizeCustomFields(body.customFields),
-  });
+  const memberIds = new Set(
+    (Array.isArray(body.members) ? body.members : [])
+      .map((memberId) => memberId?.toString())
+      .filter(Boolean),
+  );
+  memberIds.add(userId.toString());
+  if (lead) memberIds.add(lead.toString());
 
-  const populatedProject = await Project.findById(project._id).populate('lead', 'name avatar');
-  await invalidateProjectCache(orgId);
+  const seedTasks = Array.isArray(body.seedTasks)
+    ? body.seedTasks
+      .map((task) => ({
+        title: task.title?.trim(),
+        description: task.description || '',
+        priority: ['low', 'medium', 'high', 'urgent'].includes(task.priority) ? task.priority : 'medium',
+      }))
+      .filter((task) => task.title)
+      .slice(0, 100)
+    : [];
 
-  return populatedProject;
+  let project = null;
+  let createdTaskIds = [];
+
+  try {
+    project = await Project.create({
+      name,
+      description,
+      organization: orgId,
+      lead: lead || userId,
+      startDate,
+      dueDate,
+      color,
+      defaultView,
+      privacy,
+      members: [...memberIds].map((memberId) => ({
+        user: memberId,
+        role: memberId === userId.toString() ? 'owner' : 'editor',
+      })),
+      workflowStatuses: normalizeWorkflowStatuses(body.workflowStatuses),
+      customFields: normalizeCustomFields(body.customFields),
+    });
+
+    if (seedTasks.length > 0) {
+      const tasks = await Task.insertMany(seedTasks.map((task, index) => ({
+        ...task,
+        status: 'todo',
+        index,
+        organization: orgId,
+        project: project._id,
+        projectMemberships: [{ project: project._id }],
+        reporter: userId,
+      })));
+      createdTaskIds = tasks.map((task) => task._id);
+    }
+
+    const populatedProject = await Project.findById(project._id)
+      .populate('lead', 'name avatar')
+      .populate('members.user', 'name email avatar');
+    await invalidateProjectCache(orgId);
+
+    return populatedProject;
+  } catch (error) {
+    if (createdTaskIds.length > 0) await Task.deleteMany({ _id: { $in: createdTaskIds } });
+    if (project?._id) await Project.findByIdAndDelete(project._id);
+    throw error;
+  }
 };
 
 const getOrgProjects = async ({ orgId, userId }) => {
-  await ensureMembership(userId, orgId, 'Not authorized to view projects of this organization');
+  const membership = await ensureMembership(userId, orgId, 'Not authorized to view projects of this organization');
 
-  return Project.find({ organization: orgId }).populate('lead', 'name email');
+  const query = { organization: orgId };
+  if (!['owner', 'admin'].includes(membership.role)) {
+    query.$or = [
+      { privacy: { $ne: 'private' } },
+      { 'members.user': userId },
+      { lead: userId },
+    ];
+  }
+
+  return Project.find(query).populate('lead', 'name email').populate('members.user', 'name email avatar');
 };
 
 const getProjectDetails = async ({ projectId, userId }) => {
@@ -166,7 +246,23 @@ const updateProject = async ({ projectId, userId, body }) => {
     updateData.customFields = normalizeCustomFields(updateData.customFields);
   }
 
-  const updatedProject = await Project.findByIdAndUpdate(projectId, updateData, { new: true });
+  if (updateData.members !== undefined) {
+    const memberIds = new Set(
+      (Array.isArray(updateData.members) ? updateData.members : [])
+        .map((member) => (member.user || member)?.toString())
+        .filter(Boolean),
+    );
+    memberIds.add(userId.toString());
+    if (updateData.lead || project.lead) memberIds.add((updateData.lead || project.lead).toString());
+    updateData.members = [...memberIds].map((memberId) => ({
+      user: memberId,
+      role: memberId === userId.toString() ? 'owner' : 'editor',
+    }));
+  }
+
+  const updatedProject = await Project.findByIdAndUpdate(projectId, updateData, { new: true })
+    .populate('lead', 'name avatar email')
+    .populate('members.user', 'name avatar email');
   await invalidateProjectCache(project.organization);
 
   return updatedProject;
@@ -186,18 +282,63 @@ const deleteProject = async ({ projectId, userId }) => {
   return { message: 'Project and tasks deleted' };
 };
 
-const getAllProjects = async ({ userId, activeOrgId }) => {
+const getAllProjects = async ({ userId, activeOrgId, query = {} }) => {
   const memberships = await Membership.find({ user: userId });
   let validOrgIds = memberships.map((membership) => membership.organization.toString());
+  const membershipRoleByOrg = new Map(memberships.map((membership) => [
+    membership.organization.toString(),
+    membership.role,
+  ]));
 
   if (activeOrgId && validOrgIds.includes(activeOrgId)) {
     validOrgIds = [activeOrgId];
   }
 
   const targetOrgObjectIds = validOrgIds.map((id) => new mongoose.Types.ObjectId(id));
+  const match = { organization: { $in: targetOrgObjectIds } };
+
+  if (query.status && ['active', 'completed', 'paused', 'archived'].includes(query.status)) {
+    match.status = query.status;
+  }
+
+  if (query.privacy && ['public', 'private'].includes(query.privacy)) {
+    match.privacy = query.privacy;
+  }
+
+  if (query.lead && mongoose.Types.ObjectId.isValid(query.lead)) {
+    match.lead = new mongoose.Types.ObjectId(query.lead);
+  }
+
+  if (query.q) {
+    const escaped = String(query.q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    match.$or = [
+      { name: { $regex: escaped, $options: 'i' } },
+      { description: { $regex: escaped, $options: 'i' } },
+    ];
+  }
+
+  const privateAccessConditions = validOrgIds
+    .filter((orgId) => !['owner', 'admin'].includes(membershipRoleByOrg.get(orgId)))
+    .map((orgId) => ({
+      organization: new mongoose.Types.ObjectId(orgId),
+      privacy: 'private',
+      'members.user': { $ne: new mongoose.Types.ObjectId(userId) },
+      lead: { $ne: new mongoose.Types.ObjectId(userId) },
+    }));
+
+  const sortMap = {
+    name: { name: 1 },
+    'name-desc': { name: -1 },
+    dueDate: { dueDate: 1, updatedAt: -1 },
+    'dueDate-desc': { dueDate: -1, updatedAt: -1 },
+    createdAt: { createdAt: -1 },
+    updatedAt: { updatedAt: -1 },
+  };
+  const sort = sortMap[query.sort] || { updatedAt: -1 };
 
   return Project.aggregate([
-    { $match: { organization: { $in: targetOrgObjectIds } } },
+    { $match: match },
+    ...(privateAccessConditions.length > 0 ? [{ $match: { $nor: privateAccessConditions } }] : []),
     {
       $lookup: {
         from: 'tasks',
@@ -252,6 +393,7 @@ const getAllProjects = async ({ userId, activeOrgId }) => {
         description: 1,
         updatedAt: 1,
         dueDate: 1,
+        startDate: 1,
         color: 1,
         status: 1,
         lead: 1,
@@ -259,6 +401,7 @@ const getAllProjects = async ({ userId, activeOrgId }) => {
         privacy: 1,
         tags: 1,
         isTemplate: 1,
+        members: 1,
         totalTasks: 1,
         completedTasks: 1,
         team: { name: 1, avatar: 1, _id: 1 },
@@ -271,28 +414,54 @@ const getAllProjects = async ({ userId, activeOrgId }) => {
         },
       },
     },
-    { $sort: { updatedAt: -1 } },
+    { $sort: sort },
   ]);
 };
 
 const duplicateProject = async ({ projectId, userId, body }) => {
   const { project: sourceProject } = await ensureProjectAccess(userId, projectId, 'Source project not found');
+  const requestedStartDate = toDate(body.startDate);
+  const requestedDueDate = toDate(body.dueDate);
+  const sourceStartDate = toDate(sourceProject.startDate);
+  const sourceDueDate = toDate(sourceProject.dueDate);
+  const scheduleAnchorOffset = requestedStartDate && sourceStartDate
+    ? requestedStartDate.getTime() - sourceStartDate.getTime()
+    : requestedDueDate && sourceDueDate
+      ? requestedDueDate.getTime() - sourceDueDate.getTime()
+      : 0;
+
+  const memberIds = new Set(
+    (Array.isArray(body.members) ? body.members : [])
+      .map((memberId) => memberId?.toString())
+      .filter(Boolean),
+  );
+  memberIds.add(userId.toString());
+  if (body.lead) memberIds.add(body.lead.toString());
+  for (const member of sourceProject.members || []) {
+    if (member.user) memberIds.add(member.user.toString());
+  }
 
   const newProject = await Project.create({
     name: body.name || `${sourceProject.name} (Copy)`,
     description: sourceProject.description,
     organization: sourceProject.organization,
-    lead: userId,
+    lead: body.lead || userId,
+    startDate: requestedStartDate || shiftDate(sourceProject.startDate, scheduleAnchorOffset),
+    dueDate: requestedDueDate || shiftDate(sourceProject.dueDate, scheduleAnchorOffset),
     color: sourceProject.color,
     defaultView: sourceProject.defaultView,
-    privacy: sourceProject.privacy,
+    privacy: body.privacy || sourceProject.privacy,
+    members: [...memberIds].map((memberId) => ({
+      user: memberId,
+      role: memberId === userId.toString() ? 'owner' : 'editor',
+    })),
     tags: sourceProject.tags,
     isTemplate: body.isTemplate || false,
     workflowStatuses: sourceProject.workflowStatuses,
     customFields: sourceProject.customFields,
   });
 
-  const sourceTasks = await Task.find({ project: sourceProject._id });
+  const sourceTasks = await Task.find({ project: sourceProject._id }).sort({ index: 1, createdAt: 1 });
 
   if (sourceTasks.length > 0) {
     const newTasksData = sourceTasks.map((task) => ({
@@ -300,16 +469,29 @@ const duplicateProject = async ({ projectId, userId, body }) => {
       description: task.description,
       status: task.status,
       priority: task.priority,
+      startDate: shiftDate(task.startDate, scheduleAnchorOffset),
+      dueDate: shiftDate(task.dueDate, scheduleAnchorOffset),
+      index: task.index,
       organization: task.organization,
       project: newProject._id,
       projectMemberships: [{ project: newProject._id }],
       reporter: userId,
       assignee: task.assignee,
       tags: task.tags,
+      subtasks: task.subtasks,
+      isMilestone: task.isMilestone,
       customFieldValues: task.customFieldValues,
     }));
 
-    await Task.insertMany(newTasksData);
+    const newTasks = await Task.insertMany(newTasksData);
+    const taskIdMap = new Map(sourceTasks.map((task, index) => [task._id.toString(), newTasks[index]._id]));
+    await Promise.all(newTasks.map((task, index) => {
+      const remappedDependencies = (sourceTasks[index].dependencies || [])
+        .map((dependencyId) => taskIdMap.get(dependencyId.toString()))
+        .filter(Boolean);
+      if (remappedDependencies.length === 0) return null;
+      return Task.findByIdAndUpdate(task._id, { dependencies: remappedDependencies });
+    }).filter(Boolean));
   }
 
   await invalidateProjectCache(sourceProject.organization);

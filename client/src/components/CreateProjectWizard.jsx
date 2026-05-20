@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 import api from '../api/axios';
 
@@ -133,7 +134,10 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
 
   const handleCreate = async () => {
     const targetOrgId = localStorage.getItem('activeOrgId');
-    if (!targetOrgId) return alert("You must create or join an Organization first!");
+    if (!targetOrgId) {
+      toast.error('Create or join an organization before creating a project');
+      return;
+    }
     
     // If a template is selected, we use the duplicate endpoint
     if (selectedTemplate) {
@@ -141,13 +145,18 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
       try {
         const { data } = await api.post(`/projects/${selectedTemplate}/duplicate`, {
           name: name.trim() || undefined,
-          isTemplate: false // Duplicated projects shouldn't be templates by default
+          isTemplate: false, // Duplicated projects shouldn't be templates by default
+          lead: lead || undefined,
+          startDate,
+          dueDate,
+          privacy,
+          members: selectedMembers,
         });
         onProjectCreated?.(data);
         onOpenChange(false);
         resetForm();
       } catch {
-        alert('Failed to create project from template');
+        toast.error('Failed to create project from template');
       } finally {
         setIsSubmitting(false);
       }
@@ -164,32 +173,26 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
         description: description.trim(),
         orgId: targetOrgId,
         lead: lead || undefined,
+        startDate,
         dueDate,
         color,
         defaultView,
         privacy,
-      });
-
-      // Batch-create accepted AI tasks
-      const accepted = aiTasks.filter(t => t.accepted);
-      if (accepted.length > 0) {
-        await Promise.all(accepted.map(t =>
-          api.post('/tasks', {
-            title: t.title,
+        members: selectedMembers,
+        seedTasks: aiTasks
+          .filter(t => t.accepted && t.title?.trim())
+          .map(t => ({
+            title: t.title.trim(),
             description: t.description || '',
             priority: t.priority || 'medium',
-            projectId: data._id,
-            orgId: targetOrgId,
-            status: 'todo',
-          })
-        ));
-      }
+          })),
+      });
 
       onProjectCreated?.(data);
       onOpenChange(false);
       resetForm();
     } catch {
-      alert('Failed to create project');
+      toast.error('Failed to create project');
     } finally {
       setIsSubmitting(false);
     }
@@ -215,7 +218,7 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
             {selectedTemplate ? (
                <Badge variant="outline" className="text-xs font-mono tabular-nums">Template</Badge>
             ) : (
-               <Badge variant="outline" className="text-xs font-mono tabular-nums">{step}/3</Badge>
+               <Badge variant="outline" className="text-xs font-mono tabular-nums">{step}/{STEPS.length}</Badge>
             )}
           </div>
           <p className="text-sm text-muted-foreground">

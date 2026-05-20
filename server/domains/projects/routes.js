@@ -22,7 +22,7 @@ const { cacheResponse } = require('../../middleware/cacheMiddleware');
 router.post('/', protect, checkRole('owner', 'admin', 'member'), validateCreateProject, createProject);
 
 // Duplicate Project
-router.post('/:id/duplicate', protect, checkRole('owner', 'admin', 'member'), duplicateProject);
+router.post('/:id/duplicate', protect, duplicateProject);
 
 // Get All Projects (Global) - cached for 120 seconds
 router.get('/', protect, cacheResponse(120), getAllProjects);

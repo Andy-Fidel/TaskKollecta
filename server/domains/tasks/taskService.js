@@ -9,18 +9,45 @@ const { emitDomainEvent } = require('../shared/domainEvents');
 
 const TASK_UPDATE_FIELDS = ['title', 'description', 'status', 'priority', 'startDate', 'dueDate', 'assignee', 'index', 'isMilestone', 'customFieldValues'];
 
+const ensureProjectTaskAccess = async ({ userId, projectId }) => {
+  const project = await Project.findById(projectId).select('organization privacy members lead');
+  if (!project) {
+    throw createDomainError(404, 'Project not found');
+  }
+
+  const membership = await ensureMembership(userId, project.organization);
+  const projectMember = project.members?.find((member) => member.user?.toString() === userId.toString());
+  const canAccessPrivateProject = project.privacy !== 'private'
+    || ['owner', 'admin'].includes(membership.role)
+    || Boolean(projectMember)
+    || project.lead?.toString() === userId.toString();
+
+  if (!canAccessPrivateProject) {
+    throw createDomainError(404, 'Project not found');
+  }
+
+  return project;
+};
+
 const requireTaskAccess = async (userId, task) => {
   if (!task) {
     throw createDomainError(404, 'Task not found');
   }
 
-  return ensureMembership(userId, task.organization);
+  const membership = await ensureMembership(userId, task.organization);
+  if (task.project) {
+    await ensureProjectTaskAccess({ userId, projectId: task.project });
+  }
+  return membership;
 };
 
 const createTask = async ({ body, user, io }) => {
   const { title, description, status, priority, startDate, dueDate, projectId, orgId, assignee, assigneeEmail, customFieldValues, index, subtasks, dependencies } = body;
 
-  await ensureMembership(user._id, orgId);
+  const project = await ensureProjectTaskAccess({ userId: user._id, projectId });
+  if (project.organization.toString() !== orgId.toString()) {
+    throw createDomainError(400, 'Project does not belong to this organization');
+  }
 
   let resolvedAssignee = assignee || null;
   let storedAssigneeEmail = null;
@@ -136,12 +163,7 @@ const createTask = async ({ body, user, io }) => {
 };
 
 const getProjectTasks = async ({ projectId, userId, query }) => {
-  const project = await Project.findById(projectId).select('organization');
-  if (!project) {
-    throw createDomainError(404, 'Project not found');
-  }
-
-  await ensureMembership(userId, project.organization);
+  await ensureProjectTaskAccess({ userId, projectId });
 
   const showArchived = query.archived === 'true';
   const filters = {

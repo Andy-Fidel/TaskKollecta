@@ -112,6 +112,7 @@ const getAllProjects = async (req, res) => {
     const projects = await projectService.getAllProjects({
       userId: req.user._id,
       activeOrgId: req.headers['x-active-org'],
+      query: req.query,
     });
     res.json(projects);
   } catch (error) {

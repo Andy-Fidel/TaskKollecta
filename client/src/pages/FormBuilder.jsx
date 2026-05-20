@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Plus, Trash2, Save, Type, Calendar, List, AlignLeft, 
@@ -107,6 +107,9 @@ export default function FormBuilder() {
   const [projectCustomFields, setProjectCustomFields] = useState([]);
   const [mode, setMode] = useState('build'); // 'build' | 'preview'
   const [activeFieldId, setActiveFieldId] = useState('f1');
+  const nextFieldIdRef = useRef(2);
+
+  const getNextFieldId = () => `f${nextFieldIdRef.current++}`;
 
   useEffect(() => {
     api.get(`/projects/single/${projectId}`)
@@ -136,7 +139,7 @@ export default function FormBuilder() {
   };
 
   const addField = (type) => {
-    const newId = `f${Date.now()}`;
+    const newId = getNextFieldId();
     setFields([...fields, {
       id: newId,
       type,
@@ -174,7 +177,7 @@ export default function FormBuilder() {
       select: 'select',
       checkbox: 'checkbox',
     };
-    const newId = `f${Date.now()}`;
+    const newId = getNextFieldId();
     setFields([...fields, {
       id: newId,
       type: typeMap[customField.type] || 'text',

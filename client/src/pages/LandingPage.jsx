@@ -291,12 +291,13 @@ export default function LandingPage() {
   );
 }
 
-function Outcome({ icon: Icon, title, text }) {
+function Outcome({ icon, title, text }) {
+  const OutcomeIcon = icon;
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#eef2ff] text-[#4f46e5]">
-          <Icon className="h-5 w-5" />
+          <OutcomeIcon className="h-5 w-5" />
         </div>
         <div>
           <h3 className="font-semibold tracking-tight text-slate-950">{title}</h3>
@@ -307,10 +308,11 @@ function Outcome({ icon: Icon, title, text }) {
   );
 }
 
-function TrustItem({ icon: Icon, text }) {
+function TrustItem({ icon, text }) {
+  const TrustIcon = icon;
   return (
     <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
-      <Icon className="h-5 w-5 text-[#93c5fd]" />
+      <TrustIcon className="h-5 w-5 text-[#93c5fd]" />
       <span className="text-sm font-medium text-slate-200">{text}</span>
     </div>
   );

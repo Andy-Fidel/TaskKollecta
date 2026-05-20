@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Target, Plus, Save, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,7 @@ export default function Goals() {
     },
   ];
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!orgId) return;
     const [goalRes, projectRes] = await Promise.all([
       api.get(`/goals?orgId=${orgId}`),
@@ -55,11 +55,11 @@ export default function Goals() {
     ]);
     setGoals(goalRes.data);
     setProjects(projectRes.data);
-  };
+  }, [orgId]);
 
   useEffect(() => {
     fetchData().catch(() => toast.error('Failed to load goals'));
-  }, [orgId]);
+  }, [fetchData]);
 
   const createGoal = async (event) => {
     event.preventDefault();

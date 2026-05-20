@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Briefcase, Plus, Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ export default function Portfolios() {
     },
   ], [navigate, portfolios, projects.length]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!orgId) return;
     const [portfolioRes, projectRes] = await Promise.all([
       api.get(`/portfolios?orgId=${orgId}`),
@@ -56,11 +56,11 @@ export default function Portfolios() {
     ]);
     setPortfolios(portfolioRes.data);
     setProjects(projectRes.data);
-  };
+  }, [orgId]);
 
   useEffect(() => {
     fetchData().catch(() => toast.error('Failed to load portfolios'));
-  }, [orgId]);
+  }, [fetchData]);
 
   const createPortfolio = async (event) => {
     event.preventDefault();

@@ -81,6 +81,18 @@ const validateCreateProject = [
     body('name').trim().isLength({ min: 1, max: 100 }).withMessage('Name must be 1-100 characters'),
     body('description').optional().trim().isLength({ max: 2000 }),
     body('orgId').isMongoId().withMessage('Invalid organization ID'),
+    body('lead').optional().isMongoId().withMessage('Invalid lead ID'),
+    body('startDate').optional({ values: 'falsy' }).isISO8601().withMessage('Invalid start date'),
+    body('dueDate').optional({ values: 'falsy' }).isISO8601().withMessage('Invalid due date'),
+    body('color').optional().matches(/^#[0-9a-fA-F]{6}$/).withMessage('Invalid color'),
+    body('defaultView').optional().isIn(['list', 'board', 'timeline', 'calendar']).withMessage('Invalid default view'),
+    body('privacy').optional().isIn(['public', 'private']).withMessage('Invalid privacy setting'),
+    body('members').optional().isArray({ max: 100 }).withMessage('Members must be a list'),
+    body('members.*').optional().isMongoId().withMessage('Invalid member ID'),
+    body('seedTasks').optional().isArray({ max: 100 }).withMessage('Seed tasks must be a list'),
+    body('seedTasks.*.title').optional().trim().isLength({ min: 1, max: 200 }).withMessage('Seed task title must be 1-200 characters'),
+    body('seedTasks.*.description').optional().trim().isLength({ max: 5000 }).withMessage('Seed task description too long'),
+    body('seedTasks.*.priority').optional().isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid seed task priority'),
     handleValidation
 ];
 
