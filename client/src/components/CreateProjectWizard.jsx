@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
-  Plus, ArrowRight, ArrowLeft, Check, Sparkles,
+  ArrowRight, ArrowLeft, Check, Sparkles,
   LayoutList, Columns3, GanttChart, CalendarDays,
   Globe, Lock, User as UserIcon, Calendar as CalendarIcon,
-  Users, Loader2, X, Wand2, Pencil
+  Users, Loader2, X, Wand2
 } from 'lucide-react';
 
 // UI Components
@@ -37,9 +37,10 @@ const VIEWS = [
 
 const STEPS = [
   { label: 'Basics', number: 1 },
-  { label: 'Layout', number: 2 },
-  { label: 'Team', number: 3 },
-  { label: 'AI Tasks', number: 4 },
+  { label: 'Brief', number: 2 },
+  { label: 'Layout', number: 3 },
+  { label: 'Team', number: 4 },
+  { label: 'AI Tasks', number: 5 },
 ];
 
 export default function CreateProjectWizard({ open, onOpenChange, members = [], templates = [], onProjectCreated }) {
@@ -54,16 +55,27 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
   const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   // Step 2
+  const [purpose, setPurpose] = useState('');
+  const [successCriteria, setSuccessCriteria] = useState('');
+  const [statusCadence, setStatusCadence] = useState('weekly');
+  const [resourceLabel, setResourceLabel] = useState('');
+  const [resourceUrl, setResourceUrl] = useState('');
+  const [milestoneTitle, setMilestoneTitle] = useState('');
+  const [milestoneDueDate, setMilestoneDueDate] = useState(null);
+
+  // Step 3
   const [defaultView, setDefaultView] = useState('board');
   const [privacy, setPrivacy] = useState('public');
 
-  // Step 3
+  // Step 4
   const [lead, setLead] = useState('');
   const [startDate, setStartDate] = useState(null);
   const [dueDate, setDueDate] = useState(null);
   const [selectedMembers, setSelectedMembers] = useState([]);
+  const [portfolios, setPortfolios] = useState([]);
+  const [selectedPortfolioIds, setSelectedPortfolioIds] = useState([]);
 
-  // Step 4 — AI Tasks
+  // Step 5 — AI Tasks
   const [aiTasks, setAiTasks] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiGenerated, setAiGenerated] = useState(false);
@@ -74,20 +86,38 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
     setDescription('');
     setColor(COLORS[0]);
     setSelectedTemplate(null);
+    setPurpose('');
+    setSuccessCriteria('');
+    setStatusCadence('weekly');
+    setResourceLabel('');
+    setResourceUrl('');
+    setMilestoneTitle('');
+    setMilestoneDueDate(null);
     setDefaultView('board');
     setPrivacy('public');
     setLead('');
     setStartDate(null);
     setDueDate(null);
     setSelectedMembers([]);
+    setSelectedPortfolioIds([]);
     setAiTasks([]);
     setIsGenerating(false);
     setAiGenerated(false);
     setIsSubmitting(false);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const targetOrgId = localStorage.getItem('activeOrgId');
+    if (!targetOrgId) return;
+
+    api.get(`/portfolios?orgId=${targetOrgId}`)
+      .then(({ data }) => setPortfolios(Array.isArray(data) ? data : []))
+      .catch(() => setPortfolios([]));
+  }, [open]);
+
   const goNext = () => {
-    if (step < 4) {
+    if (step < STEPS.length) {
       setStep(s => s + 1);
     }
   };
@@ -103,6 +133,24 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     );
   };
+
+  const togglePortfolio = (portfolioId) => {
+    setSelectedPortfolioIds(prev =>
+      prev.includes(portfolioId) ? prev.filter(id => id !== portfolioId) : [...prev, portfolioId]
+    );
+  };
+
+  const buildBriefPayload = () => ({
+    purpose,
+    successCriteria,
+    statusCadence,
+    resources: resourceLabel.trim() && resourceUrl.trim()
+      ? [{ label: resourceLabel.trim(), url: resourceUrl.trim() }]
+      : [],
+    milestones: milestoneTitle.trim()
+      ? [{ title: milestoneTitle.trim(), dueDate: milestoneDueDate }]
+      : [],
+  });
 
   // --- AI Task Generation ---
   const handleGenerateTasks = async () => {
@@ -151,6 +199,7 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
           dueDate,
           privacy,
           members: selectedMembers,
+          portfolioIds: selectedPortfolioIds,
         });
         onProjectCreated?.(data);
         onOpenChange(false);
@@ -178,7 +227,9 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
         color,
         defaultView,
         privacy,
+        brief: buildBriefPayload(),
         members: selectedMembers,
+        portfolioIds: selectedPortfolioIds,
         seedTasks: aiTasks
           .filter(t => t.accepted && t.title?.trim())
           .map(t => ({
@@ -223,9 +274,10 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
           </div>
           <p className="text-sm text-muted-foreground">
             {step === 1 && 'Give your project a name and identity.'}
-            {step === 2 && 'Choose how your team will view work.'}
-            {step === 3 && 'Set up your team and timeline.'}
-            {step === 4 && 'Let AI suggest tasks for your project.'}
+            {step === 2 && 'Define the purpose, success criteria, and update rhythm.'}
+            {step === 3 && 'Choose how your team will view work.'}
+            {step === 4 && 'Set up your team and timeline.'}
+            {step === 5 && 'Let AI suggest tasks for your project.'}
           </p>
 
           {/* Step progress bar */}
@@ -337,7 +389,79 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
                 </div>
               </div>
 
-              {/* ---- STEP 2: View & Privacy ---- */}
+              {/* ---- STEP 2: Brief ---- */}
+              <div className="w-full flex-shrink-0 p-6 space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="project-purpose" className="text-sm font-semibold">Purpose</Label>
+                  <Textarea
+                    id="project-purpose"
+                    placeholder="Why does this project matter?"
+                    value={purpose}
+                    onChange={e => setPurpose(e.target.value)}
+                    className="min-h-[84px] bg-card border-border/60 focus-visible:ring-primary/40 resize-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-success" className="text-sm font-semibold">Success Criteria</Label>
+                  <Textarea
+                    id="project-success"
+                    placeholder="What must be true for this project to be successful?"
+                    value={successCriteria}
+                    onChange={e => setSuccessCriteria(e.target.value)}
+                    className="min-h-[72px] bg-card border-border/60 focus-visible:ring-primary/40 resize-none"
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Status Cadence</Label>
+                    <select
+                      value={statusCadence}
+                      onChange={(event) => setStatusCadence(event.target.value)}
+                      className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                    >
+                      <option value="none">No cadence</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="biweekly">Biweekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="milestone-title" className="text-sm font-semibold">First Milestone</Label>
+                    <Input
+                      id="milestone-title"
+                      placeholder="e.g. Beta launch"
+                      value={milestoneTitle}
+                      onChange={(event) => setMilestoneTitle(event.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Milestone Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !milestoneDueDate && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4 opacity-60" />
+                          {milestoneDueDate ? format(milestoneDueDate, "MMM d, yyyy") : "Pick date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={milestoneDueDate} onSelect={setMilestoneDueDate} initialFocus />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="resource-label" className="text-sm font-semibold">Key Resource</Label>
+                    <div className="flex gap-2">
+                      <Input id="resource-label" placeholder="Label" value={resourceLabel} onChange={(event) => setResourceLabel(event.target.value)} className="h-10" />
+                      <Input placeholder="https://..." value={resourceUrl} onChange={(event) => setResourceUrl(event.target.value)} className="h-10" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ---- STEP 3: View & Privacy ---- */}
               <div className="w-full flex-shrink-0 p-6 space-y-6">
                 <div className="space-y-3">
                   <Label className="text-sm font-semibold">Default View</Label>
@@ -421,7 +545,7 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
                 </div>
               </div>
 
-              {/* ---- STEP 3: Team & Timeline ---- */}
+              {/* ---- STEP 4: Team & Timeline ---- */}
               <div className="w-full flex-shrink-0 p-6 space-y-5">
                 {/* Project Lead */}
                 <div className="space-y-2">
@@ -533,9 +657,37 @@ export default function CreateProjectWizard({ open, onOpenChange, members = [], 
                     })}
                   </div>
                 </div>
+
+                {/* Portfolios */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Portfolios</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {portfolios.map((portfolio) => {
+                      const isSelected = selectedPortfolioIds.includes(portfolio._id);
+                      return (
+                        <button
+                          key={portfolio._id}
+                          type="button"
+                          onClick={() => togglePortfolio(portfolio._id)}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-xs transition-colors",
+                            isSelected
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {portfolio.name}
+                        </button>
+                      );
+                    })}
+                    {portfolios.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No portfolios yet</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* ---- STEP 4: AI Tasks ---- */}
+              {/* ---- STEP 5: AI Tasks ---- */}
               <div className="w-full flex-shrink-0 p-6 space-y-5">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">

@@ -15,6 +15,23 @@ const projectSchema = new mongoose.Schema({
   description: {
     type: String
   },
+  brief: {
+    purpose: { type: String, default: '' },
+    successCriteria: { type: String, default: '' },
+    resources: [{
+      label: { type: String, required: true },
+      url: { type: String, required: true }
+    }],
+    milestones: [{
+      title: { type: String, required: true },
+      dueDate: { type: Date }
+    }],
+    statusCadence: {
+      type: String,
+      enum: ['none', 'weekly', 'biweekly', 'monthly'],
+      default: 'weekly'
+    }
+  },
   status: {
     type: String,
     enum: ['active', 'completed', 'paused', 'archived'],

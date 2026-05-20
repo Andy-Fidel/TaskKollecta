@@ -3,6 +3,7 @@ const Project = require('../../models/Project');
 const Task = require('../../models/Task');
 const ProjectUpdate = require('../../models/ProjectUpdate');
 const Membership = require('../../models/Membership');
+const Portfolio = require('../../models/Portfolio');
 const { invalidateProjectCache } = require('../../utils/cacheUtils');
 const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');
@@ -47,7 +48,7 @@ const normalizeCustomFields = (fields) =>
     }))
     .filter((field) => field.key && field.name);
 
-const PROJECT_UPDATE_FIELDS = ['name', 'description', 'color', 'startDate', 'dueDate', 'lead', 'status', 'defaultView', 'privacy', 'isTemplate', 'members', 'workflowStatuses', 'customFields'];
+const PROJECT_UPDATE_FIELDS = ['name', 'description', 'brief', 'color', 'startDate', 'dueDate', 'lead', 'status', 'defaultView', 'privacy', 'isTemplate', 'members', 'workflowStatuses', 'customFields'];
 
 const toDate = (value) => {
   if (!value) return null;
@@ -59,6 +60,52 @@ const shiftDate = (value, offsetMs) => {
   const date = toDate(value);
   if (!date || !Number.isFinite(offsetMs)) return value || null;
   return new Date(date.getTime() + offsetMs);
+};
+
+const normalizeBrief = (brief = {}, dateOffsetMs = 0) => ({
+  purpose: String(brief.purpose || '').trim(),
+  successCriteria: String(brief.successCriteria || '').trim(),
+  statusCadence: ['none', 'weekly', 'biweekly', 'monthly'].includes(brief.statusCadence)
+    ? brief.statusCadence
+    : 'weekly',
+  resources: (Array.isArray(brief.resources) ? brief.resources : [])
+    .map((resource) => ({
+      label: String(resource.label || '').trim(),
+      url: String(resource.url || '').trim(),
+    }))
+    .filter((resource) => resource.label && resource.url)
+    .slice(0, 20),
+  milestones: (Array.isArray(brief.milestones) ? brief.milestones : [])
+    .map((milestone) => ({
+      title: String(milestone.title || '').trim(),
+      dueDate: shiftDate(milestone.dueDate, dateOffsetMs),
+    }))
+    .filter((milestone) => milestone.title)
+    .slice(0, 25),
+});
+
+const attachProjectToPortfolios = async ({ projectId, organizationId, portfolioIds }) => {
+  const cleanPortfolioIds = [...new Set((Array.isArray(portfolioIds) ? portfolioIds : [])
+    .map((portfolioId) => portfolioId?.toString())
+    .filter((portfolioId) => mongoose.Types.ObjectId.isValid(portfolioId)))];
+
+  if (cleanPortfolioIds.length === 0) return [];
+
+  const portfolios = await Portfolio.find({
+    _id: { $in: cleanPortfolioIds },
+    organization: organizationId,
+  }).select('_id');
+
+  if (portfolios.length !== cleanPortfolioIds.length) {
+    throw createDomainError(400, 'One or more portfolios are invalid');
+  }
+
+  await Portfolio.updateMany(
+    { _id: { $in: cleanPortfolioIds } },
+    { $addToSet: { projects: projectId } },
+  );
+
+  return cleanPortfolioIds;
 };
 
 const ensureProjectAccess = async (userId, projectId, message = 'Project not found') => {
@@ -111,6 +158,7 @@ const createProject = async ({ body, userId }) => {
     project = await Project.create({
       name,
       description,
+      brief: normalizeBrief(body.brief),
       organization: orgId,
       lead: lead || userId,
       startDate,
@@ -138,6 +186,12 @@ const createProject = async ({ body, userId }) => {
       })));
       createdTaskIds = tasks.map((task) => task._id);
     }
+
+    await attachProjectToPortfolios({
+      projectId: project._id,
+      organizationId: orgId,
+      portfolioIds: body.portfolioIds,
+    });
 
     const populatedProject = await Project.findById(project._id)
       .populate('lead', 'name avatar')
@@ -244,6 +298,10 @@ const updateProject = async ({ projectId, userId, body }) => {
 
   if (updateData.customFields !== undefined) {
     updateData.customFields = normalizeCustomFields(updateData.customFields);
+  }
+
+  if (updateData.brief !== undefined) {
+    updateData.brief = normalizeBrief(updateData.brief);
   }
 
   if (updateData.members !== undefined) {
@@ -391,6 +449,7 @@ const getAllProjects = async ({ userId, activeOrgId, query = {} }) => {
       $project: {
         name: 1,
         description: 1,
+        brief: 1,
         updatedAt: 1,
         dueDate: 1,
         startDate: 1,
@@ -444,6 +503,7 @@ const duplicateProject = async ({ projectId, userId, body }) => {
   const newProject = await Project.create({
     name: body.name || `${sourceProject.name} (Copy)`,
     description: sourceProject.description,
+    brief: normalizeBrief(sourceProject.brief, scheduleAnchorOffset),
     organization: sourceProject.organization,
     lead: body.lead || userId,
     startDate: requestedStartDate || shiftDate(sourceProject.startDate, scheduleAnchorOffset),
@@ -459,6 +519,12 @@ const duplicateProject = async ({ projectId, userId, body }) => {
     isTemplate: body.isTemplate || false,
     workflowStatuses: sourceProject.workflowStatuses,
     customFields: sourceProject.customFields,
+  });
+
+  await attachProjectToPortfolios({
+    projectId: newProject._id,
+    organizationId: sourceProject.organization,
+    portfolioIds: body.portfolioIds,
   });
 
   const sourceTasks = await Task.find({ project: sourceProject._id }).sort({ index: 1, createdAt: 1 });

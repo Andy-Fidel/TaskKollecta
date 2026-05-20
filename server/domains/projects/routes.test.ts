@@ -6,6 +6,7 @@ import Organization from '../../models/Organization';
 import Membership from '../../models/Membership';
 import Project from '../../models/Project';
 import Task from '../../models/Task';
+import Portfolio from '../../models/Portfolio';
 
 describe('Projects API — CRUD and management', () => {
   let userToken: string;
@@ -43,17 +44,32 @@ describe('Projects API — CRUD and management', () => {
     ]);
   });
 
-  it('should create a new project with members, dates, and seed tasks successfully', async () => {
+  it('should create a new project with members, dates, seed tasks, and portfolio assignment successfully', async () => {
+    const portfolio = await Portfolio.create({
+      name: 'Launch Portfolio',
+      organization: orgId,
+      owner: userId,
+      projects: [],
+    });
+
     const res = await request(app)
       .post('/api/projects')
       .set('Cookie', [`jwt=${userToken}`])
       .send({
         name: 'New Project',
         description: 'Test project description',
+        brief: {
+          purpose: 'Launch a reliable beta',
+          successCriteria: 'Beta customers complete onboarding',
+          statusCadence: 'weekly',
+          resources: [{ label: 'Spec', url: 'https://example.com/spec' }],
+          milestones: [{ title: 'Beta launch', dueDate: '2026-06-15T00:00:00.000Z' }],
+        },
         orgId,
         startDate: '2026-06-01T00:00:00.000Z',
         dueDate: '2026-06-30T00:00:00.000Z',
         members: [memberId],
+        portfolioIds: [portfolio._id.toString()],
         seedTasks: [
           { title: 'Kickoff', priority: 'high' },
           { title: 'Launch checklist', priority: 'medium' },
@@ -63,11 +79,17 @@ describe('Projects API — CRUD and management', () => {
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('New Project');
     expect(res.body.startDate).toBeTruthy();
+    expect(res.body.brief.purpose).toBe('Launch a reliable beta');
+    expect(res.body.brief.resources[0].label).toBe('Spec');
+    expect(res.body.brief.milestones[0].title).toBe('Beta launch');
     expect(res.body.members.map((member: any) => member.user._id)).toEqual(expect.arrayContaining([userId, memberId]));
     expect(res.body.workflowStatuses.map((status: any) => status.id)).toEqual(['todo', 'in-progress', 'review', 'done']);
 
     const tasks = await Task.find({ project: res.body._id });
     expect(tasks).toHaveLength(2);
+
+    const refreshedPortfolio = await Portfolio.findById(portfolio._id);
+    expect(refreshedPortfolio?.projects.map((projectId) => projectId.toString())).toContain(res.body._id);
   });
 
   it('should get projects by organization', async () => {
@@ -247,6 +269,33 @@ describe('Projects API — CRUD and management', () => {
     expect(res.body.customFields[1].options).toEqual(['Draft', 'Approved']);
   });
 
+  it('should update project brief and status cadence', async () => {
+    const project = await Project.create({
+      name: 'Brief Project',
+      organization: orgId,
+      createdBy: userId,
+    });
+
+    const res = await request(app)
+      .put(`/api/projects/${project._id}`)
+      .set('Cookie', [`jwt=${userToken}`])
+      .send({
+        brief: {
+          purpose: 'Clarify the operating plan',
+          successCriteria: 'Stakeholders agree on launch readiness',
+          statusCadence: 'biweekly',
+          resources: [{ label: 'Plan', url: 'https://example.com/plan' }],
+          milestones: [{ title: 'Readiness review', dueDate: '2026-07-10T00:00:00.000Z' }],
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.brief.purpose).toBe('Clarify the operating plan');
+    expect(res.body.brief.statusCadence).toBe('biweekly');
+    expect(res.body.brief.resources[0].url).toBe('https://example.com/plan');
+    expect(res.body.brief.milestones[0].title).toBe('Readiness review');
+  });
+
   it('should fail creation without required fields', async () => {
     const res = await request(app)
       .post('/api/projects')
@@ -276,6 +325,12 @@ describe('Projects API — CRUD and management', () => {
   });
 
   it('should duplicate task dependencies and planning fields from a template project', async () => {
+    const portfolio = await Portfolio.create({
+      name: 'Template Portfolio',
+      organization: orgId,
+      owner: userId,
+      projects: [],
+    });
     const source = await Project.create({
       name: 'Template Source',
       organization: orgId,
@@ -283,6 +338,12 @@ describe('Projects API — CRUD and management', () => {
       startDate: new Date('2026-07-01T00:00:00.000Z'),
       dueDate: new Date('2026-07-31T00:00:00.000Z'),
       privacy: 'private',
+      brief: {
+        purpose: 'Reusable launch plan',
+        successCriteria: 'Launch checklist completed',
+        statusCadence: 'monthly',
+        milestones: [{ title: 'Template milestone', dueDate: new Date('2026-07-05T00:00:00.000Z') }],
+      },
       members: [{ user: userId, role: 'owner' }, { user: memberId, role: 'editor' }],
       isTemplate: true,
     });
@@ -315,11 +376,14 @@ describe('Projects API — CRUD and management', () => {
         dueDate: '2026-08-31T00:00:00.000Z',
         lead: memberId,
         members: [memberId],
+        portfolioIds: [portfolio._id.toString()],
       });
 
     expect(res.status).toBe(201);
     expect(new Date(res.body.startDate).toISOString()).toBe('2026-08-01T00:00:00.000Z');
     expect(new Date(res.body.dueDate).toISOString()).toBe('2026-08-31T00:00:00.000Z');
+    expect(res.body.brief.purpose).toBe('Reusable launch plan');
+    expect(new Date(res.body.brief.milestones[0].dueDate).toISOString()).toBe('2026-08-05T00:00:00.000Z');
     expect(res.body.lead?.toString?.() || res.body.lead).toBe(memberId);
 
     const copiedTasks = await Task.find({ project: res.body._id }).sort({ title: 1 });
@@ -329,5 +393,8 @@ describe('Projects API — CRUD and management', () => {
     expect(copiedTasks[0].startDate?.toISOString()).toBe('2026-08-02T00:00:00.000Z');
     expect(copiedTasks[0].dueDate?.toISOString()).toBe('2026-08-03T00:00:00.000Z');
     expect(copiedTasks[1].dependencies.map((dependencyId) => dependencyId.toString())).toEqual([copiedTasks[0]._id.toString()]);
+
+    const refreshedPortfolio = await Portfolio.findById(portfolio._id);
+    expect(refreshedPortfolio?.projects.map((projectId) => projectId.toString())).toContain(res.body._id);
   });
 });

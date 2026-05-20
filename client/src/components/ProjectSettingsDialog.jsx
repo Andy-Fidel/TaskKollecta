@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   Trash2, Save, Check, Loader2,
   LayoutList, Columns3, GanttChart, CalendarDays,
-  Globe, Lock, User as UserIcon
+  Globe, Lock, User as UserIcon, Plus
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,11 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
   const [lead, setLead] = useState('');
   const [isArchived, setIsArchived] = useState(false);
   const [isTemplate, setIsTemplate] = useState(false);
+  const [briefPurpose, setBriefPurpose] = useState('');
+  const [briefSuccessCriteria, setBriefSuccessCriteria] = useState('');
+  const [statusCadence, setStatusCadence] = useState('weekly');
+  const [resources, setResources] = useState([]);
+  const [milestones, setMilestones] = useState([]);
   const [workflowStatuses, setWorkflowStatuses] = useState([]);
   const [customFields, setCustomFields] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -57,6 +62,11 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
       setLead(project.lead?._id || project.lead || '');
       setIsArchived(project.status === 'archived');
       setIsTemplate(project.isTemplate || false);
+      setBriefPurpose(project.brief?.purpose || '');
+      setBriefSuccessCriteria(project.brief?.successCriteria || '');
+      setStatusCadence(project.brief?.statusCadence || 'weekly');
+      setResources(project.brief?.resources?.length ? project.brief.resources : []);
+      setMilestones(project.brief?.milestones?.length ? project.brief.milestones : []);
       setWorkflowStatuses(project.workflowStatuses?.length ? project.workflowStatuses : [
         { id: 'todo', label: 'To Do', color: '#64748b', order: 0, isDone: false },
         { id: 'in-progress', label: 'In Progress', color: '#3b82f6', order: 1, isDone: false },
@@ -85,6 +95,13 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
         defaultView,
         privacy,
         lead: lead || undefined,
+        brief: {
+          purpose: briefPurpose,
+          successCriteria: briefSuccessCriteria,
+          statusCadence,
+          resources,
+          milestones,
+        },
         status: isArchived ? 'archived' : 'active',
         isTemplate,
         workflowStatuses,
@@ -120,6 +137,14 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
       ...current,
       { id: `${slugify(label)}-${current.length + 1}`, label, color: '#64748b', order: current.length, isDone: false },
     ]);
+  };
+
+  const updateResource = (index, updates) => {
+    setResources((current) => current.map((resource, i) => i === index ? { ...resource, ...updates } : resource));
+  };
+
+  const updateMilestone = (index, updates) => {
+    setMilestones((current) => current.map((milestone, i) => i === index ? { ...milestone, ...updates } : milestone));
   };
 
   const addCustomField = () => {
@@ -208,6 +233,90 @@ export function ProjectSettingsDialog({ isOpen, onClose, project, onUpdate, memb
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            <Separator className="bg-border/50" />
+
+            {/* --- Section: Brief --- */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Brief & Status Cadence</h3>
+
+              <div className="space-y-2">
+                <Label htmlFor="settings-purpose" className="text-sm font-semibold">Purpose</Label>
+                <Textarea
+                  id="settings-purpose"
+                  value={briefPurpose}
+                  onChange={(e) => setBriefPurpose(e.target.value)}
+                  placeholder="Why does this project matter?"
+                  className="min-h-[80px] bg-card border-border/60 focus-visible:ring-primary/40 resize-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="settings-success" className="text-sm font-semibold">Success Criteria</Label>
+                <Textarea
+                  id="settings-success"
+                  value={briefSuccessCriteria}
+                  onChange={(e) => setBriefSuccessCriteria(e.target.value)}
+                  placeholder="What does success look like?"
+                  className="min-h-[80px] bg-card border-border/60 focus-visible:ring-primary/40 resize-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Status Cadence</Label>
+                <select
+                  value={statusCadence}
+                  onChange={(event) => setStatusCadence(event.target.value)}
+                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                >
+                  <option value="none">No cadence</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Biweekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Resources</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setResources((current) => [...current, { label: '', url: '' }])}>
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                {resources.map((resource, index) => (
+                  <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                    <Input value={resource.label || ''} onChange={(e) => updateResource(index, { label: e.target.value })} placeholder="Label" className="h-9" />
+                    <Input value={resource.url || ''} onChange={(e) => updateResource(index, { url: e.target.value })} placeholder="https://..." className="h-9" />
+                    <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => setResources((current) => current.filter((_, i) => i !== index))}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Milestones</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setMilestones((current) => [...current, { title: '', dueDate: '' }])}>
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                {milestones.map((milestone, index) => (
+                  <div key={index} className="grid grid-cols-[1fr_150px_auto] gap-2">
+                    <Input value={milestone.title || ''} onChange={(e) => updateMilestone(index, { title: e.target.value })} placeholder="Milestone" className="h-9" />
+                    <Input
+                      type="date"
+                      value={milestone.dueDate ? String(milestone.dueDate).slice(0, 10) : ''}
+                      onChange={(e) => updateMilestone(index, { dueDate: e.target.value })}
+                      className="h-9"
+                    />
+                    <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => setMilestones((current) => current.filter((_, i) => i !== index))}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
 
