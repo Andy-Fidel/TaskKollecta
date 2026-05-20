@@ -14,10 +14,16 @@ const { registerUser,
   getNotificationPreferences,
   getReminderPreferences,
   updateReminderPreferences,
+  updateOnboardingProgress,
   completeOnboarding
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
-const { validateRegister, validateLogin } = require('../middleware/validators');
+const {
+  validateRegister,
+  validateLogin,
+  validateOnboarding,
+  validateOnboardingProgress,
+} = require('../middleware/validators');
 
 // When someone POSTs to /, run the registerUser function
 router.post('/', validateRegister, registerUser);
@@ -36,7 +42,8 @@ router.get('/reminders', protect, getReminderPreferences);
 router.put('/reminders', protect, updateReminderPreferences);
 
 // Onboarding
-router.post('/onboarding', protect, completeOnboarding);
+router.put('/onboarding/progress', protect, validateOnboardingProgress, updateOnboardingProgress);
+router.post('/onboarding', protect, validateOnboarding, completeOnboarding);
 
 router.post('/forgotpassword', forgotPassword);
 router.put('/resetpassword/:resettoken', resetPassword);

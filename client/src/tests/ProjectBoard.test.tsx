@@ -142,6 +142,48 @@ describe('ProjectBoard', () => {
     });
   }, 10000);
 
+  it('creates a task with a quick date preset', async () => {
+    mockedApi.get.mockImplementation(async (url) => {
+      if (url === '/projects/single/project-1') {
+        return { data: { _id: 'project-1', name: 'Core Product', organization: 'org-1' } };
+      }
+      if (url === '/tasks/project/project-1?page=0&limit=50') {
+        return { data: { tasks: [], pagination: { hasMore: false } } };
+      }
+      if (url === '/organizations/org-1/members') {
+        return { data: [] };
+      }
+      if (url === '/filter-presets/project/project-1') {
+        return { data: [] };
+      }
+      return { data: [] };
+    });
+
+    mockedApi.post.mockResolvedValue({
+      data: {
+        _id: 'task-1',
+        title: 'Follow up with design',
+        status: 'todo',
+        priority: 'medium',
+      },
+    });
+
+    renderProjectBoard();
+
+    expect(await screen.findByText('Core Product')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /new task/i }));
+    await userEvent.type(screen.getByLabelText('Title'), 'Follow up with design');
+    await userEvent.click(screen.getByRole('button', { name: /tomorrow/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^create task$/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith('/tasks', expect.objectContaining({
+        title: 'Follow up with design',
+        dueDate: expect.any(Date),
+      }));
+    });
+  }, 10000);
+
   it('guards blank task creation and supports create another', async () => {
     mockedApi.get.mockImplementation(async (url) => {
       if (url === '/projects/single/project-1') {

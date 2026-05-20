@@ -75,10 +75,18 @@ const userSchema = new mongoose.Schema({
 
   // Onboarding
   onboardingCompleted: { type: Boolean, default: false },
+  onboardingCompletedAt: { type: Date },
+  onboardingSkipped: { type: Boolean, default: false },
   onboardingData: {
     role: { type: String }, // personal, team_lead, manager
     teamSize: { type: String },
-    goals: [{ type: String }]
+    goals: [{ type: String }],
+    currentStep: { type: Number, default: 0 },
+    draft: {
+      organizationName: { type: String },
+      projectName: { type: String },
+      inviteEmails: [{ type: String }]
+    }
   },
 
   // Invite tracking

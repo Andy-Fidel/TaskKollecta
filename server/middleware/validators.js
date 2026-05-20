@@ -26,6 +26,30 @@ const validateLogin = [
     handleValidation
 ];
 
+const validateOnboarding = [
+    body('role').optional().isIn(['personal', 'team_lead', 'manager']).withMessage('Invalid onboarding role'),
+    body('teamSize').optional().trim().isLength({ max: 50 }).withMessage('Team size must be 50 characters or fewer'),
+    body('goals').optional().isArray({ max: 10 }).withMessage('Goals must be a list of 10 or fewer items'),
+    body('goals.*').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Each goal must be 1-100 characters'),
+    body('organizationName').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Workspace name must be 1-100 characters'),
+    body('projectName').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Project name must be 1-100 characters'),
+    body('inviteEmails').optional().isArray({ max: 20 }).withMessage('Maximum 20 invites at a time'),
+    body('inviteEmails.*').optional({ values: 'falsy' }).isEmail().normalizeEmail().withMessage('Invalid invite email'),
+    body('skipped').optional().isBoolean().withMessage('Skipped must be true or false'),
+    body('skipStep').optional().isInt({ min: 0, max: 20 }).withMessage('Invalid skip step'),
+    handleValidation
+];
+
+const validateOnboardingProgress = [
+    body('currentStep').optional().isInt({ min: 0, max: 20 }).withMessage('Invalid onboarding step'),
+    body('role').optional({ values: 'falsy' }).isIn(['personal', 'team_lead', 'manager']).withMessage('Invalid onboarding role'),
+    body('organizationName').optional().trim().isLength({ max: 100 }).withMessage('Workspace name must be 100 characters or fewer'),
+    body('projectName').optional().trim().isLength({ max: 100 }).withMessage('Project name must be 100 characters or fewer'),
+    body('inviteEmails').optional().isArray({ max: 20 }).withMessage('Maximum 20 invites at a time'),
+    body('inviteEmails.*').optional({ values: 'falsy' }).isEmail().normalizeEmail().withMessage('Invalid invite email'),
+    handleValidation
+];
+
 // --- TASK VALIDATORS ---
 const validateCreateTask = [
     body('title').trim().isLength({ min: 1, max: 200 }).withMessage('Title must be 1-200 characters'),
@@ -85,6 +109,8 @@ const validateIdParam = [
 module.exports = {
     validateRegister,
     validateLogin,
+    validateOnboarding,
+    validateOnboardingProgress,
     validateCreateTask,
     validateUpdateTask,
     validateCreateProject,

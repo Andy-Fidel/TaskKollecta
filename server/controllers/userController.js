@@ -4,6 +4,33 @@ const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
+const ProductEvent = require('../models/ProductEvent');
+const inviteService = require('../domains/invites/inviteService');
+
+const VALID_ROLES = ['personal', 'team_lead', 'manager'];
+
+const normalizeInviteEmails = (inviteEmails = []) => {
+  const seen = new Set();
+  return inviteEmails
+    .map((email) => String(email || '').trim().toLowerCase())
+    .filter(Boolean)
+    .filter((email) => {
+      if (seen.has(email)) return false;
+      seen.add(email);
+      return true;
+    });
+};
+
+const recordOnboardingEvent = async ({ userId, organizationId = null, projectId = null, eventName, metadata = {} }) => {
+  await ProductEvent.create({
+    user: userId,
+    organization: organizationId,
+    project: projectId,
+    eventName,
+    source: 'server',
+    metadata,
+  });
+};
 
 const ROLE_BLUEPRINTS = {
   personal: {
@@ -411,31 +438,111 @@ const getNotificationPreferences = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-// @desc    Complete onboarding wizard
-// @route   POST /api/users/onboarding
-const completeOnboarding = async (req, res) => {
+// @desc    Save onboarding wizard progress
+// @route   PUT /api/users/onboarding/progress
+const updateOnboardingProgress = async (req, res) => {
   try {
-    const { role, teamSize, goals, organizationName, projectName, inviteEmails } = req.body;
+    const { currentStep, role, organizationName, projectName, inviteEmails } = req.body;
     const user = await User.findById(req.user._id);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Save onboarding data - only set provided fields
+    if (user.onboardingCompleted) {
+      return res.json({
+        message: 'Onboarding already completed',
+        onboardingCompleted: true,
+        onboardingData: user.onboardingData || {},
+      });
+    }
+
     user.onboardingData = {
-      role: role || 'personal',
-      teamSize: teamSize || '',
-      goals: goals || []
+      ...(user.onboardingData?.toObject?.() || user.onboardingData || {}),
+      role: role || user.onboardingData?.role || '',
+      currentStep: Number.isInteger(Number(currentStep)) ? Number(currentStep) : user.onboardingData?.currentStep || 0,
+      draft: {
+        ...(user.onboardingData?.draft?.toObject?.() || user.onboardingData?.draft || {}),
+        ...(organizationName !== undefined ? { organizationName } : {}),
+        ...(projectName !== undefined ? { projectName } : {}),
+        ...(inviteEmails !== undefined ? { inviteEmails: normalizeInviteEmails(inviteEmails) } : {}),
+      },
     };
-    user.onboardingCompleted = true;
+
     await user.save();
 
-    const selectedRole = role || 'personal';
+    await recordOnboardingEvent({
+      userId: user._id,
+      eventName: 'onboarding_progress_saved',
+      metadata: {
+        currentStep: user.onboardingData.currentStep,
+        role: user.onboardingData.role || null,
+      },
+    }).catch(() => {});
+
+    res.json({
+      message: 'Onboarding progress saved',
+      onboardingData: user.onboardingData,
+    });
+  } catch (error) {
+    console.error('Onboarding progress error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Complete onboarding wizard
+// @route   POST /api/users/onboarding
+const completeOnboarding = async (req, res) => {
+  const created = {
+    organizationId: null,
+    membershipId: null,
+    projectId: null,
+    taskIds: [],
+    automationIds: [],
+  };
+
+  try {
+    const { role, teamSize, goals, organizationName, projectName, inviteEmails, skipped, skipStep } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.onboardingCompleted) {
+      return res.json({
+        message: 'Onboarding already completed',
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          onboardingCompleted: user.onboardingCompleted,
+          role: user.role
+        },
+        organization: null,
+        project: null,
+        invites: { sent: [], failed: [] },
+      });
+    }
+
+    const selectedRole = VALID_ROLES.includes(role) ? role : 'personal';
+    const cleanInviteEmails = normalizeInviteEmails(inviteEmails);
+
+    user.onboardingData = {
+      ...(user.onboardingData?.toObject?.() || user.onboardingData || {}),
+      role: selectedRole,
+      teamSize: teamSize || '',
+      goals: goals || [],
+      currentStep: null,
+      draft: {},
+    };
+    user.onboardingSkipped = Boolean(skipped);
+
     const blueprint = getRoleBlueprint(selectedRole, user.name);
 
     let organization = null;
     let project = null;
+    let invites = { sent: [], failed: [] };
 
     // Create organization if name provided (Creator path only)
     if (!user.isInvitee) {
@@ -444,14 +551,16 @@ const completeOnboarding = async (req, res) => {
         name: organizationName || blueprint.organizationName,
         createdBy: user._id
       });
+      created.organizationId = organization._id;
 
       // Add user as OWNER (RBAC: creator gets full control)
       const Membership = require('../models/Membership');
-      await Membership.create({
+      const membership = await Membership.create({
         user: user._id,
         organization: organization._id,
         role: 'owner'
       });
+      created.membershipId = membership._id;
 
       // Create project if name provided
       {
@@ -466,10 +575,11 @@ const completeOnboarding = async (req, res) => {
           defaultView: blueprint.defaultView,
           privacy: blueprint.privacy,
         });
+        created.projectId = project._id;
 
         if (blueprint.tasks.length > 0) {
           const Task = require('../models/Task');
-          await Task.insertMany(
+          const tasks = await Task.insertMany(
             blueprint.tasks.map((task, index) => ({
               title: task.title,
               description: task.description,
@@ -481,23 +591,60 @@ const completeOnboarding = async (req, res) => {
               reporter: user._id,
             })),
           );
+          created.taskIds = tasks.map((task) => task._id);
         }
 
         if (blueprint.automations.length > 0) {
           const Automation = require('../models/Automation');
-          await Automation.insertMany(
+          const automations = await Automation.insertMany(
             blueprint.automations.map((automation) => ({
               project: project._id,
               ...automation,
             })),
           );
+          created.automationIds = automations.map((automation) => automation._id);
         }
+      }
+
+      if (cleanInviteEmails.length > 0) {
+        invites = await inviteService.createBulkInvites({
+          body: {
+            emails: cleanInviteEmails,
+            organizationId: organization._id.toString(),
+            role: 'member',
+          },
+          user,
+        });
       }
     }
 
-    // Handle invites (just log for now, or send invite emails)
-    if (inviteEmails && inviteEmails.length > 0) {
-      console.log('Invite emails:', inviteEmails);
+    user.onboardingCompleted = true;
+    user.onboardingCompletedAt = new Date();
+    await user.save();
+
+    await recordOnboardingEvent({
+      userId: user._id,
+      organizationId: organization?._id || user.invitedToOrg || null,
+      projectId: project?._id || null,
+      eventName: 'onboarding_completed',
+      metadata: {
+        role: selectedRole,
+        isInvitee: user.isInvitee,
+        skipped: Boolean(skipped),
+        skipStep: skipped ? skipStep ?? null : null,
+        invitesSent: invites.sent.length,
+        invitesFailed: invites.failed.length,
+      },
+    }).catch(() => {});
+
+    if (project) {
+      await recordOnboardingEvent({
+        userId: user._id,
+        organizationId: organization._id,
+        projectId: project._id,
+        eventName: 'onboarding_milestone_completed',
+        metadata: { milestone: 'first_project_created', source: 'onboarding' },
+      }).catch(() => {});
     }
 
     res.json({
@@ -510,10 +657,33 @@ const completeOnboarding = async (req, res) => {
         role: user.role
       },
       organization,
-      project
+      project,
+      invites,
     });
   } catch (error) {
     console.error('Onboarding error:', error);
+    const cleanupTasks = [];
+    if (created.automationIds.length > 0) {
+      const Automation = require('../models/Automation');
+      cleanupTasks.push(Automation.deleteMany({ _id: { $in: created.automationIds } }));
+    }
+    if (created.taskIds.length > 0) {
+      const Task = require('../models/Task');
+      cleanupTasks.push(Task.deleteMany({ _id: { $in: created.taskIds } }));
+    }
+    if (created.projectId) {
+      const Project = require('../models/Project');
+      cleanupTasks.push(Project.findByIdAndDelete(created.projectId));
+    }
+    if (created.membershipId) {
+      const Membership = require('../models/Membership');
+      cleanupTasks.push(Membership.findByIdAndDelete(created.membershipId));
+    }
+    if (created.organizationId) {
+      const Organization = require('../models/Organization');
+      cleanupTasks.push(Organization.findByIdAndDelete(created.organizationId));
+    }
+    await Promise.allSettled(cleanupTasks);
     res.status(500).json({ message: error.message });
   }
 };
@@ -580,5 +750,6 @@ module.exports = {
   getNotificationPreferences,
   getReminderPreferences,
   updateReminderPreferences,
+  updateOnboardingProgress,
   completeOnboarding
 };

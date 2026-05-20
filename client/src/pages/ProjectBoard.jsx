@@ -88,6 +88,21 @@ const reindexTasks = (items) => items.map((task, index) => ({
   index: (index + 1) * 1000,
 }));
 
+const getDatePreset = (preset) => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+
+  if (preset === 'tomorrow') {
+    date.setDate(date.getDate() + 1);
+  }
+
+  if (preset === 'next-week') {
+    date.setDate(date.getDate() + 7);
+  }
+
+  return date;
+};
+
 const getTaskAssigneeId = (task) => task.assignee?._id || task.assignee || null;
 
 const getTaskGroupId = (task, groupBy) => {
@@ -1898,6 +1913,44 @@ export default function ProjectBoard() {
                   <h4 className="text-sm font-semibold text-foreground">Schedule</h4>
                   <p className="mt-0.5 text-xs text-muted-foreground">Set planning dates for calendar and roadmap views.</p>
                 </div>
+
+              <div>
+                <Label>Quick dates</Label>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    { id: 'today', label: 'Today' },
+                    { id: 'tomorrow', label: 'Tomorrow' },
+                    { id: 'next-week', label: 'Next week' },
+                  ].map((preset) => (
+                    <Button
+                      key={preset.id}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 justify-start text-xs"
+                      onClick={() => setNewTaskDueDate(getDatePreset(preset.id))}
+                    >
+                      <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                      {preset.label}
+                    </Button>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 justify-start text-xs text-muted-foreground"
+                    disabled={!newTaskStartDate && !newTaskDueDate && !newTaskDueTime}
+                    onClick={() => {
+                      setNewTaskStartDate(null);
+                      setNewTaskDueDate(null);
+                      setNewTaskDueTime('');
+                    }}
+                  >
+                    <X className="mr-1.5 h-3.5 w-3.5" />
+                    Clear
+                  </Button>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Start Date */}

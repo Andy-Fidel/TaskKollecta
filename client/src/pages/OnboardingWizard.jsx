@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     User, Users, Building2, FolderKanban, Mail,
     ChevronRight, ChevronLeft, Check, Loader2, Sparkles, PartyPopper, Shield
@@ -53,21 +53,27 @@ const ROLE_BLUEPRINTS = {
     },
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function OnboardingWizard() {
     const { user } = useAuth();
-    const [step, setStep] = useState(0);
-    const [loading, setLoading] = useState(false);
 
     // Detect if user is an invitee
     const isInvitee = user?.isInvitee === true;
     const STEPS = isInvitee ? INVITEE_STEPS : CREATOR_STEPS;
+    const savedDraft = user?.onboardingData?.draft || {};
+
+    const [step, setStep] = useState(() => Math.min(user?.onboardingData?.currentStep || 0, STEPS.length - 1));
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState({});
+    const viewedSteps = useRef(new Set());
 
     // Form state
     const [formData, setFormData] = useState({
-        role: '',
-        organizationName: '',
-        projectName: '',
-        inviteEmails: ['', '', '']
+        role: user?.onboardingData?.role || '',
+        organizationName: savedDraft.organizationName || '',
+        projectName: savedDraft.projectName || '',
+        inviteEmails: savedDraft.inviteEmails?.length ? [...savedDraft.inviteEmails, '', '', ''].slice(0, 3) : ['', '', '']
     });
 
     const updateFormData = (key, value) => {
@@ -85,7 +91,90 @@ export default function OnboardingWizard() {
     const defaultWorkspaceName = `${user?.name?.split(' ')?.[0] || user?.name || 'My'}'s ${roleBlueprint.workspaceSuffix}`;
     const defaultProjectName = roleBlueprint.projectName;
 
+    useEffect(() => {
+        const stepId = STEPS[step]?.id;
+        if (!stepId || viewedSteps.current.has(stepId)) return;
+        viewedSteps.current.add(stepId);
+        trackProductEvent('onboarding_step_viewed', {
+            metadata: {
+                step,
+                stepId,
+                role: formData.role || null,
+                isInvitee,
+            },
+        });
+    }, [STEPS, formData.role, isInvitee, step]);
+
+    useEffect(() => {
+        if (user?.onboardingCompleted) return undefined;
+        const timeoutId = window.setTimeout(() => {
+            api.put('/users/onboarding/progress', {
+                currentStep: step,
+                role: formData.role,
+                organizationName: formData.organizationName,
+                projectName: formData.projectName,
+                inviteEmails: formData.inviteEmails.filter((email) => email.trim()),
+            }).catch(() => {});
+        }, 500);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [formData, step, user?.onboardingCompleted]);
+
+    const getStepErrors = (targetStep = step) => {
+        const nextErrors = {};
+
+        if (!isInvitee && targetStep === 0 && !formData.role) {
+            nextErrors.role = 'Choose how you will use TaskKollecta.';
+        }
+
+        if (!isInvitee && targetStep === 1 && formData.organizationName.trim().length > 100) {
+            nextErrors.organizationName = 'Workspace name must be 100 characters or fewer.';
+        }
+
+        if (!isInvitee && targetStep === 2 && formData.projectName.trim().length > 100) {
+            nextErrors.projectName = 'Project name must be 100 characters or fewer.';
+        }
+
+        if (!isInvitee && targetStep === 3) {
+            const invalidEmails = formData.inviteEmails.filter((email) => {
+                const value = email.trim();
+                return value && !EMAIL_PATTERN.test(value);
+            });
+            if (invalidEmails.length > 0) {
+                nextErrors.inviteEmails = 'Enter valid email addresses or leave optional invite fields blank.';
+            }
+        }
+
+        return nextErrors;
+    };
+
+    const validateStep = (targetStep = step) => {
+        const nextErrors = getStepErrors(targetStep);
+        setErrors(nextErrors);
+        return Object.keys(nextErrors).length === 0;
+    };
+
     const handleNext = () => {
+        const nextErrors = getStepErrors();
+        if (Object.keys(nextErrors).length > 0) {
+            setErrors(nextErrors);
+            trackProductEvent('onboarding_validation_failed', {
+                metadata: {
+                    step,
+                    stepId: STEPS[step]?.id,
+                    fields: Object.keys(nextErrors),
+                },
+            });
+            return;
+        }
+        trackProductEvent('onboarding_step_completed', {
+            metadata: {
+                step,
+                stepId: STEPS[step]?.id,
+                role: formData.role || null,
+                isInvitee,
+            },
+        });
         if (step < STEPS.length - 1) setStep(step + 1);
     };
 
@@ -93,11 +182,14 @@ export default function OnboardingWizard() {
         if (step > 0) setStep(step - 1);
     };
 
-    const handleComplete = async () => {
+    const handleComplete = async ({ skipped = false } = {}) => {
+        if (!skipped && !validateStep()) return;
         setLoading(true);
         try {
             const payload = {
                 role: formData.role || 'personal',
+                skipped,
+                skipStep: skipped ? step : undefined,
                 // Invitees don't create org/project
                 ...(isInvitee ? {} : {
                     organizationName: formData.organizationName || defaultWorkspaceName,
@@ -106,12 +198,19 @@ export default function OnboardingWizard() {
                 })
             };
 
-            await api.post('/users/onboarding', payload);
-            trackProductEvent('onboarding_completed', {
-                organizationId: localStorage.getItem('activeOrgId'),
+            const { data } = await api.post('/users/onboarding', payload);
+            const organizationId = data?.organization?._id || user?.invitedToOrg?._id || user?.invitedToOrg;
+            if (organizationId) {
+                localStorage.setItem('activeOrgId', organizationId);
+            }
+            trackProductEvent(skipped ? 'onboarding_skipped' : 'onboarding_client_completed', {
+                organizationId,
                 metadata: {
                     role: formData.role || 'personal',
                     isInvitee,
+                    skipStep: skipped ? step : undefined,
+                    invitesSent: data?.invites?.sent?.length || 0,
+                    invitesFailed: data?.invites?.failed?.length || 0,
                 },
             });
             toast.success(isInvitee ? 'You\'re all set!' : 'Welcome to TaskKollecta!');
@@ -119,7 +218,19 @@ export default function OnboardingWizard() {
             // Force reload to update user state
             window.location.href = '/dashboard';
         } catch (error) {
-            toast.error('Failed to complete onboarding');
+            const fieldErrors = {};
+            error.response?.data?.errors?.forEach((item) => {
+                fieldErrors[item.field] = item.message;
+            });
+            setErrors(fieldErrors);
+            trackProductEvent('onboarding_completion_failed', {
+                metadata: {
+                    step,
+                    stepId: STEPS[step]?.id,
+                    status: error.response?.status,
+                },
+            });
+            toast.error(error.response?.data?.message || 'Failed to complete onboarding');
             setLoading(false);
         }
     };
@@ -128,9 +239,9 @@ export default function OnboardingWizard() {
         if (isInvitee) return true;
         switch (step) {
             case 0: return formData.role !== '';
-            case 1: return true;
-            case 2: return true;
-            case 3: return true;
+            case 1: return formData.organizationName.trim().length <= 100;
+            case 2: return formData.projectName.trim().length <= 100;
+            case 3: return !formData.inviteEmails.some((email) => email.trim() && !EMAIL_PATTERN.test(email.trim()));
             default: return true;
         }
     };
@@ -214,7 +325,7 @@ export default function OnboardingWizard() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <Label className="text-foreground">How will you use TaskKollecta?</Label>
+                                        <Label className="text-foreground">How will you use TaskKollecta?</Label>
                                     {ROLES.map((role) => (
                                         <button
                                             key={role.id}
@@ -233,6 +344,7 @@ export default function OnboardingWizard() {
                                             </div>
                                         </button>
                                     ))}
+                                    {errors.role && <p className="text-sm text-destructive">{errors.role}</p>}
                                 </div>
 
                                 {formData.role && (
@@ -275,13 +387,16 @@ export default function OnboardingWizard() {
 
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label className="text-foreground">Workspace Name</Label>
+                                        <Label htmlFor="organizationName" className="text-foreground">Workspace Name</Label>
                                         <Input
+                                            id="organizationName"
                                             placeholder={defaultWorkspaceName}
                                             value={formData.organizationName}
                                             onChange={(e) => updateFormData('organizationName', e.target.value)}
                                             className="h-12"
+                                            aria-invalid={Boolean(errors.organizationName)}
                                         />
+                                        {errors.organizationName && <p className="text-sm text-destructive">{errors.organizationName}</p>}
                                         <p className="text-xs text-muted-foreground">
                                             Suggested for {ROLES.find(role => role.id === selectedRole)?.label?.toLowerCase() || 'your setup'}. You can change this later.
                                         </p>
@@ -305,13 +420,16 @@ export default function OnboardingWizard() {
 
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label className="text-foreground">Project Name</Label>
+                                        <Label htmlFor="projectName" className="text-foreground">Project Name</Label>
                                         <Input
+                                            id="projectName"
                                             placeholder={defaultProjectName}
                                             value={formData.projectName}
                                             onChange={(e) => updateFormData('projectName', e.target.value)}
                                             className="h-12"
+                                            aria-invalid={Boolean(errors.projectName)}
                                         />
+                                        {errors.projectName && <p className="text-sm text-destructive">{errors.projectName}</p>}
                                         <p className="text-xs text-muted-foreground">
                                             This role starts with: {roleBlueprint.starterItems.join(', ')}.
                                         </p>
@@ -351,9 +469,11 @@ export default function OnboardingWizard() {
                                                 value={email}
                                                 onChange={(e) => updateInviteEmail(i, e.target.value)}
                                                 className="h-12 pl-10"
+                                                aria-invalid={Boolean(errors.inviteEmails)}
                                             />
                                         </div>
                                     ))}
+                                    {errors.inviteEmails && <p className="text-sm text-destructive">{errors.inviteEmails}</p>}
                                     <p className="text-xs text-muted-foreground text-center">
                                         You can always invite more people later
                                     </p>
@@ -383,7 +503,7 @@ export default function OnboardingWizard() {
                                 </Button>
                             ) : (
                                 <Button
-                                    onClick={handleComplete}
+                                    onClick={() => handleComplete()}
                                     disabled={loading}
                                     className="bg-green-600 hover:bg-green-700 text-white"
                                 >
@@ -399,7 +519,7 @@ export default function OnboardingWizard() {
                 {!isInvitee && (
                     <div className="text-center mt-6">
                         <button
-                            onClick={handleComplete}
+                            onClick={() => handleComplete({ skipped: true })}
                             disabled={loading}
                             className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                         >
