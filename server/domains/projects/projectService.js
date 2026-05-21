@@ -4,6 +4,7 @@ const Task = require('../../models/Task');
 const ProjectUpdate = require('../../models/ProjectUpdate');
 const Membership = require('../../models/Membership');
 const Portfolio = require('../../models/Portfolio');
+const Organization = require('../../models/Organization');
 const { invalidateProjectCache } = require('../../utils/cacheUtils');
 const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');
@@ -115,6 +116,13 @@ const ensureProjectAccess = async (userId, projectId, message = 'Project not fou
   }
 
   const membership = await ensureMembership(userId, project.organization);
+  if (membership.role === 'guest') {
+    const organization = await Organization.findById(project.organization).select('defaultProjectSettings.allowGuestAccess');
+    if (organization?.defaultProjectSettings?.allowGuestAccess !== true) {
+      throw createDomainError(404, message);
+    }
+  }
+
   const projectMember = project.members?.find((member) => member.user?.toString() === userId.toString());
   const canAccessPrivateProject = project.privacy !== 'private'
     || ['owner', 'admin'].includes(membership.role)
@@ -130,7 +138,10 @@ const ensureProjectAccess = async (userId, projectId, message = 'Project not fou
 
 const createProject = async ({ body, userId }) => {
   const { name, description, orgId, lead, startDate, dueDate, color, defaultView, privacy } = body;
-  await ensureMembership(userId, orgId);
+  const membership = await ensureMembership(userId, orgId);
+  if (membership.role === 'guest') {
+    throw createDomainError(403, 'Guests cannot create projects');
+  }
 
   const memberIds = new Set(
     (Array.isArray(body.members) ? body.members : [])
@@ -208,6 +219,12 @@ const createProject = async ({ body, userId }) => {
 
 const getOrgProjects = async ({ orgId, userId }) => {
   const membership = await ensureMembership(userId, orgId, 'Not authorized to view projects of this organization');
+  if (membership.role === 'guest') {
+    const organization = await Organization.findById(orgId).select('defaultProjectSettings.allowGuestAccess');
+    if (organization?.defaultProjectSettings?.allowGuestAccess !== true) {
+      return [];
+    }
+  }
 
   const query = { organization: orgId };
   if (!['owner', 'admin'].includes(membership.role)) {
@@ -347,6 +364,19 @@ const getAllProjects = async ({ userId, activeOrgId, query = {} }) => {
     membership.organization.toString(),
     membership.role,
   ]));
+
+  const guestOrgIds = memberships
+    .filter((membership) => membership.role === 'guest')
+    .map((membership) => membership.organization);
+
+  if (guestOrgIds.length > 0) {
+    const guestEnabledOrgs = await Organization.find({
+      _id: { $in: guestOrgIds },
+      'defaultProjectSettings.allowGuestAccess': true,
+    }).select('_id');
+    const enabledGuestOrgIds = new Set(guestEnabledOrgs.map((organization) => organization._id.toString()));
+    validOrgIds = validOrgIds.filter((orgId) => membershipRoleByOrg.get(orgId) !== 'guest' || enabledGuestOrgIds.has(orgId));
+  }
 
   if (activeOrgId && validOrgIds.includes(activeOrgId)) {
     validOrgIds = [activeOrgId];

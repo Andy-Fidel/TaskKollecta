@@ -5,6 +5,7 @@ import User from '../models/User';
 import Organization from '../models/Organization';
 import Membership from '../models/Membership';
 import Project from '../models/Project';
+import ProductEvent from '../models/ProductEvent';
 
 describe('Product analytics API', () => {
   let user: any;
@@ -136,5 +137,56 @@ describe('Product analytics API', () => {
     expect(summary.body.recommendations).toEqual([
       expect.objectContaining({ id: 'review_workspace_setup' }),
     ]);
+  });
+
+  it('returns recent team audit events only to organization admins', async () => {
+    const member = await User.create({
+      name: 'Metrics Member',
+      email: 'metrics-member@test.com',
+      password: 'password123',
+    });
+    await Membership.create({
+      user: member._id,
+      organization: org._id,
+      role: 'member',
+    });
+
+    await ProductEvent.create([
+      {
+        user: user._id,
+        organization: org._id,
+        eventName: 'organization.member_removed',
+        source: 'team_admin',
+        metadata: { targetUserId: member._id.toString(), previousRole: 'member' },
+      },
+      {
+        user: user._id,
+        organization: org._id,
+        eventName: 'my_tasks_task_completed',
+        source: 'web',
+        metadata: {},
+      },
+    ]);
+
+    const denied = await request(app)
+      .get(`/api/analytics/team-audit?orgId=${org._id.toString()}`)
+      .set('Cookie', [`jwt=${getTestToken(member._id.toString())}`]);
+    expect(denied.status).toBe(403);
+
+    const res = await request(app)
+      .get(`/api/analytics/team-audit?orgId=${org._id.toString()}`)
+      .set('Cookie', [`jwt=${token}`]);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      eventName: 'organization.member_removed',
+      actor: {
+        email: 'metrics@test.com',
+      },
+      metadata: {
+        previousRole: 'member',
+      },
+    });
   });
 });

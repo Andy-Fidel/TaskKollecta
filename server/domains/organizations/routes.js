@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { searchOrganizations, requestToJoin, getJoinRequests, resolveJoinRequest, createOrganization, getUserOrganizations, getOrganizationById, updateOrganization, getOrgMembers, addMember, updateMemberRole } = require('./controller');
+const { searchOrganizations, requestToJoin, getJoinRequests, resolveJoinRequest, createOrganization, getUserOrganizations, getOrganizationById, updateOrganization, getOrgMembers, addMember, updateMemberRole, removeMember } = require('./controller');
 const { protect } = require('../../middleware/authMiddleware');
 const { checkRole } = require('../../middleware/roleMiddleware');
 
@@ -20,5 +20,6 @@ router.put('/:id', protect, checkRole('owner', 'admin'), updateOrganization);
 router.get('/:id/members', protect, getOrgMembers); // Members can view other members
 router.post('/:id/members', protect, checkRole('owner', 'admin'), addMember); // Only Admin/Owner can add
 router.put('/:id/members/:userId', protect, checkRole('owner', 'admin'), updateMemberRole); // Only Admin/Owner can update roles
+router.delete('/:id/members/:userId', protect, checkRole('owner', 'admin'), removeMember); // Only Admin/Owner can remove
 
 module.exports = router;

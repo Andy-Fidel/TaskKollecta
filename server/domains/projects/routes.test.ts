@@ -171,6 +171,59 @@ describe('Projects API — CRUD and management', () => {
     expect(hiddenDetails.status).toBe(404);
   });
 
+  it('should enforce organization guest access settings and keep guests read-only', async () => {
+    const guest = await User.create({
+      name: 'Project Guest',
+      email: 'project-guest@test.com',
+      password: 'password123',
+    });
+    const guestToken = getTestToken(guest._id.toString());
+
+    await Membership.create({ user: guest._id, organization: orgId, role: 'guest' });
+    const project = await Project.create({
+      name: 'Guest Visible Project',
+      organization: orgId,
+      createdBy: userId,
+      privacy: 'public',
+    });
+
+    const blockedList = await request(app)
+      .get(`/api/projects/${orgId}`)
+      .set('Cookie', [`jwt=${guestToken}`]);
+    expect(blockedList.status).toBe(200);
+    expect(blockedList.body).toEqual([]);
+
+    const blockedDetails = await request(app)
+      .get(`/api/projects/single/${project._id}`)
+      .set('Cookie', [`jwt=${guestToken}`]);
+    expect(blockedDetails.status).toBe(404);
+
+    await Organization.findByIdAndUpdate(orgId, {
+      defaultProjectSettings: {
+        allowGuestAccess: true,
+        requireApprovalToJoin: true,
+      },
+    });
+
+    const allowedList = await request(app)
+      .get(`/api/projects/${orgId}`)
+      .set('Cookie', [`jwt=${guestToken}`]);
+    expect(allowedList.status).toBe(200);
+    expect(allowedList.body.map((item: any) => item._id)).toContain(project._id.toString());
+
+    const createRes = await request(app)
+      .post('/api/projects')
+      .set('Cookie', [`jwt=${guestToken}`])
+      .send({ name: 'Guest Project', orgId });
+    expect(createRes.status).toBe(403);
+
+    const updateRes = await request(app)
+      .put(`/api/projects/${project._id}`)
+      .set('Cookie', [`jwt=${guestToken}`])
+      .send({ name: 'Guest Edit' });
+    expect(updateRes.status).toBe(403);
+  });
+
   it('should filter and sort projects on the server', async () => {
     await Project.create([
       {

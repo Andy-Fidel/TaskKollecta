@@ -7,13 +7,15 @@ const {
     validateInvite,
     acceptInvite,
     getOrgInvites,
-    cancelInvite
+    cancelInvite,
+    resendInvite
 } = require('./controller');
 
 // Protected routes (specific paths first)
 router.post('/', protect, createInvite);
 router.post('/bulk', protect, createBulkInvites);
 router.get('/org/:orgId', protect, getOrgInvites);
+router.post('/:id/resend', protect, resendInvite);
 
 // Parameterized routes (must come after specific routes)
 router.get('/:token', validateInvite);

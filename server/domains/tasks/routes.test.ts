@@ -135,6 +135,70 @@ describe('Tasks API — CRUD, subtasks, and board management', () => {
     expect(res.body.length).toBeGreaterThan(0);
   });
 
+  it('should enforce guest access settings and read-only task permissions', async () => {
+    const guest = await User.create({
+      name: 'Task Guest',
+      email: 'task-guest@test.com',
+      password: 'password123',
+    });
+    const guestToken = getTestToken(guest._id.toString());
+
+    await Membership.create({
+      user: guest._id,
+      organization: orgId,
+      role: 'guest',
+    });
+
+    const task = await Task.create({
+      title: 'Guest readable task',
+      project: projectId,
+      organization: orgId,
+      reporter: userId,
+      createdBy: userId,
+    });
+
+    const blockedRead = await request(app)
+      .get(`/api/tasks/project/${projectId}`)
+      .set('Cookie', [`jwt=${guestToken}`]);
+    expect(blockedRead.status).toBe(404);
+
+    await Organization.findByIdAndUpdate(orgId, {
+      defaultProjectSettings: {
+        allowGuestAccess: true,
+        requireApprovalToJoin: true,
+      },
+    });
+
+    const allowedRead = await request(app)
+      .get(`/api/tasks/project/${projectId}`)
+      .set('Cookie', [`jwt=${guestToken}`]);
+    expect(allowedRead.status).toBe(200);
+    expect(allowedRead.body.map((item: any) => item._id)).toContain(task._id.toString());
+
+    const createRes = await request(app)
+      .post('/api/tasks')
+      .set('Cookie', [`jwt=${guestToken}`])
+      .send({ title: 'Guest task', projectId, orgId });
+    expect(createRes.status).toBe(403);
+
+    const updateRes = await request(app)
+      .put(`/api/tasks/${task._id}`)
+      .set('Cookie', [`jwt=${guestToken}`])
+      .send({ title: 'Guest edit' });
+    expect(updateRes.status).toBe(403);
+
+    const subtaskRes = await request(app)
+      .post(`/api/tasks/${task._id}/subtasks`)
+      .set('Cookie', [`jwt=${guestToken}`])
+      .send({ title: 'Guest subtask' });
+    expect(subtaskRes.status).toBe(403);
+
+    const deleteRes = await request(app)
+      .delete(`/api/tasks/${task._id}`)
+      .set('Cookie', [`jwt=${guestToken}`]);
+    expect(deleteRes.status).toBe(403);
+  });
+
   it('should update task status', async () => {
     const task = await Task.create({
       title: 'Update Me',

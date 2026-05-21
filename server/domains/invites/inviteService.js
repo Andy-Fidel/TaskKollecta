@@ -2,9 +2,28 @@ const Invite = require('../../models/Invite');
 const Membership = require('../../models/Membership');
 const Organization = require('../../models/Organization');
 const User = require('../../models/User');
+const ProductEvent = require('../../models/ProductEvent');
 const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');
 const { emitDomainEvent } = require('../shared/domainEvents');
+
+const INVITE_ROLES = ['admin', 'member', 'guest'];
+
+const validateInviteRole = (role) => {
+  if (!INVITE_ROLES.includes(role)) {
+    throw createDomainError(400, 'Invalid invite role');
+  }
+};
+
+const recordInviteEvent = async ({ userId, organizationId, eventName, metadata = {} }) => {
+  await ProductEvent.create({
+    user: userId,
+    organization: organizationId,
+    eventName,
+    source: 'team_admin',
+    metadata,
+  });
+};
 
 const ensureInvitePermission = async (userId, organizationId, message = 'Not authorized to invite') => {
   const membership = await ensureMembership(userId, organizationId, message);
@@ -50,6 +69,7 @@ const ensureInviteableEmail = async ({ email, organizationId }) => {
 
 const createInvite = async ({ body, user }) => {
   const { email, organizationId, role = 'member' } = body;
+  validateInviteRole(role);
   const organization = await ensureOrganizationExists(organizationId);
   await ensureInvitePermission(user._id, organizationId);
   await ensureInviteableEmail({ email, organizationId });
@@ -66,6 +86,12 @@ const createInvite = async ({ body, user }) => {
     orgName: organization.name,
     inviterName: user.name,
     token: invite.token,
+  });
+  await recordInviteEvent({
+    userId: user._id,
+    organizationId,
+    eventName: 'organization.invite_created',
+    metadata: { email, role },
   });
 
   return {
@@ -168,12 +194,48 @@ const cancelInvite = async ({ inviteId, userId }) => {
 
   invite.status = 'cancelled';
   await invite.save();
+  await recordInviteEvent({
+    userId,
+    organizationId: invite.organization,
+    eventName: 'organization.invite_cancelled',
+    metadata: { inviteId, email: invite.email, role: invite.role },
+  });
 
   return { message: 'Invite cancelled' };
 };
 
+const resendInvite = async ({ inviteId, userId }) => {
+  const invite = await Invite.findById(inviteId).populate('organization', 'name');
+  if (!invite) {
+    throw createDomainError(404, 'Invite not found');
+  }
+
+  await ensureInvitePermission(userId, invite.organization._id, 'Not authorized to resend this invite');
+
+  if (invite.status !== 'pending') {
+    throw createDomainError(400, 'Only pending invites can be resent');
+  }
+
+  const inviter = await User.findById(userId).select('name');
+  await emitDomainEvent('invite.created', {
+    email: invite.email,
+    orgName: invite.organization.name,
+    inviterName: inviter?.name || 'A team admin',
+    token: invite.token,
+  });
+  await recordInviteEvent({
+    userId,
+    organizationId: invite.organization._id,
+    eventName: 'organization.invite_resent',
+    metadata: { inviteId, email: invite.email, role: invite.role },
+  });
+
+  return { message: 'Invite resent' };
+};
+
 const createBulkInvites = async ({ body, user }) => {
   const { emails, organizationId, role = 'member' } = body;
+  validateInviteRole(role);
 
   if (!Array.isArray(emails) || emails.length === 0) {
     throw createDomainError(400, 'Please provide at least one email');
@@ -189,12 +251,9 @@ const createBulkInvites = async ({ body, user }) => {
   const sent = [];
   const failed = [];
 
-  for (const rawEmail of emails) {
-    const email = rawEmail.trim().toLowerCase();
-    if (!email) {
-      continue;
-    }
+  const normalizedEmails = [...new Set(emails.map((rawEmail) => rawEmail.trim().toLowerCase()).filter(Boolean))];
 
+  for (const email of normalizedEmails) {
     try {
       await ensureInviteableEmail({ email, organizationId });
 
@@ -210,6 +269,12 @@ const createBulkInvites = async ({ body, user }) => {
         orgName: organization.name,
         inviterName: user.name,
         token: invite.token,
+      });
+      await recordInviteEvent({
+        userId: user._id,
+        organizationId,
+        eventName: 'organization.invite_created',
+        metadata: { email, role, bulk: true },
       });
 
       sent.push({ email });
@@ -228,4 +293,5 @@ module.exports = {
   acceptInvite,
   getOrgInvites,
   cancelInvite,
+  resendInvite,
 };

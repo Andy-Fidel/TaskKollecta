@@ -471,9 +471,56 @@ const getProductAdoptionAnalytics = async (req, res) => {
   }
 };
 
+// @desc    Get recent team administration audit events
+// @route   GET /api/analytics/team-audit?orgId=...
+const getTeamAuditEvents = async (req, res) => {
+  try {
+    const { orgId } = req.query;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+
+    if (!orgId) {
+      return res.status(400).json({ message: 'orgId is required' });
+    }
+
+    const membership = await Membership.findOne({
+      user: req.user._id,
+      organization: orgId,
+    });
+    if (!membership || !['owner', 'admin'].includes(membership.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const events = await ProductEvent.find({
+      organization: orgId,
+      eventName: { $regex: /^organization\./ },
+    })
+      .populate('user', 'name email avatar')
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    res.json(events.map((event) => ({
+      _id: event._id,
+      eventName: event.eventName,
+      source: event.source,
+      metadata: event.metadata || {},
+      createdAt: event.createdAt,
+      actor: event.user ? {
+        _id: event.user._id,
+        name: event.user.name,
+        email: event.user.email,
+        avatar: event.user.avatar,
+      } : null,
+    })));
+  } catch (error) {
+    console.error('Team audit events error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getSprintAnalytics,
   getWorkloadAnalytics,
   recordProductEvent,
   getProductAdoptionAnalytics,
+  getTeamAuditEvents,
 };

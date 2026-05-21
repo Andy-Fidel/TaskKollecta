@@ -79,6 +79,22 @@ const cancelInvite = async (req, res) => {
 };
 
 /**
+ * @desc    Resend a pending invite
+ * @route   POST /api/invites/:id/resend
+ */
+const resendInvite = async (req, res) => {
+    try {
+        const result = await inviteService.resendInvite({
+            inviteId: req.params.id,
+            userId: req.user._id,
+        });
+        res.json(result);
+    } catch (error) {
+        handleDomainError(res, error);
+    }
+};
+
+/**
  * @desc    Bulk invite multiple emails at once
  * @route   POST /api/invites/bulk
  */
@@ -100,5 +116,6 @@ module.exports = {
     validateInvite,
     acceptInvite,
     getOrgInvites,
-    cancelInvite
+    cancelInvite,
+    resendInvite
 };

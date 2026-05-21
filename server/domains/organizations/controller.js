@@ -51,6 +51,7 @@ const updateOrganization = async (req, res) => {
     const updated = await organizationService.updateOrganization({
       organizationId: req.params.id,
       body: req.body,
+      actorUserId: req.user._id,
     });
     res.json(updated);
   } catch (error) {
@@ -65,6 +66,7 @@ const getOrgMembers = async (req, res) => {
     const members = await organizationService.getOrgMembers({
       organizationId: req.params.id,
       userId: req.user._id,
+      query: req.query,
     });
     res.json(members);
   } catch (error) {
@@ -81,6 +83,7 @@ const updateMemberRole = async (req, res) => {
       organizationId: req.params.id,
       userId: req.params.userId,
       role: req.body.role,
+      actorUserId: req.user._id,
     });
     res.json(membership);
   } catch (error) {
@@ -95,8 +98,25 @@ const addMember = async (req, res) => {
     const populated = await organizationService.addMember({
       organizationId: req.params.id,
       email: req.body.email,
+      actorUserId: req.user._id,
     });
     res.status(201).json(populated);
+  } catch (error) {
+    handleDomainError(res, error);
+  }
+};
+
+// @desc    Remove member from organization
+// @route   DELETE /api/organizations/:id/members/:userId
+// @access  Private (Owner/Admin)
+const removeMember = async (req, res) => {
+  try {
+    const result = await organizationService.removeMember({
+      organizationId: req.params.id,
+      userId: req.params.userId,
+      actorUserId: req.user._id,
+    });
+    res.json(result);
   } catch (error) {
     handleDomainError(res, error);
   }
@@ -143,8 +163,10 @@ const getJoinRequests = async (req, res) => {
 const resolveJoinRequest = async (req, res) => {
   try {
     const result = await organizationService.resolveJoinRequest({
+      organizationId: req.params.id,
       requestId: req.params.requestId,
       action: req.body.action,
+      actorUserId: req.user._id,
     });
     res.json(result);
   } catch (error) {
@@ -163,5 +185,6 @@ module.exports = {
   requestToJoin,
   getJoinRequests,
   resolveJoinRequest,
-  updateMemberRole
+  updateMemberRole,
+  removeMember
 };

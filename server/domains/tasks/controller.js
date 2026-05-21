@@ -2,7 +2,24 @@ const Task = require('../../models/Task');
 const Project = require('../../models/Project');
 const taskService = require('./taskService');
 const { handleDomainError } = require('../shared/errors');
-const { ensureMembership } = require('../shared/access');
+
+const loadWritableTask = async (req) => {
+  const task = await Task.findById(req.params.id);
+  await taskService.requireTaskAccess(req.user._id, task, { write: true });
+  return task;
+};
+
+const ensureWritableTasks = async (userId, taskIds) => {
+  const tasks = await Task.find({ _id: { $in: taskIds } });
+  if (tasks.length !== taskIds.length) {
+    const error = new Error('One or more tasks were not found');
+    error.status = 404;
+    throw error;
+  }
+  for (const task of tasks) {
+    await taskService.requireTaskAccess(userId, task, { write: true });
+  }
+};
 
 // @desc    Create new task
 // @route   POST /api/tasks
@@ -58,7 +75,7 @@ const getMyTasks = async (req, res) => {
 
     res.status(200).json(tasks);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -108,6 +125,7 @@ const addAttachment = async (req, res) => {
       uploadedAt: new Date()
     };
 
+    await loadWritableTask(req);
     const task = await Task.findByIdAndUpdate(
       req.params.id,
       { $push: { attachments: attachment } },
@@ -121,7 +139,7 @@ const addAttachment = async (req, res) => {
     res.json(task);
   } catch (error) {
     console.error('addAttachment error:', error);
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -132,36 +150,37 @@ const addAttachment = async (req, res) => {
 // @route POST /api/tasks/:id/subtasks
 const addSubtask = async (req, res) => {
   try {
+    await loadWritableTask(req);
     const task = await Task.findByIdAndUpdate(
       req.params.id,
       { $push: { subtasks: { title: req.body.title, isCompleted: false } } },
       { new: true }
     );
     res.json(task);
-  } catch (error) { res.status(500).json({ message: error.message }); }
+  } catch (error) { handleDomainError(res, error); }
 };
 
 // @desc Toggle subtask
 // @route PUT /api/tasks/:id/subtasks/:subtaskId
 const toggleSubtask = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await loadWritableTask(req);
     const subtask = task.subtasks.id(req.params.subtaskId);
     subtask.isCompleted = !subtask.isCompleted;
     await task.save();
     res.json(task);
-  } catch (error) { res.status(500).json({ message: error.message }); }
+  } catch (error) { handleDomainError(res, error); }
 };
 
 // @desc Delete subtask
 // @route DELETE /api/tasks/:id/subtasks/:subtaskId
 const deleteSubtask = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await loadWritableTask(req);
     task.subtasks.pull(req.params.subtaskId);
     await task.save();
     res.json(task);
-  } catch (error) { res.status(500).json({ message: error.message }); }
+  } catch (error) { handleDomainError(res, error); }
 };
 
 // --- DEPENDENCY LOGIC ---
@@ -173,6 +192,7 @@ const addDependency = async (req, res) => {
   try {
     if (req.params.id === dependencyId) return res.status(400).json({ message: "Task cannot block itself" });
 
+    await loadWritableTask(req);
     const task = await Task.findByIdAndUpdate(
       req.params.id,
       { $addToSet: { dependencies: dependencyId } },
@@ -180,20 +200,21 @@ const addDependency = async (req, res) => {
     ).populate('dependencies', 'title status startDate dueDate');
 
     res.json(task);
-  } catch (error) { res.status(500).json({ message: error.message }); }
+  } catch (error) { handleDomainError(res, error); }
 };
 
 // @desc Remove dependency
 // @route DELETE /api/tasks/:id/dependencies/:dependencyId
 const removeDependency = async (req, res) => {
   try {
+    await loadWritableTask(req);
     const task = await Task.findByIdAndUpdate(
       req.params.id,
       { $pull: { dependencies: req.params.dependencyId } },
       { new: true }
     ).populate('dependencies', 'title status startDate dueDate');
     res.json(task);
-  } catch (error) { res.status(500).json({ message: error.message }); }
+  } catch (error) { handleDomainError(res, error); }
 };
 
 const updateTask = async (req, res) => {
@@ -215,7 +236,7 @@ const updateTask = async (req, res) => {
 // @route   PUT /api/tasks/:id/archive
 const toggleArchiveTask = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await loadWritableTask(req);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
     task.archived = !task.archived; // Toggle
@@ -223,7 +244,7 @@ const toggleArchiveTask = async (req, res) => {
 
     res.json(task);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -236,7 +257,7 @@ const addTag = async (req, res) => {
     const { name, color } = req.body;
     if (!name) return res.status(400).json({ message: 'Tag name is required' });
 
-    const task = await Task.findById(req.params.id);
+    const task = await loadWritableTask(req);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
     // Check if tag already exists
@@ -248,7 +269,7 @@ const addTag = async (req, res) => {
 
     res.json(task);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -256,7 +277,7 @@ const addTag = async (req, res) => {
 // @route DELETE /api/tasks/:id/tags/:tagId
 const removeTag = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await loadWritableTask(req);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
     task.tags.pull(req.params.tagId);
@@ -264,7 +285,7 @@ const removeTag = async (req, res) => {
 
     res.json(task);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -276,6 +297,7 @@ const setRecurrence = async (req, res) => {
   try {
     const { enabled, pattern, interval, daysOfWeek, endDate } = req.body;
 
+    await loadWritableTask(req);
     const task = await Task.findByIdAndUpdate(
       req.params.id,
       {
@@ -296,7 +318,7 @@ const setRecurrence = async (req, res) => {
 
     res.json(task);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -304,6 +326,7 @@ const setRecurrence = async (req, res) => {
 // @route DELETE /api/tasks/:id/recurrence
 const removeRecurrence = async (req, res) => {
   try {
+    await loadWritableTask(req);
     const task = await Task.findByIdAndUpdate(
       req.params.id,
       {
@@ -324,7 +347,7 @@ const removeRecurrence = async (req, res) => {
 
     res.json(task);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -332,6 +355,7 @@ const removeRecurrence = async (req, res) => {
 // @route   DELETE /api/tasks/:id/attachments/:attachmentId
 const deleteAttachment = async (req, res) => {
   try {
+    await loadWritableTask(req);
     const task = await Task.findByIdAndUpdate(
       req.params.id,
       { $pull: { attachments: { _id: req.params.attachmentId } } },
@@ -345,7 +369,7 @@ const deleteAttachment = async (req, res) => {
     res.json(task);
   } catch (error) {
     console.error('deleteAttachment error:', error);
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -370,6 +394,7 @@ const bulkUpdateTasks = async (req, res) => {
       return res.status(400).json({ message: 'No valid update fields provided' });
     }
 
+    await ensureWritableTasks(req.user._id, taskIds);
     await Task.updateMany(
       { _id: { $in: taskIds } },
       { $set: updateData }
@@ -382,7 +407,7 @@ const bulkUpdateTasks = async (req, res) => {
     res.status(200).json(updatedTasks);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -395,11 +420,12 @@ const bulkDeleteTasks = async (req, res) => {
       return res.status(400).json({ message: 'taskIds array is required' });
     }
 
+    await ensureWritableTasks(req.user._id, taskIds);
     await Task.deleteMany({ _id: { $in: taskIds } });
     res.status(200).json({ message: `${taskIds.length} tasks deleted` });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -407,7 +433,7 @@ const bulkDeleteTasks = async (req, res) => {
 // @route   POST /api/tasks/:id/children
 const createChildTask = async (req, res) => {
   try {
-    const parentTask = await Task.findById(req.params.id);
+    const parentTask = await loadWritableTask(req);
     if (!parentTask) return res.status(404).json({ message: 'Parent task not found' });
 
     const { title, description, priority, assignee, dueDate } = req.body;
@@ -427,7 +453,7 @@ const createChildTask = async (req, res) => {
     const populated = await child.populate('assignee', 'name avatar email');
     res.status(201).json(populated);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -440,7 +466,7 @@ const getChildTasks = async (req, res) => {
       .sort({ createdAt: -1 });
     res.json(children);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -448,10 +474,8 @@ const getChildTasks = async (req, res) => {
 // @route POST /api/tasks/:id/projects
 const addTaskToProject = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await loadWritableTask(req);
     if (!task) return res.status(404).json({ message: 'Task not found' });
-
-    await ensureMembership(req.user._id, task.organization);
 
     const project = await Project.findById(req.body.projectId);
     if (!project) return res.status(404).json({ message: 'Project not found' });
@@ -474,7 +498,7 @@ const addTaskToProject = async (req, res) => {
       .populate('projectMemberships.project', 'name color');
     res.json(updated);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 
@@ -482,10 +506,8 @@ const addTaskToProject = async (req, res) => {
 // @route DELETE /api/tasks/:id/projects/:projectId
 const removeTaskFromProject = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await loadWritableTask(req);
     if (!task) return res.status(404).json({ message: 'Task not found' });
-
-    await ensureMembership(req.user._id, task.organization);
 
     if (task.project.toString() === req.params.projectId) {
       return res.status(400).json({ message: 'Cannot remove the primary project from a task' });
@@ -502,7 +524,7 @@ const removeTaskFromProject = async (req, res) => {
       .populate('projectMemberships.project', 'name color');
     res.json(updated);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleDomainError(res, error);
   }
 };
 

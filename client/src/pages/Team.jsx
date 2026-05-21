@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
-import { Mail, Plus, Shield, User, Building2, Search, Check, X, MoreHorizontal, Settings, Globe, Camera, Loader2, Save } from 'lucide-react';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { Mail, Plus, Shield, User, Building2, Search, Check, X, MoreHorizontal, Settings, Globe, Camera, Loader2, Save, Trash2, Send, Clock, History } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,19 @@ const ROLE_COLORS = {
     guest: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400'
 };
 
+const AUDIT_LABELS = {
+    'organization.settings_updated': 'Organization settings updated',
+    'organization.member_role_updated': 'Member role updated',
+    'organization.member_added': 'Member added',
+    'organization.member_removed': 'Member removed',
+    'organization.member_joined': 'Member joined',
+    'organization.join_request_approved': 'Join request approved',
+    'organization.join_request_rejected': 'Join request rejected',
+    'organization.invite_created': 'Invite sent',
+    'organization.invite_cancelled': 'Invite cancelled',
+    'organization.invite_resent': 'Invite resent',
+};
+
 export default function Team() {
     const { user } = useAuth();
     const [members, setMembers] = useState([]);
@@ -37,8 +50,13 @@ export default function Team() {
 
     // States for Join/Search
     const [searchQuery, setSearchQuery] = useState('');
+    const [memberQuery, setMemberQuery] = useState('');
+    const [memberRoleFilter, setMemberRoleFilter] = useState('all');
+    const [memberSort, setMemberSort] = useState('name');
     const [searchResults, setSearchResults] = useState([]);
     const [pendingRequests, setPendingRequests] = useState([]);
+    const [pendingInvites, setPendingInvites] = useState([]);
+    const [auditEvents, setAuditEvents] = useState([]);
 
     // Modals
     const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -48,6 +66,7 @@ export default function Team() {
     // Forms
     const [inviteEmails, setInviteEmails] = useState([]);
     const [inviteInput, setInviteInput] = useState('');
+    const [inviteRole, setInviteRole] = useState('member');
     const [inviteSending, setInviteSending] = useState(false);
     const [newOrgName, setNewOrgName] = useState('');
 
@@ -58,8 +77,19 @@ export default function Team() {
     const logoInputRef = useRef(null);
 
     // Check permissions
-    const currentUserRole = members.find(m => m.user._id === user?._id)?.role;
+    const currentUserRole = members.find(m => m.user._id === user?._id)?.role || orgs.find(o => o._id === selectedOrgId)?.role;
     const canManage = ['owner', 'admin'].includes(currentUserRole);
+
+    const fetchMembers = useCallback(async () => {
+        if (!selectedOrgId) return;
+        const params = new URLSearchParams();
+        if (memberQuery.trim()) params.set('q', memberQuery.trim());
+        if (memberRoleFilter !== 'all') params.set('role', memberRoleFilter);
+        params.set('sort', memberSort);
+        const queryString = params.toString();
+        const { data } = await api.get(`/organizations/${selectedOrgId}/members${queryString ? `?${queryString}` : ''}`);
+        setMembers(data);
+    }, [selectedOrgId, memberQuery, memberRoleFilter, memberSort]);
 
     // 1. Fetch Orgs
     useEffect(() => {
@@ -87,10 +117,15 @@ export default function Team() {
     useEffect(() => {
         if (!selectedOrgId) return;
 
-        api.get(`/organizations/${selectedOrgId}/members`).then(({ data }) => setMembers(data));
         api.get(`/organizations/${selectedOrgId}/requests`)
             .then(({ data }) => setPendingRequests(data))
             .catch(() => setPendingRequests([]));
+        api.get(`/invites/org/${selectedOrgId}`)
+            .then(({ data }) => setPendingInvites(data))
+            .catch(() => setPendingInvites([]));
+        api.get(`/analytics/team-audit?orgId=${selectedOrgId}`)
+            .then(({ data }) => setAuditEvents(data))
+            .catch(() => setAuditEvents([]));
 
         // Fetch detailed org info for settings
         api.get(`/organizations/${selectedOrgId}`)
@@ -108,12 +143,30 @@ export default function Team() {
             .catch(() => setOrgSettings(null));
     }, [selectedOrgId]);
 
+    useEffect(() => {
+        if (!selectedOrgId) return;
+        const timeout = setTimeout(() => {
+            fetchMembers().catch(() => setMembers([]));
+        }, 250);
+        return () => clearTimeout(timeout);
+    }, [selectedOrgId, fetchMembers]);
+
     // --- ACTIONS ---
     const handleSearch = async (e) => {
         e.preventDefault();
         if (!searchQuery) return;
         const { data } = await api.get(`/organizations/search?query=${searchQuery}`);
         setSearchResults(data);
+    };
+
+    const refreshAuditEvents = async () => {
+        if (!selectedOrgId) return;
+        try {
+            const { data } = await api.get(`/analytics/team-audit?orgId=${selectedOrgId}`);
+            setAuditEvents(data);
+        } catch {
+            setAuditEvents([]);
+        }
     };
 
     const handleRequestJoin = async (orgId) => {
@@ -132,9 +185,9 @@ export default function Team() {
             setPendingRequests(prev => prev.filter(r => r._id !== requestId));
             toast.success(action === 'accept' ? "User accepted!" : "Request rejected");
             if (action === 'accept') {
-                const { data } = await api.get(`/organizations/${selectedOrgId}/members`);
-                setMembers(data);
+                fetchMembers();
             }
+            refreshAuditEvents();
         } catch {
             toast.error("Action failed");
         }
@@ -145,8 +198,45 @@ export default function Team() {
             const { data } = await api.put(`/organizations/${selectedOrgId}/members/${userId}`, { role: newRole });
             setMembers(prev => prev.map(m => m.user._id === userId ? { ...m, role: data.role } : m));
             toast.success(`Role updated to ${newRole}`);
+            fetchMembers();
+            refreshAuditEvents();
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to update role");
+        }
+    };
+
+    const handleRemoveMember = async (member) => {
+        const confirmed = window.confirm(`Remove ${member.user.name} from ${selectedOrg?.name}? They will lose access to this organization.`);
+        if (!confirmed) return;
+
+        try {
+            await api.delete(`/organizations/${selectedOrgId}/members/${member.user._id}`);
+            setMembers(prev => prev.filter(m => m.user._id !== member.user._id));
+            toast.success(`${member.user.name} removed from the organization`);
+            refreshAuditEvents();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to remove member');
+        }
+    };
+
+    const handleCancelInvite = async (inviteId) => {
+        try {
+            await api.delete(`/invites/${inviteId}`);
+            setPendingInvites(prev => prev.filter(invite => invite._id !== inviteId));
+            toast.success('Invite cancelled');
+            refreshAuditEvents();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to cancel invite');
+        }
+    };
+
+    const handleResendInvite = async (inviteId) => {
+        try {
+            await api.post(`/invites/${inviteId}/resend`);
+            toast.success('Invite resent');
+            refreshAuditEvents();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to resend invite');
         }
     };
 
@@ -180,7 +270,7 @@ export default function Team() {
         if (all.length === 0) { toast.error('Add at least one email'); return; }
         setInviteSending(true);
         try {
-            const { data } = await api.post('/invites/bulk', { emails: all, organizationId: selectedOrgId });
+            const { data } = await api.post('/invites/bulk', { emails: all, organizationId: selectedOrgId, role: inviteRole });
             const sentCount = data.sent?.length || 0;
             const failedCount = data.failed?.length || 0;
             if (sentCount > 0) toast.success(`${sentCount} invite${sentCount > 1 ? 's' : ''} sent!`);
@@ -191,6 +281,10 @@ export default function Team() {
             setIsInviteOpen(false);
             setInviteEmails([]);
             setInviteInput('');
+            setInviteRole('member');
+            const { data: invites } = await api.get(`/invites/org/${selectedOrgId}`);
+            setPendingInvites(invites);
+            refreshAuditEvents();
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to send invites');
         } finally {
@@ -233,6 +327,7 @@ export default function Team() {
             const updated = await api.put(`/organizations/${selectedOrgId}`, orgSettings);
             setOrgs(prev => prev.map(o => o._id === selectedOrgId ? { ...o, name: updated.data.name, logo: updated.data.logo } : o));
             toast.success('Organization settings saved!');
+            refreshAuditEvents();
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to save settings');
         } finally {
@@ -241,6 +336,10 @@ export default function Team() {
     };
 
     const selectedOrg = orgs.find(o => o._id === selectedOrgId);
+    const memberRoleCounts = members.reduce((counts, membership) => {
+        counts[membership.role] = (counts[membership.role] || 0) + 1;
+        return counts;
+    }, {});
 
     if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
 
@@ -324,17 +423,61 @@ export default function Team() {
             <Tabs defaultValue="members" className="w-full">
                 <TabsList className="h-10 rounded-xl">
                     <TabsTrigger value="members" className="rounded-lg">Members ({members.length})</TabsTrigger>
+                    {canManage && <TabsTrigger value="invites" className="rounded-lg">Invites {pendingInvites.length > 0 && <Badge className="ml-1.5 h-4 px-1.5 text-[10px]">{pendingInvites.length}</Badge>}</TabsTrigger>}
                     {canManage && <TabsTrigger value="requests" className="rounded-lg">Requests {pendingRequests.length > 0 && <Badge className="ml-1.5 h-4 px-1.5 text-[10px]">{pendingRequests.length}</Badge>}</TabsTrigger>}
+                    {canManage && <TabsTrigger value="activity" className="rounded-lg"><History className="w-3.5 h-3.5 mr-1.5" />Activity</TabsTrigger>}
                     {canManage && <TabsTrigger value="settings" className="rounded-lg"><Settings className="w-3.5 h-3.5 mr-1.5" />Settings</TabsTrigger>}
                 </TabsList>
 
                 {/* --- MEMBERS TAB --- */}
                 <TabsContent value="members">
-                    <Card className="rounded-2xl shadow-sm">
-                        <CardContent className="pt-6">
-                            <div className="space-y-3">
-                                {members.map((m) => (
-                                    <div key={m._id} className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-muted/30 transition-colors group">
+                        <Card className="rounded-2xl shadow-sm">
+                            <CardContent className="pt-6">
+                                <div className="grid gap-3 mb-4 lg:grid-cols-[1fr_150px_180px]">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            value={memberQuery}
+                                            onChange={e => setMemberQuery(e.target.value)}
+                                            placeholder="Search members by name or email"
+                                            className="pl-9"
+                                        />
+                                    </div>
+                                    <Select value={memberRoleFilter} onValueChange={setMemberRoleFilter}>
+                                        <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All roles</SelectItem>
+                                            <SelectItem value="owner">Owner</SelectItem>
+                                            <SelectItem value="admin">Admin</SelectItem>
+                                            <SelectItem value="member">Member</SelectItem>
+                                            <SelectItem value="guest">Guest</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={memberSort} onValueChange={setMemberSort}>
+                                        <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="name">Name A-Z</SelectItem>
+                                            <SelectItem value="name-desc">Name Z-A</SelectItem>
+                                            <SelectItem value="email">Email A-Z</SelectItem>
+                                            <SelectItem value="role">Role</SelectItem>
+                                            <SelectItem value="joinedAt-desc">Newest joined</SelectItem>
+                                            <SelectItem value="joinedAt">Oldest joined</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    {['owner', 'admin', 'member', 'guest'].map(role => (
+                                        <Badge key={role} variant="outline" className={`capitalize ${ROLE_COLORS[role]}`}>
+                                            {role}: {memberRoleCounts[role] || 0}
+                                        </Badge>
+                                    ))}
+                                </div>
+                                <div className="space-y-3">
+                                {members.map((m) => {
+                                    const canEditMember = canManage && m.role !== 'owner' && m.user._id !== user._id && (currentUserRole === 'owner' || m.role !== 'admin');
+                                    const canRemoveMember = canEditMember;
+                                    return (
+                                    <div key={m._id} className="flex items-center justify-between gap-3 p-4 rounded-xl border border-border hover:bg-muted/30 transition-colors group">
                                         <div className="flex items-center gap-4">
                                             <Avatar className="border border-border"><AvatarImage src={m.user.avatar} /><AvatarFallback className="font-bold text-sm">{m.user.name.charAt(0)}</AvatarFallback></Avatar>
                                             <div>
@@ -343,10 +486,11 @@ export default function Team() {
                                                     {m.user._id === user?._id && <Badge variant="outline" className="text-[10px] py-0">You</Badge>}
                                                 </div>
                                                 <p className="text-sm text-muted-foreground">{m.user.email}</p>
+                                                <p className="text-xs text-muted-foreground">Joined {new Date(m.createdAt).toLocaleDateString()}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            {(!canManage || m.role === 'owner' || m.user._id === user._id) ? (
+                                            {!canEditMember ? (
                                                 <Badge variant="secondary" className={`capitalize border text-xs ${ROLE_COLORS[m.role] || ROLE_COLORS.member}`}>{m.role}</Badge>
                                             ) : (
                                                 <Select defaultValue={m.role} onValueChange={(val) => handleUpdateRole(m.user._id, val)}>
@@ -354,19 +498,72 @@ export default function Team() {
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="admin">Admin</SelectItem>
+                                                        {currentUserRole === 'owner' && <SelectItem value="admin">Admin</SelectItem>}
                                                         <SelectItem value="member">Member</SelectItem>
                                                         <SelectItem value="guest">Guest</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             )}
+                                            {canRemoveMember && (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRemoveMember(m)}>
+                                                            <Trash2 className="mr-2 h-4 w-4" />Remove member
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
+                                )})}
+                                {members.length === 0 && (
+                                    <div className="text-center text-muted-foreground py-10 text-sm">No members match your search.</div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
+
+                {/* --- INVITES TAB (Admin Only) --- */}
+                {canManage && (
+                    <TabsContent value="invites">
+                        <Card className="rounded-2xl shadow-sm">
+                            <CardHeader><CardTitle className="text-base">Pending Invites</CardTitle><CardDescription>Track, resend, or cancel outstanding invitations.</CardDescription></CardHeader>
+                            <CardContent>
+                                {pendingInvites.length === 0 ? (
+                                    <div className="text-center text-muted-foreground py-10 text-sm">No pending invites.</div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {pendingInvites.map(invite => (
+                                            <div key={invite._id} className="flex flex-col gap-3 p-4 border rounded-xl sm:flex-row sm:items-center sm:justify-between">
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <h4 className="font-semibold truncate">{invite.email}</h4>
+                                                        <Badge variant="secondary" className={`capitalize border text-xs ${ROLE_COLORS[invite.role] || ROLE_COLORS.member}`}>{invite.role}</Badge>
+                                                    </div>
+                                                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                                                        <Clock className="h-3.5 w-3.5" />
+                                                        Expires {new Date(invite.expiresAt).toLocaleDateString()}
+                                                        {invite.invitedBy?.name ? ` · Invited by ${invite.invitedBy.name}` : ''}
+                                                    </p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <Button size="sm" variant="outline" className="rounded-xl" onClick={() => handleResendInvite(invite._id)}><Send className="w-4 h-4 mr-1" />Resend</Button>
+                                                    <Button size="sm" variant="destructive" className="rounded-xl" onClick={() => handleCancelInvite(invite._id)}><X className="w-4 h-4 mr-1" />Cancel</Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                )}
 
                 {/* --- REQUESTS TAB (Admin Only) --- */}
                 {canManage && (
@@ -390,6 +587,43 @@ export default function Team() {
                                                 <div className="flex gap-2">
                                                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 rounded-xl" onClick={() => handleResolveRequest(req._id, 'accept')}><Check className="w-4 h-4 mr-1" />Accept</Button>
                                                     <Button size="sm" variant="destructive" className="rounded-xl" onClick={() => handleResolveRequest(req._id, 'reject')}><X className="w-4 h-4 mr-1" />Reject</Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                )}
+
+                {/* --- ACTIVITY TAB (Admin Only) --- */}
+                {canManage && (
+                    <TabsContent value="activity">
+                        <Card className="rounded-2xl shadow-sm">
+                            <CardHeader><CardTitle className="text-base">Team Activity</CardTitle><CardDescription>Recent membership, invite, and settings changes.</CardDescription></CardHeader>
+                            <CardContent>
+                                {auditEvents.length === 0 ? (
+                                    <div className="text-center text-muted-foreground py-10 text-sm">No team activity recorded yet.</div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {auditEvents.map(event => (
+                                            <div key={event._id} className="flex items-start gap-3 p-4 border rounded-xl">
+                                                <Avatar className="h-9 w-9 border border-border">
+                                                    <AvatarImage src={event.actor?.avatar} />
+                                                    <AvatarFallback className="text-xs font-semibold">{event.actor?.name?.charAt(0) || '?'}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <p className="font-semibold text-sm">{AUDIT_LABELS[event.eventName] || event.eventName}</p>
+                                                        <span className="text-xs text-muted-foreground">{new Date(event.createdAt).toLocaleString()}</span>
+                                                    </div>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {event.actor?.name || event.actor?.email || 'System'}
+                                                        {event.metadata?.email ? ` · ${event.metadata.email}` : ''}
+                                                        {event.metadata?.role ? ` · ${event.metadata.role}` : ''}
+                                                        {event.metadata?.previousRole && event.metadata?.role ? ` · ${event.metadata.previousRole} to ${event.metadata.role}` : ''}
+                                                    </p>
                                                 </div>
                                             </div>
                                         ))}
@@ -579,6 +813,17 @@ export default function Team() {
                         <DialogDescription>Add multiple emails. Press Enter, Tab, or comma after each one.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleInvite} className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label>Invite as</Label>
+                            <Select value={inviteRole} onValueChange={setInviteRole}>
+                                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {currentUserRole === 'owner' && <SelectItem value="admin">Admin</SelectItem>}
+                                    <SelectItem value="member">Member</SelectItem>
+                                    <SelectItem value="guest">Guest</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="min-h-[48px] flex flex-wrap gap-1.5 p-2 border border-border rounded-xl bg-background focus-within:ring-2 focus-within:ring-ring">
                             {inviteEmails.map((email) => (
                                 <span key={email} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2.5 py-1 rounded-lg">

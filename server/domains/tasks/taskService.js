@@ -3,19 +3,31 @@ const Project = require('../../models/Project');
 const User = require('../../models/User');
 const Invite = require('../../models/Invite');
 const Membership = require('../../models/Membership');
+const Organization = require('../../models/Organization');
 const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');
 const { emitDomainEvent } = require('../shared/domainEvents');
 
 const TASK_UPDATE_FIELDS = ['title', 'description', 'status', 'priority', 'startDate', 'dueDate', 'assignee', 'index', 'isMilestone', 'customFieldValues'];
 
-const ensureProjectTaskAccess = async ({ userId, projectId }) => {
+const ensureProjectTaskAccess = async ({ userId, projectId, write = false }) => {
   const project = await Project.findById(projectId).select('organization privacy members lead');
   if (!project) {
     throw createDomainError(404, 'Project not found');
   }
 
   const membership = await ensureMembership(userId, project.organization);
+  if (membership.role === 'guest') {
+    if (write) {
+      throw createDomainError(403, 'Guests have read-only project access');
+    }
+
+    const organization = await Organization.findById(project.organization).select('defaultProjectSettings.allowGuestAccess');
+    if (organization?.defaultProjectSettings?.allowGuestAccess !== true) {
+      throw createDomainError(404, 'Project not found');
+    }
+  }
+
   const projectMember = project.members?.find((member) => member.user?.toString() === userId.toString());
   const canAccessPrivateProject = project.privacy !== 'private'
     || ['owner', 'admin'].includes(membership.role)
@@ -29,14 +41,18 @@ const ensureProjectTaskAccess = async ({ userId, projectId }) => {
   return project;
 };
 
-const requireTaskAccess = async (userId, task) => {
+const requireTaskAccess = async (userId, task, options = {}) => {
   if (!task) {
     throw createDomainError(404, 'Task not found');
   }
 
   const membership = await ensureMembership(userId, task.organization);
+  if (membership.role === 'guest' && options.write) {
+    throw createDomainError(403, 'Guests have read-only task access');
+  }
+
   if (task.project) {
-    await ensureProjectTaskAccess({ userId, projectId: task.project });
+    await ensureProjectTaskAccess({ userId, projectId: task.project, write: options.write });
   }
   return membership;
 };
@@ -44,7 +60,7 @@ const requireTaskAccess = async (userId, task) => {
 const createTask = async ({ body, user, io }) => {
   const { title, description, status, priority, startDate, dueDate, projectId, orgId, assignee, assigneeEmail, customFieldValues, index, subtasks, dependencies } = body;
 
-  const project = await ensureProjectTaskAccess({ userId: user._id, projectId });
+  const project = await ensureProjectTaskAccess({ userId: user._id, projectId, write: true });
   if (project.organization.toString() !== orgId.toString()) {
     throw createDomainError(400, 'Project does not belong to this organization');
   }
@@ -215,7 +231,7 @@ const getTask = async ({ taskId, userId }) => {
 
 const deleteTask = async ({ taskId, user, io }) => {
   const task = await Task.findById(taskId);
-  await requireTaskAccess(user._id, task);
+  await requireTaskAccess(user._id, task, { write: true });
 
   await Task.deleteOne({ _id: taskId });
   await emitDomainEvent('task.deleted', { io, user, task });
@@ -225,7 +241,7 @@ const deleteTask = async ({ taskId, user, io }) => {
 
 const updateTask = async ({ taskId, body, user, io }) => {
   const oldTask = await Task.findById(taskId).populate('dependencies');
-  await requireTaskAccess(user._id, oldTask);
+  await requireTaskAccess(user._id, oldTask, { write: true });
 
   if (body.status === 'done' && oldTask.dependencies.length > 0) {
     const incompleteDependencies = oldTask.dependencies.filter((dependency) => dependency.status !== 'done');
