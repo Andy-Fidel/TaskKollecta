@@ -114,4 +114,26 @@ describe('taskService', () => {
     expect(result.pagination.total).toBe(2);
     expect(result.pagination.hasMore).toBe(true);
   });
+
+  it('updates and returns baseline planning fields', async () => {
+    const task = await Task.create({
+      title: 'Baseline task',
+      project: project._id,
+      organization: org._id,
+      reporter: user._id,
+    });
+
+    const updated = await taskService.updateTask({
+      taskId: task._id.toString(),
+      body: {
+        plannedStartDate: '2026-06-02T00:00:00.000Z',
+        plannedDueDate: '2026-06-05T23:59:59.999Z',
+      },
+      user,
+      io: { to: vi.fn(() => ({ emit: vi.fn() })) },
+    });
+
+    expect(updated.plannedStartDate.toISOString()).toBe('2026-06-02T00:00:00.000Z');
+    expect(updated.plannedDueDate.toISOString()).toBe('2026-06-05T23:59:59.999Z');
+  });
 });

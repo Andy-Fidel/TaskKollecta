@@ -119,10 +119,12 @@ export function buildTaskExportData(tasks, customFields = [], statusOptions = []
  * Build Gantt-specific export data.
  */
 export function buildGanttExportData(tasks) {
-  const headers = ['Task', 'Project', 'Status', 'Priority', 'Start Date', 'Due Date', 'Duration (days)'];
+  const headers = ['Task', 'Project', 'Status', 'Priority', 'Start Date', 'Due Date', 'Duration (days)', 'Baseline Start', 'Baseline Due'];
   const rows = tasks.map(t => {
     const start = t.startDate ? new Date(t.startDate) : null;
     const end = t.dueDate ? new Date(t.dueDate) : null;
+    const plannedStart = t.plannedStartDate ? new Date(t.plannedStartDate) : null;
+    const plannedEnd = t.plannedDueDate ? new Date(t.plannedDueDate) : null;
     const duration = start && end ? Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24))) : '';
     return [
       t.title || t.name || '',
@@ -132,6 +134,8 @@ export function buildGanttExportData(tasks) {
       start ? start.toLocaleDateString() : '',
       end ? end.toLocaleDateString() : '',
       String(duration),
+      plannedStart ? plannedStart.toLocaleDateString() : '',
+      plannedEnd ? plannedEnd.toLocaleDateString() : '',
     ];
   });
   return { headers, rows };

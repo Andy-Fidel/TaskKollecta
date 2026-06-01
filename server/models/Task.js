@@ -19,6 +19,8 @@ const taskSchema = new mongoose.Schema({
   },
   dueDate: { type: Date },
   startDate: { type: Date },
+  plannedStartDate: { type: Date },
+  plannedDueDate: { type: Date },
   index: { type: Number, default: 0 },
 
   // RELATIONS

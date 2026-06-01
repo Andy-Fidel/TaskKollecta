@@ -69,7 +69,7 @@ const getMyTasks = async (req, res) => {
     const tasks = await Task.find(query)
       .populate('assignee', 'name email avatar')
       .populate('project', 'name')
-      .populate('dependencies', 'title status startDate dueDate')
+      .populate('dependencies', 'title status startDate dueDate plannedStartDate plannedDueDate')
       .populate('projectMemberships.project', 'name color')
       .sort({ dueDate: 1 });
 
@@ -197,7 +197,7 @@ const addDependency = async (req, res) => {
       req.params.id,
       { $addToSet: { dependencies: dependencyId } },
       { new: true }
-    ).populate('dependencies', 'title status startDate dueDate');
+    ).populate('dependencies', 'title status startDate dueDate plannedStartDate plannedDueDate');
 
     res.json(task);
   } catch (error) { handleDomainError(res, error); }
@@ -212,7 +212,7 @@ const removeDependency = async (req, res) => {
       req.params.id,
       { $pull: { dependencies: req.params.dependencyId } },
       { new: true }
-    ).populate('dependencies', 'title status startDate dueDate');
+    ).populate('dependencies', 'title status startDate dueDate plannedStartDate plannedDueDate');
     res.json(task);
   } catch (error) { handleDomainError(res, error); }
 };
@@ -382,7 +382,7 @@ const bulkUpdateTasks = async (req, res) => {
       return res.status(400).json({ message: 'taskIds array is required' });
     }
 
-    const allowedFields = ['status', 'priority', 'assignee', 'startDate', 'dueDate', 'customFieldValues'];
+    const allowedFields = ['status', 'priority', 'assignee', 'startDate', 'dueDate', 'plannedStartDate', 'plannedDueDate', 'customFieldValues'];
     const updateData = {};
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
@@ -402,7 +402,7 @@ const bulkUpdateTasks = async (req, res) => {
 
     const updatedTasks = await Task.find({ _id: { $in: taskIds } })
       .populate('assignee', 'name avatar')
-      .populate('dependencies', 'title status startDate dueDate');
+      .populate('dependencies', 'title status startDate dueDate plannedStartDate plannedDueDate');
 
     res.status(200).json(updatedTasks);
   } catch (error) {

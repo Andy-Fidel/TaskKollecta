@@ -8,7 +8,7 @@ const { createDomainError } = require('../shared/errors');
 const { ensureMembership } = require('../shared/access');
 const { emitDomainEvent } = require('../shared/domainEvents');
 
-const TASK_UPDATE_FIELDS = ['title', 'description', 'status', 'priority', 'startDate', 'dueDate', 'assignee', 'index', 'isMilestone', 'customFieldValues'];
+const TASK_UPDATE_FIELDS = ['title', 'description', 'status', 'priority', 'startDate', 'dueDate', 'plannedStartDate', 'plannedDueDate', 'assignee', 'index', 'isMilestone', 'customFieldValues'];
 
 const ensureProjectTaskAccess = async ({ userId, projectId, write = false }) => {
   const project = await Project.findById(projectId).select('organization privacy members lead');
@@ -161,7 +161,7 @@ const createTask = async ({ body, user, io }) => {
 
   const populatedTask = await Task.findById(task._id)
     .populate('assignee', 'name email avatar')
-    .populate('dependencies', 'title status startDate dueDate')
+    .populate('dependencies', 'title status startDate dueDate plannedStartDate plannedDueDate')
     .populate('project', 'name')
     .populate('projectMemberships.project', 'name color');
 
@@ -194,7 +194,8 @@ const getProjectTasks = async ({ projectId, userId, query }) => {
     const total = await Task.countDocuments(filters);
     const tasks = await Task.find(filters)
       .populate('assignee', 'name avatar')
-      .populate('dependencies', 'title status startDate dueDate')
+      .populate('dependencies', 'title status startDate dueDate plannedStartDate plannedDueDate')
+      .populate('project', 'name')
       .populate('projectMemberships.project', 'name color')
       .sort({ index: 1 })
       .skip(page * limit)
@@ -214,7 +215,8 @@ const getProjectTasks = async ({ projectId, userId, query }) => {
 
   return Task.find(filters)
     .populate('assignee', 'name avatar')
-    .populate('dependencies', 'title status startDate dueDate')
+    .populate('dependencies', 'title status startDate dueDate plannedStartDate plannedDueDate')
+    .populate('project', 'name')
     .populate('projectMemberships.project', 'name color')
     .sort({ index: 1 });
 };
@@ -222,7 +224,8 @@ const getProjectTasks = async ({ projectId, userId, query }) => {
 const getTask = async ({ taskId, userId }) => {
   const task = await Task.findById(taskId)
     .populate('assignee', 'name avatar')
-    .populate('dependencies', 'title status startDate dueDate')
+    .populate('dependencies', 'title status startDate dueDate plannedStartDate plannedDueDate')
+    .populate('project', 'name')
     .populate('projectMemberships.project', 'name color');
 
   await requireTaskAccess(userId, task);
@@ -260,7 +263,7 @@ const updateTask = async ({ taskId, body, user, io }) => {
   }
 
   const updatedTask = await Task.findByIdAndUpdate(taskId, updateData, { new: true })
-    .populate('dependencies', 'title status startDate dueDate')
+    .populate('dependencies', 'title status startDate dueDate plannedStartDate plannedDueDate')
     .populate('assignee', 'name avatar')
     .populate('project', 'name')
     .populate('projectMemberships.project', 'name color');
