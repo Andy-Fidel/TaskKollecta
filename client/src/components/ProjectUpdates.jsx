@@ -24,25 +24,25 @@ export function ProjectUpdates({ projectId }) {
   };
 
   const statusConfig = {
-    'on-track': { color: 'bg-green-100 text-green-700', icon: CheckCircle2, label: 'On Track' },
-    'at-risk': { color: 'bg-yellow-100 text-yellow-700', icon: AlertCircle, label: 'At Risk' },
-    'off-track': { color: 'bg-red-100 text-red-700', icon: XCircle, label: 'Off Track' },
+    'on-track': { color: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400', icon: CheckCircle2, label: 'On Track' },
+    'at-risk': { color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400', icon: AlertCircle, label: 'At Risk' },
+    'off-track': { color: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400', icon: XCircle, label: 'Off Track' },
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 p-4">
       {/* Composer */}
-      <Card className="border border-white/60 shadow-sm rounded-2xl p-4">
-         <h3 className="text-sm font-bold text-slate-700 mb-3">Post a Status Update</h3>
+      <Card className="border border-border shadow-sm rounded-2xl p-4">
+         <h3 className="text-sm font-bold text-foreground mb-3">Post a Status Update</h3>
          <div className="flex gap-4 mb-4">
             <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger className="w-[180px]">
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="on-track"><span className="flex items-center text-green-600"><CheckCircle2 className="w-4 h-4 mr-2"/> On Track</span></SelectItem>
+                    <SelectItem value="on-track"><span className="flex items-center text-green-600 dark:text-green-400"><CheckCircle2 className="w-4 h-4 mr-2"/> On Track</span></SelectItem>
                     <SelectItem value="at-risk"><span className="flex items-center text-yellow-600"><AlertCircle className="w-4 h-4 mr-2"/> At Risk</span></SelectItem>
-                    <SelectItem value="off-track"><span className="flex items-center text-red-600"><XCircle className="w-4 h-4 mr-2"/> Off Track</span></SelectItem>
+                    <SelectItem value="off-track"><span className="flex items-center text-red-600 dark:text-red-400"><XCircle className="w-4 h-4 mr-2"/> Off Track</span></SelectItem>
                 </SelectContent>
             </Select>
          </div>
@@ -50,10 +50,10 @@ export function ProjectUpdates({ projectId }) {
             placeholder="How is the project going?" 
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            className="mb-4 bg-slate-50"
+            className="mb-4 bg-background"
          />
          <div className="flex justify-end">
-            <Button onClick={postUpdate} className="bg-slate-900"><Send className="w-4 h-4 mr-2"/> Post Update</Button>
+            <Button onClick={postUpdate}><Send className="w-4 h-4 mr-2"/> Post Update</Button>
          </div>
       </Card>
 
@@ -63,23 +63,23 @@ export function ProjectUpdates({ projectId }) {
            const Config = statusConfig[u.status];
            const Icon = Config.icon;
            return (
-             <Card key={u._id} className="border border-white/60 shadow-sm rounded-2xl p-6">
+             <Card key={u._id} className="border border-border shadow-sm rounded-2xl p-6">
                 <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 border border-white shadow-sm">
+                        <Avatar className="h-10 w-10 border border-border shadow-sm">
                             <AvatarImage src={u.author.avatar} />
                             <AvatarFallback>{u.author.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <h4 className="font-bold text-slate-900">{u.author.name}</h4>
-                            <p className="text-xs text-slate-500">{format(new Date(u.createdAt), "PPP 'at' p")}</p>
+                            <h4 className="font-bold text-foreground">{u.author.name}</h4>
+                            <p className="text-xs text-muted-foreground">{format(new Date(u.createdAt), "PPP 'at' p")}</p>
                         </div>
                     </div>
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${Config.color}`}>
                         <Icon className="w-4 h-4" /> {Config.label}
                     </div>
                 </div>
-                <div className="pl-14 text-slate-600 text-sm whitespace-pre-wrap">{u.message}</div>
+                <div className="pl-14 text-muted-foreground text-sm whitespace-pre-wrap">{u.message}</div>
              </Card>
            )
         })}

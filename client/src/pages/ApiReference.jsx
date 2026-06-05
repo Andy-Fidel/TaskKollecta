@@ -13,7 +13,7 @@ const ENDPOINT_GROUPS = [
   {
     name: 'Authentication',
     icon: Shield,
-    color: 'bg-red-100 text-red-600',
+    color: 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400',
     base: '/api/users',
     endpoints: [
       { method: 'POST', path: '/register', desc: 'Create a new user account', auth: false },
@@ -27,7 +27,7 @@ const ENDPOINT_GROUPS = [
   {
     name: 'Organizations',
     icon: Users,
-    color: 'bg-violet-100 text-violet-600',
+    color: 'bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400',
     base: '/api/organizations',
     endpoints: [
       { method: 'POST', path: '/', desc: 'Create a new organization', auth: true },
@@ -41,7 +41,7 @@ const ENDPOINT_GROUPS = [
   {
     name: 'Projects',
     icon: FolderKanban,
-    color: 'bg-blue-100 text-blue-600',
+    color: 'bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400',
     base: '/api/projects',
     endpoints: [
       { method: 'GET', path: '/', desc: 'List projects for current organization', auth: true },
@@ -55,7 +55,7 @@ const ENDPOINT_GROUPS = [
   {
     name: 'Tasks',
     icon: ListTodo,
-    color: 'bg-green-100 text-green-600',
+    color: 'bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400',
     base: '/api/tasks',
     endpoints: [
       { method: 'GET', path: '/', desc: 'List tasks (filter by project, status, assignee)', auth: true },
@@ -73,7 +73,7 @@ const ENDPOINT_GROUPS = [
   {
     name: 'Comments',
     icon: MessageSquare,
-    color: 'bg-amber-100 text-amber-600',
+    color: 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400',
     base: '/api/comments',
     endpoints: [
       { method: 'GET', path: '/:taskId', desc: 'Get all comments for a task', auth: true },
@@ -84,7 +84,7 @@ const ENDPOINT_GROUPS = [
   {
     name: 'Dashboard & Analytics',
     icon: BarChart3,
-    color: 'bg-teal-100 text-teal-600',
+    color: 'bg-teal-100 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400',
     base: '/api/dashboard',
     endpoints: [
       { method: 'GET', path: '/stats', desc: 'Get dashboard statistics and chart data', auth: true },
@@ -94,7 +94,7 @@ const ENDPOINT_GROUPS = [
   {
     name: 'AI',
     icon: Zap,
-    color: 'bg-indigo-100 text-indigo-600',
+    color: 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400',
     base: '/api/ai',
     endpoints: [
       { method: 'POST', path: '/breakdown', desc: 'Generate AI task breakdown from project name', auth: true },
@@ -104,7 +104,7 @@ const ENDPOINT_GROUPS = [
   {
     name: 'File Upload',
     icon: Upload,
-    color: 'bg-pink-100 text-pink-600',
+    color: 'bg-pink-100 dark:bg-pink-950/50 text-pink-600 dark:text-pink-400',
     base: '/api/upload',
     endpoints: [
       { method: 'POST', path: '/', desc: 'Upload a file (images, PDFs, docs, spreadsheets, zip)', auth: true },
@@ -113,7 +113,7 @@ const ENDPOINT_GROUPS = [
   {
     name: 'Notifications',
     icon: Bell,
-    color: 'bg-orange-100 text-orange-600',
+    color: 'bg-orange-100 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400',
     base: '/api/notifications',
     endpoints: [
       { method: 'GET', path: '/', desc: 'List notifications for current user', auth: true },
@@ -126,10 +126,10 @@ const ENDPOINT_GROUPS = [
 ];
 
 const METHOD_COLORS = {
-  GET: 'bg-emerald-100 text-emerald-700',
-  POST: 'bg-blue-100 text-blue-700',
-  PUT: 'bg-amber-100 text-amber-700',
-  DELETE: 'bg-red-100 text-red-700',
+  GET: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300',
+  POST: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300',
+  PUT: 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300',
+  DELETE: 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300',
 };
 
 function CopyButton({ text }) {
@@ -140,8 +140,8 @@ function CopyButton({ text }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button onClick={handleCopy} className="p-1.5 rounded-md hover:bg-slate-200 transition-colors text-slate-400 hover:text-slate-600">
-      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+    <button onClick={handleCopy} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-muted-foreground">
+      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   );
 }
@@ -156,24 +156,24 @@ export default function ApiReference() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 font-[Poppins]">
+    <div className="min-h-screen bg-background font-[Poppins]">
 
       {/* --- STICKY NAV --- */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/60 shadow-sm">
+      <nav className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-xl border-b border-border/60 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center gap-2">
               <img src={tkLogo} alt="TaskKollecta" className="h-8 w-8 rounded-xl shadow-md object-contain" />
-              <span className="font-bold text-lg text-slate-900">TaskKollecta</span>
+              <span className="font-bold text-lg text-foreground">TaskKollecta</span>
             </Link>
-            <Badge className="bg-violet-100 text-violet-700 hover:bg-violet-100 font-mono text-xs">API</Badge>
+            <Badge className="bg-violet-100 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:bg-violet-950/50 font-mono text-xs">API</Badge>
           </div>
           <div className="flex items-center gap-4">
             <Link to="/docs">
-              <Button variant="ghost" size="sm" className="text-sm text-slate-600 hover:text-indigo-600">Documentation</Button>
+              <Button variant="ghost" size="sm" className="text-sm text-muted-foreground hover:text-indigo-600 dark:text-indigo-400">Documentation</Button>
             </Link>
             <Link to="/community">
-              <Button variant="ghost" size="sm" className="text-sm text-slate-600 hover:text-indigo-600">Community</Button>
+              <Button variant="ghost" size="sm" className="text-sm text-muted-foreground hover:text-indigo-600 dark:text-indigo-400">Community</Button>
             </Link>
             <Link to="/login">
               <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-800 rounded-full px-5 shadow-md">Get Started</Button>
@@ -186,14 +186,14 @@ export default function ApiReference() {
 
         {/* Hero */}
         <div className="mb-12">
-          <div className="flex items-center gap-2 text-sm text-violet-600 font-medium mb-4">
+          <div className="flex items-center gap-2 text-sm text-violet-600 dark:text-violet-400 font-medium mb-4">
             <Code2 className="w-4 h-4" />
             API Reference
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight mb-4">
+          <h1 className="text-4xl sm:text-5xl font-bold text-foreground tracking-tight mb-4">
             REST API
           </h1>
-          <p className="text-lg text-slate-500 max-w-2xl leading-relaxed">
+          <p className="text-lg text-muted-foreground max-w-2xl leading-relaxed">
             Build integrations and automate workflows using the TaskKollecta REST API. All endpoints require JWT authentication unless otherwise noted.
           </p>
         </div>
@@ -201,19 +201,19 @@ export default function ApiReference() {
         {/* Base URL */}
         <div className="bg-slate-900 text-slate-100 rounded-2xl p-5 mb-8 flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs text-slate-400 mb-1 font-mono">BASE URL</p>
+            <p className="text-xs text-muted-foreground mb-1 font-mono">BASE URL</p>
             <code className="text-sm sm:text-base font-mono text-emerald-400">https://api.taskkollecta.com</code>
           </div>
           <CopyButton text="https://api.taskkollecta.com" />
         </div>
 
         {/* Auth Info */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm mb-8">
-          <h2 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+        <div className="bg-card p-6 rounded-2xl border border-border shadow-sm mb-8">
+          <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
             <Shield className="w-5 h-5 text-red-500" /> Authentication
           </h2>
-          <p className="text-slate-600 text-sm mb-4">
-            Include the JWT token in the <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono">Authorization</code> header:
+          <p className="text-muted-foreground text-sm mb-4">
+            Include the JWT token in the <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">Authorization</code> header:
           </p>
           <div className="bg-slate-900 text-slate-100 rounded-xl p-4 font-mono text-sm overflow-x-auto flex items-center justify-between gap-2">
             <code>Authorization: Bearer {'<'}your_jwt_token{'>'}</code>
@@ -223,13 +223,13 @@ export default function ApiReference() {
 
         {/* Search */}
         <div className="relative mb-8">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search endpoints..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 bg-white rounded-xl text-sm border border-slate-200 outline-none text-slate-700 placeholder:text-slate-400 focus:ring-2 ring-indigo-200 transition-all shadow-sm"
+            className="w-full pl-11 pr-4 py-3 bg-card rounded-xl text-sm border border-border outline-none text-foreground placeholder:text-muted-foreground focus:ring-2 ring-ring/40 transition-all shadow-sm"
           />
         </div>
 
@@ -239,38 +239,38 @@ export default function ApiReference() {
             const Icon = group.icon;
             const isExpanded = expandedGroup === group.name;
             return (
-              <div key={group.name} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div key={group.name} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                 <button
                   onClick={() => setExpandedGroup(isExpanded ? '' : group.name)}
-                  className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors text-left"
+                  className="w-full flex items-center justify-between p-5 hover:bg-background transition-colors text-left"
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-xl ${group.color} flex items-center justify-center`}>
                       <Icon className="w-4.5 h-4.5" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-900">{group.name}</h3>
-                      <p className="text-xs text-slate-400 font-mono">{group.base}</p>
+                      <h3 className="font-semibold text-foreground">{group.name}</h3>
+                      <p className="text-xs text-muted-foreground font-mono">{group.base}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className="text-xs font-mono">{group.endpoints.length} endpoints</Badge>
-                    <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                    <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                   </div>
                 </button>
                 {isExpanded && (
-                  <div className="border-t border-slate-100 divide-y divide-slate-50">
+                  <div className="border-t border-border divide-y divide-slate-50">
                     {group.endpoints.map((ep, i) => (
-                      <div key={i} className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50/50 transition-colors">
+                      <div key={i} className="flex items-start gap-3 px-5 py-3.5 hover:bg-background/50 transition-colors">
                         <Badge className={`${METHOD_COLORS[ep.method]} font-mono text-[10px] mt-0.5 px-2 shrink-0 font-bold`}>
                           {ep.method}
                         </Badge>
                         <div className="flex-1 min-w-0">
-                          <code className="text-sm font-mono text-slate-800 break-all">{group.base}{ep.path}</code>
-                          <p className="text-xs text-slate-500 mt-0.5">{ep.desc}</p>
+                          <code className="text-sm font-mono text-foreground break-all">{group.base}{ep.path}</code>
+                          <p className="text-xs text-muted-foreground mt-0.5">{ep.desc}</p>
                         </div>
                         {ep.auth && (
-                          <Badge variant="outline" className="text-[10px] shrink-0 text-slate-400 mt-0.5">Auth</Badge>
+                          <Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground mt-0.5">Auth</Badge>
                         )}
                       </div>
                     ))}
@@ -282,8 +282,8 @@ export default function ApiReference() {
         </div>
 
         {/* Example Request */}
-        <div className="mt-12 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">Example: Create a Task</h2>
+        <div className="mt-12 bg-card p-6 rounded-2xl border border-border shadow-sm">
+          <h2 className="text-lg font-bold text-foreground mb-4">Example: Create a Task</h2>
           <div className="bg-slate-900 rounded-xl p-5 overflow-x-auto">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -317,9 +317,9 @@ export default function ApiReference() {
             </pre>
           </div>
 
-          <div className="mt-4 bg-slate-50 rounded-xl p-5 border border-slate-200/60">
-            <p className="text-xs text-slate-400 font-mono mb-2">Response 201</p>
-            <pre className="text-sm text-slate-700 font-mono whitespace-pre leading-relaxed">
+          <div className="mt-4 bg-background rounded-xl p-5 border border-border/60">
+            <p className="text-xs text-muted-foreground font-mono mb-2">Response 201</p>
+            <pre className="text-sm text-foreground font-mono whitespace-pre leading-relaxed">
 {`{
   "_id": "64ghi789...",
   "title": "Design landing page",
@@ -334,7 +334,7 @@ export default function ApiReference() {
         </div>
 
         {/* Rate Limits */}
-        <div className="mt-8 bg-amber-50 border border-amber-200 rounded-2xl p-6">
+        <div className="mt-8 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-6">
           <h3 className="font-semibold text-amber-900 mb-2">⚡ Rate Limits</h3>
           <ul className="text-sm text-amber-800 space-y-1.5">
             <li>• <strong>General API:</strong> 100 requests per 15 minutes</li>
@@ -350,7 +350,7 @@ export default function ApiReference() {
           <p className="text-slate-300 mb-6 max-w-md mx-auto">Get your API key and start integrating with TaskKollecta.</p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link to="/login">
-              <Button className="bg-white text-slate-900 hover:bg-slate-100 rounded-full px-6">Get API Key</Button>
+              <Button className="bg-card text-foreground hover:bg-muted rounded-full px-6">Get API Key</Button>
             </Link>
             <Link to="/docs">
               <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-800 rounded-full px-6">

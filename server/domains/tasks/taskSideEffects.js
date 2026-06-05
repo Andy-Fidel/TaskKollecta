@@ -8,12 +8,15 @@ const { logActivity } = require('../../utils/activityLogger');
 const runAutomations = require('../../utils/automationEngine');
 const { invalidateTaskCache } = require('../../utils/cacheUtils');
 
-const recordTaskCreated = async ({ io, user, task }) =>
-  logActivity({ io, user }, {
+const recordTaskCreated = async ({ io, user, task }) => {
+  await logActivity({ io, user }, {
     task,
     action: 'created',
     details: `created the task "${task.title}"`,
   });
+
+  await runAutomations(task.project, 'task_created', 'any', task, { io, actorId: user?._id });
+};
 
 const recordTaskDeleted = async ({ io, user, task }) =>
   logActivity({ io, user }, {
@@ -77,6 +80,19 @@ const runTaskUpdateAutomations = async ({ io, user, task, body }) => {
 
   if (body.priority) {
     runs.push(runAutomations(task.project, 'priority_change', body.priority, task, { io, actorId: user?._id }));
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'dueDate')) {
+    runs.push(runAutomations(task.project, body.dueDate ? 'due_date_set' : 'due_date_changed', body.dueDate ? 'set' : 'cleared', task, { io, actorId: user?._id }));
+    runs.push(runAutomations(task.project, 'due_date_changed', body.dueDate ? 'set' : 'cleared', task, { io, actorId: user?._id }));
+  }
+
+  if (Array.isArray(body.customFieldValues)) {
+    for (const field of body.customFieldValues) {
+      if (field?.key) {
+        runs.push(runAutomations(task.project, 'custom_field_change', String(field.value ?? 'any'), task, { io, actorId: user?._id, fieldKey: field.key }));
+      }
+    }
   }
 
   await Promise.all(runs);

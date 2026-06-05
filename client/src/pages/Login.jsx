@@ -139,7 +139,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 text-slate-900 p-4 sm:p-8">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background text-foreground p-4 sm:p-8">
       {/* Background patterns/glows for aesthetic flair */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10 bg-grid-slate-200/[0.2]">
         <div className="absolute top-0 left-[20%] w-[500px] h-[500px] bg-indigo-200 rounded-full blur-[100px] opacity-20" />
@@ -152,27 +152,27 @@ export default function Login() {
           <div className="h-12 w-12 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-2 overflow-hidden">
             <img src={tkLogo} alt="TaskKollecta" className="h-12 w-12 object-contain" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
             TaskKollecta
           </h1>
-          <p className="text-slate-500 max-w-xs">
+          <p className="text-muted-foreground max-w-xs">
             {isLogin
               ? 'Welcome back to your workspace'
               : 'Join your team and start collaborating'}
           </p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xl shadow-slate-200/50">
+        <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-xl shadow-black/10 dark:shadow-black/30">
           <div className="space-y-8">
             <div className="flex flex-col space-y-2 text-center mb-4">
-              <h2 className="text-xl font-semibold text-slate-900">
+              <h2 className="text-xl font-semibold text-foreground">
                 {isLogin ? 'Sign In' : 'Create Account'}
               </h2>
             </div>
 
             {/* Social Logins */}
             <div className="grid grid-cols-2 gap-3">
-              <Button type="button" variant="outline" className="w-full h-11 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all font-medium" onClick={handleGoogleLogin}>
+              <Button type="button" variant="outline" className="w-full h-11 border-border bg-card hover:bg-background text-foreground transition-all font-medium" onClick={handleGoogleLogin}>
                 <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                   <path
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -193,7 +193,7 @@ export default function Login() {
                 </svg>
                 Google
               </Button>
-              <Button type="button" variant="outline" className="w-full h-11 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all font-medium" onClick={handleMicrosoftLogin}>
+              <Button type="button" variant="outline" className="w-full h-11 border-border bg-card hover:bg-background text-foreground transition-all font-medium" onClick={handleMicrosoftLogin}>
                 <svg className="mr-2 h-5 w-5" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
                   <path fill="#f3f3f3" d="M0 0h23v23H0z" />
                   <path fill="#f35325" d="M1 1h10v10H1z" />
@@ -207,35 +207,35 @@ export default function Login() {
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center"><Separator className="w-full bg-slate-200" /></div>
-              <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-3 text-slate-400 font-medium">Or continue with email</span></div>
+              <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-3 text-muted-foreground font-medium">Or continue with email</span></div>
             </div>
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-slate-700">Full Name</Label>
-                  <Input id="name" placeholder="John Doe" className="h-11 bg-slate-50 border-slate-200 text-slate-900 focus:ring-slate-900" value={name} onChange={(e) => setName(e.target.value)} required />
+                  <Label htmlFor="name" className="text-foreground">Full Name</Label>
+                  <Input id="name" placeholder="John Doe" className="h-11 bg-background border-border text-foreground focus:ring-slate-900" value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700">Email</Label>
-                <Input id="email" type="email" placeholder="name@example.com" className="h-11 bg-slate-50 border-slate-200 text-slate-900 focus:ring-slate-900" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Label htmlFor="email" className="text-foreground">Email</Label>
+                <Input id="email" type="email" placeholder="name@example.com" className="h-11 bg-background border-border text-foreground focus:ring-slate-900" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-slate-700">Password</Label>
+                  <Label htmlFor="password" className="text-foreground">Password</Label>
                   {isLogin && (
-                    <a href="/forgot-password" size="sm" className="text-xs text-indigo-600 font-medium hover:underline underline-offset-4">
+                    <a href="/forgot-password" size="sm" className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline underline-offset-4">
                       Forgot?
                     </a>
                   )}
                 </div>
                 <div className="relative">
-                  <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" className="h-11 bg-slate-50 border-slate-200 pr-10 text-slate-900 focus:ring-slate-900" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600">
+                  <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" className="h-11 bg-background border-border pr-10 text-foreground focus:ring-slate-900" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-muted-foreground hover:text-muted-foreground">
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
@@ -244,29 +244,29 @@ export default function Login() {
                     <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
                       <div className={`h-full transition-all duration-300 ${getStrengthColor(strengthScore)}`} style={{ width: `${(strengthScore / 4) * 100}%` }} />
                     </div>
-                    <p className="text-[10px] text-right font-medium text-slate-500">{getStrengthLabel(strengthScore)}</p>
+                    <p className="text-[10px] text-right font-medium text-muted-foreground">{getStrengthLabel(strengthScore)}</p>
                   </div>
                 )}
               </div>
 
               {!isLogin && (
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" className="text-slate-700">Confirm Password</Label>
+                  <Label htmlFor="confirmPassword" className="text-foreground">Confirm Password</Label>
                   <div className="relative">
-                    <Input id="confirmPassword" type={showPassword ? "text" : "password"} placeholder="••••••••" className="h-11 bg-slate-50 border-slate-200 pr-10 text-slate-900 focus:ring-slate-900" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                    <Input id="confirmPassword" type={showPassword ? "text" : "password"} placeholder="••••••••" className="h-11 bg-background border-border pr-10 text-foreground focus:ring-slate-900" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
                   </div>
                 </div>
               )}
 
               {isLogin && (
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" className="rounded-[4px] border-slate-300 data-[state=checked]:bg-slate-900 data-[state=checked]:text-white" />
-                  <Label htmlFor="remember" className="text-sm font-medium leading-none cursor-pointer text-slate-600">Keep me signed in</Label>
+                  <Checkbox id="remember" className="rounded-[4px] border-input data-[state=checked]:bg-slate-900 data-[state=checked]:text-white" />
+                  <Label htmlFor="remember" className="text-sm font-medium leading-none cursor-pointer text-muted-foreground">Keep me signed in</Label>
                 </div>
               )}
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg flex items-center">
+                <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg flex items-center">
                   <div className="mr-2">⚠️</div>
                   {error}
                 </div>
@@ -279,26 +279,26 @@ export default function Login() {
             </form>
 
             <div className="text-center text-sm">
-              <span className="text-slate-500">
+              <span className="text-muted-foreground">
                 {isLogin ? "Don't have an account? " : "Already have an account? "}
               </span>
-              <button type="button" onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-indigo-600 font-semibold hover:underline underline-offset-4">
+              <button type="button" onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline underline-offset-4">
                 {isLogin ? 'Sign up' : 'Sign in'}
               </button>
             </div>
           </div>
         </div>
 
-        <p className="text-center text-xs text-slate-400 px-8">
+        <p className="text-center text-xs text-muted-foreground px-8">
           By clicking continue, you agree to our{' '}
-          <Link to="/terms" className="underline underline-offset-4 hover:text-slate-900">Terms of Service</Link>{' '}
+          <Link to="/terms" className="underline underline-offset-4 hover:text-foreground">Terms of Service</Link>{' '}
           and{' '}
-          <Link to="/privacy" className="underline underline-offset-4 hover:text-slate-900">Privacy Policy</Link>.
+          <Link to="/privacy" className="underline underline-offset-4 hover:text-foreground">Privacy Policy</Link>.
         </p>
       </div>
 
       {/* Help Button - subtle version */}
-      <button className="fixed bottom-6 right-6 p-3 rounded-full border border-slate-200 bg-white text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-all shadow-sm">
+      <button className="fixed bottom-6 right-6 p-3 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-background transition-all shadow-sm">
         <HelpCircle className="h-5 w-5" />
       </button>
     </div>

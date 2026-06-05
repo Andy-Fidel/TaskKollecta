@@ -240,7 +240,9 @@ const getOrgProjects = async ({ orgId, userId }) => {
 
 const getProjectDetails = async ({ projectId, userId }) => {
   const { project } = await ensureProjectAccess(userId, projectId);
-  return project;
+  return Project.findById(project._id)
+    .populate('lead', 'name email avatar')
+    .populate('members.user', 'name email avatar');
 };
 
 const getProjectAnalytics = async ({ projectId, userId }) => {

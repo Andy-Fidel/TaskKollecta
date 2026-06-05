@@ -34,7 +34,7 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Set New Password</CardTitle>
@@ -45,14 +45,14 @@ export default function ResetPassword() {
               <div className="space-y-2">
                 <Label>New Password</Label>
                 <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input type="password" value={password} onChange={e => setPassword(e.target.value)} className="pl-10" required />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Confirm Password</Label>
                 <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="pl-10" required />
                 </div>
               </div>

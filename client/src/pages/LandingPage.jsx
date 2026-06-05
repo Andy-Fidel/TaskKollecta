@@ -62,19 +62,19 @@ const operatingSystem = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#f7f8fb] text-[#111827] selection:bg-[#4f46e5] selection:text-white">
-      <nav className="fixed inset-x-0 top-0 z-50 border-b border-black/5 bg-white/80 backdrop-blur-xl">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
+      <nav className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 md:px-8">
           <Link to="/" className="flex items-center gap-2.5">
             <img src={tkLogo} alt="TaskKollecta" className="h-9 w-9 rounded-lg object-contain shadow-sm" />
             <span className="text-base font-semibold tracking-tight">TaskKollecta</span>
           </Link>
 
-          <div className="hidden items-center gap-7 text-sm font-medium text-slate-600 md:flex">
-            <a href="#platform" className="transition hover:text-slate-950">Platform</a>
-            <a href="#outcomes" className="transition hover:text-slate-950">Outcomes</a>
-            <a href="#security" className="transition hover:text-slate-950">Security</a>
-            <Link to="/docs" className="transition hover:text-slate-950">Docs</Link>
+          <div className="hidden items-center gap-7 text-sm font-medium text-muted-foreground md:flex">
+            <a href="#platform" className="transition hover:text-foreground">Platform</a>
+            <a href="#outcomes" className="transition hover:text-foreground">Outcomes</a>
+            <a href="#security" className="transition hover:text-foreground">Security</a>
+            <Link to="/docs" className="transition hover:text-foreground">Docs</Link>
           </div>
 
           <div className="flex items-center gap-2">
@@ -84,7 +84,7 @@ export default function LandingPage() {
               </Button>
             </Link>
             <Link to="/login">
-              <Button className="h-9 rounded-md bg-[#111827] px-4 text-sm font-semibold text-white hover:bg-black">
+              <Button className="h-9 rounded-md px-4 text-sm font-semibold">
                 Start free
               </Button>
             </Link>
@@ -156,49 +156,49 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="platform" className="bg-white px-5 py-24 md:px-8">
+        <section id="platform" className="bg-background px-5 py-24 md:px-8">
           <div className="mx-auto max-w-7xl">
             <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#4f46e5]">Platform</p>
-                <h2 className="mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.03em] text-slate-950 md:text-6xl">
+                <h2 className="mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.03em] text-foreground md:text-6xl">
                   One operating rhythm from request to result.
                 </h2>
               </div>
-              <p className="max-w-2xl text-lg leading-8 text-slate-600">
+              <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
                 TaskKollecta is not another place to park tasks. It is the system that captures demand, coordinates delivery, and explains progress to every stakeholder.
               </p>
             </div>
 
             <div className="mt-14 grid gap-4 md:grid-cols-3">
               {capabilities.map((item) => (
-                <section key={item.title} className="rounded-lg border border-slate-200 bg-[#fbfcff] p-6">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#111827] text-white">
+                <section key={item.title} className="rounded-lg border border-border bg-card p-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
                     <item.icon className="h-5 w-5" />
                   </div>
                   <h3 className="mt-6 text-xl font-semibold tracking-tight">{item.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{item.copy}</p>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.copy}</p>
                 </section>
               ))}
             </div>
           </div>
         </section>
 
-        <section className="bg-[#f7f8fb] px-5 py-24 md:px-8">
+        <section className="bg-muted/30 px-5 py-24 md:px-8">
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-2 lg:items-center">
             <div className="order-2 lg:order-1">
-              <img src={heroTeamImg} alt="Team planning with TaskKollecta" className="w-full rounded-lg border border-slate-200 object-cover shadow-xl shadow-slate-200" />
+              <img src={heroTeamImg} alt="Team planning with TaskKollecta" className="w-full rounded-lg border border-border object-cover shadow-xl shadow-black/10 dark:shadow-black/30" />
             </div>
             <div className="order-1 lg:order-2">
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0f766e]">The story</p>
-              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-slate-950 md:text-5xl">
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-foreground md:text-5xl">
                 Work stops slipping when every team can see the same system.
               </h2>
               <div className="mt-8 space-y-4">
                 {operatingSystem.map((item, index) => (
-                  <div key={item} className="flex gap-4 rounded-lg border border-slate-200 bg-white p-4">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-950 text-sm font-semibold text-white">{index + 1}</span>
-                    <p className="text-sm leading-6 text-slate-700">{item}</p>
+                  <div key={item} className="flex gap-4 rounded-lg border border-border bg-card p-4">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">{index + 1}</span>
+                    <p className="text-sm leading-6 text-foreground">{item}</p>
                   </div>
                 ))}
               </div>
@@ -206,12 +206,12 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="outcomes" className="bg-white px-5 py-24 md:px-8">
+        <section id="outcomes" className="bg-background px-5 py-24 md:px-8">
           <div className="mx-auto max-w-7xl">
             <div className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:items-center">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#b45309]">Executive clarity</p>
-                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-slate-950 md:text-6xl">
+                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-foreground md:text-6xl">
                   A premium view for leaders. A practical workspace for teams.
                 </h2>
               </div>
@@ -247,22 +247,22 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="bg-white px-5 py-20 md:px-8">
-          <div className="mx-auto grid max-w-7xl gap-8 rounded-lg border border-slate-200 bg-[#f7f8fb] p-8 md:p-12 lg:grid-cols-[1fr_auto] lg:items-center">
+        <section className="bg-background px-5 py-20 md:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 rounded-lg border border-border bg-card p-8 md:p-12 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <div className="flex items-center gap-3">
                 <img src={gtvetsLogo} alt="GTVETS" className="h-9 object-contain" />
-                <span className="text-sm font-medium text-slate-500">Teams already organize work with TaskKollecta</span>
+                <span className="text-sm font-medium text-muted-foreground">Teams already organize work with TaskKollecta</span>
               </div>
-              <h2 className="mt-6 text-3xl font-semibold tracking-[-0.03em] text-slate-950 md:text-5xl">
+              <h2 className="mt-6 text-3xl font-semibold tracking-[-0.03em] text-foreground md:text-5xl">
                 Give your team a calmer way to ship.
               </h2>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+              <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
                 Start with one project. Add forms, fields, goals, portfolios, and automations as the work matures.
               </p>
             </div>
             <Link to="/login">
-              <Button className="h-12 rounded-md bg-[#111827] px-6 text-base font-semibold text-white hover:bg-black">
+              <Button className="h-12 rounded-md px-6 text-base font-semibold">
                 Start free
                 <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
@@ -271,20 +271,20 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-slate-200 bg-white px-5 py-12 md:px-8">
+      <footer className="border-t border-border bg-background px-5 py-12 md:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-8 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2.5">
             <img src={tkLogo} alt="TaskKollecta" className="h-8 w-8 rounded-md object-contain" />
             <span className="font-semibold tracking-tight">TaskKollecta</span>
           </div>
-          <div className="flex flex-wrap gap-5 text-sm text-slate-500">
-            <Link to="/docs" className="hover:text-slate-950">Docs</Link>
-            <Link to="/api-reference" className="hover:text-slate-950">API</Link>
-            <Link to="/community" className="hover:text-slate-950">Community</Link>
-            <Link to="/privacy" className="hover:text-slate-950">Privacy</Link>
-            <Link to="/terms" className="hover:text-slate-950">Terms</Link>
+          <div className="flex flex-wrap gap-5 text-sm text-muted-foreground">
+            <Link to="/docs" className="hover:text-foreground">Docs</Link>
+            <Link to="/api-reference" className="hover:text-foreground">API</Link>
+            <Link to="/community" className="hover:text-foreground">Community</Link>
+            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
+            <Link to="/terms" className="hover:text-foreground">Terms</Link>
           </div>
-          <p className="text-sm text-slate-400">© 2026 TaskKollecta.</p>
+          <p className="text-sm text-muted-foreground">© 2026 TaskKollecta.</p>
         </div>
       </footer>
     </div>
@@ -294,14 +294,14 @@ export default function LandingPage() {
 function Outcome({ icon, title, text }) {
   const OutcomeIcon = icon;
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
       <div className="flex items-start gap-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#eef2ff] text-[#4f46e5]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <OutcomeIcon className="h-5 w-5" />
         </div>
         <div>
-          <h3 className="font-semibold tracking-tight text-slate-950">{title}</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-600">{text}</p>
+          <h3 className="font-semibold tracking-tight text-foreground">{title}</h3>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{text}</p>
         </div>
       </div>
     </div>

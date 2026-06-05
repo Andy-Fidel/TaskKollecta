@@ -27,7 +27,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Reset Password</CardTitle>
@@ -36,10 +36,10 @@ export default function ForgotPassword() {
         <CardContent>
           {sent ? (
             <div className="text-center space-y-4">
-               <div className="bg-green-100 p-3 rounded-full w-fit mx-auto text-green-600">
+               <div className="bg-green-100 dark:bg-green-950/50 p-3 rounded-full w-fit mx-auto text-green-600 dark:text-green-400">
                   <Mail className="w-6 h-6" />
                </div>
-               <p className="text-sm text-slate-600">
+               <p className="text-sm text-muted-foreground">
                  If an account exists for <strong>{email}</strong>, we have sent a reset link.
                </p>
                <Button variant="outline" asChild className="w-full">
@@ -60,7 +60,7 @@ export default function ForgotPassword() {
               <Button type="submit" className="w-full bg-slate-900" disabled={loading}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : 'Send Reset Link'}
               </Button>
-              <Button variant="link" asChild className="w-full text-slate-500">
+              <Button variant="link" asChild className="w-full text-muted-foreground">
                  <Link to="/" className="flex items-center gap-2 justify-center">
                     <ArrowLeft className="w-3 h-3" /> Back to Login
                  </Link>

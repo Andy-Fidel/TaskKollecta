@@ -53,7 +53,7 @@ export default function PublicForm() {
 
   if (submitted) {
     return (
-        <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="flex h-screen items-center justify-center bg-background">
             <Card className="w-[400px] text-center p-6">
                 <div className="flex justify-center mb-4"><CheckCircle2 className="w-12 h-12 text-green-500" /></div>
                 <h2 className="text-xl font-bold mb-2">Submission Received!</h2>
@@ -64,7 +64,7 @@ export default function PublicForm() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 flex justify-center">
+    <div className="min-h-screen bg-background py-10 px-4 flex justify-center">
         <Card className="w-full max-w-lg h-fit shadow-md">
             <div className="h-2 w-full bg-blue-600 rounded-t-xl"></div>
             <CardHeader>

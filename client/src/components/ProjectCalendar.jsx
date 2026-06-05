@@ -65,7 +65,7 @@ export function ProjectCalendar({ tasks, onTaskClick }) {
 
     const label = () => {
       const date = new Date(toolbar.date);
-      return <span className="text-lg font-bold text-slate-800">{format(date, 'MMMM yyyy')}</span>;
+      return <span className="text-lg font-bold text-foreground">{format(date, 'MMMM yyyy')}</span>;
     };
 
     return (
@@ -73,17 +73,17 @@ export function ProjectCalendar({ tasks, onTaskClick }) {
         <div className="flex items-center gap-4">
             {label()}
         </div>
-        <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
-           <button onClick={goToBack} className="p-1 hover:bg-white rounded shadow-sm transition"><ChevronLeft className="w-4 h-4 text-slate-600" /></button>
-           <button onClick={goToCurrent} className="px-3 text-xs font-semibold text-slate-600 hover:bg-white rounded shadow-sm transition">Today</button>
-           <button onClick={goToNext} className="p-1 hover:bg-white rounded shadow-sm transition"><ChevronRight className="w-4 h-4 text-slate-600" /></button>
+        <div className="flex bg-muted rounded-lg p-1 gap-1">
+           <button onClick={goToBack} className="p-1 hover:bg-background rounded shadow-sm transition"><ChevronLeft className="w-4 h-4 text-muted-foreground" /></button>
+           <button onClick={goToCurrent} className="px-3 text-xs font-semibold text-muted-foreground hover:bg-background rounded shadow-sm transition">Today</button>
+           <button onClick={goToNext} className="p-1 hover:bg-background rounded shadow-sm transition"><ChevronRight className="w-4 h-4 text-muted-foreground" /></button>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="h-[calc(100vh-200px)] bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+    <div className="h-[calc(100vh-200px)] bg-card p-4 rounded-xl shadow-sm border border-border text-foreground">
       <Calendar
         localizer={localizer}
         events={events}
