@@ -209,26 +209,26 @@ export default function SprintReports() {
                     <AreaChart data={data.burndown}>
                       <defs>
                         <linearGradient id="burndownGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                          <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis
                         dataKey="date"
-                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                         tickFormatter={(d) => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
                       />
-                      <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                      <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} allowDecimals={false} />
                       <Tooltip
-                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '13px' }}
+                        contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px' }}
                         labelFormatter={(d) => new Date(d).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
                       />
                       <Legend />
                       <Area
                         type="monotone"
                         dataKey="remaining"
-                        stroke="hsl(var(--primary))"
+                        stroke="var(--primary)"
                         fill="url(#burndownGrad)"
                         strokeWidth={2}
                         name="Remaining"
@@ -236,7 +236,7 @@ export default function SprintReports() {
                       <Area
                         type="monotone"
                         dataKey="ideal"
-                        stroke="hsl(var(--muted-foreground))"
+                        stroke="var(--muted-foreground)"
                         fill="none"
                         strokeWidth={1.5}
                         strokeDasharray="5 5"
@@ -258,13 +258,13 @@ export default function SprintReports() {
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.velocity}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="week" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                        <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="week" tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} />
                         <Tooltip
-                          contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '13px' }}
+                          contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px' }}
                         />
-                        <Bar dataKey="completed" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} barSize={40} name="Tasks Completed" />
+                        <Bar dataKey="completed" fill="var(--primary)" radius={[6, 6, 0, 0]} barSize={40} name="Tasks Completed" />
                       </BarChart>
                     </ResponsiveContainer>
                   )}

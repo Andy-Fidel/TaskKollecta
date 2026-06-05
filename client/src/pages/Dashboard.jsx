@@ -366,11 +366,11 @@ export default function Dashboard() {
                       <AreaChart data={sparklineData}>
                         <defs>
                           <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                            <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.4} />
+                            <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
                           </linearGradient>
                         </defs>
-                        <Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" fill="url(#sparkGrad)" strokeWidth={1.5} dot={false} />
+                        <Area type="monotone" dataKey="v" stroke="var(--primary)" fill="url(#sparkGrad)" strokeWidth={1.5} dot={false} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -428,7 +428,7 @@ export default function Dashboard() {
                       endAngle={0}
                     >
                       <RadialBar
-                        background={{ fill: 'hsl(var(--muted))' }}
+                        background={{ fill: 'var(--muted)' }}
                         dataKey="value"
                         cornerRadius={8}
                       />
@@ -440,7 +440,7 @@ export default function Dashboard() {
                         wrapperStyle={{ fontSize: '11px' }}
                       />
                       <Tooltip
-                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: '12px' }}
+                        contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', fontSize: '12px' }}
                         formatter={(value) => [`${Math.round(value)}%`]}
                       />
                     </RadialBarChart>
@@ -494,18 +494,18 @@ export default function Dashboard() {
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.charts.byProjectStatus} layout="vertical" barCategoryGap="20%">
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
                       <YAxis
                         dataKey="name"
                         type="category"
                         width={100}
-                        tick={{ fontSize: 11, fill: 'hsl(var(--foreground))' }}
+                        tick={{ fontSize: 11, fill: 'var(--foreground)' }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <Tooltip
-                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: '12px' }}
+                        contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', fontSize: '12px' }}
                       />
                       <Bar dataKey="todo" stackId="a" fill="#8b5cf6" name="To Do" radius={[0, 0, 0, 0]} />
                       <Bar dataKey="in-progress" stackId="a" fill="#3b82f6" name="In Progress" />
@@ -535,25 +535,25 @@ export default function Dashboard() {
                     <ComposedChart data={productivityWithMA}>
                       <defs>
                         <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
-                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                          <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.3} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                       <XAxis
                         dataKey="name"
-                        tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                        tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
                         tickFormatter={(d) => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
                         axisLine={false}
                         tickLine={false}
                       />
-                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} allowDecimals={false} />
                       <Tooltip
-                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: '12px' }}
+                        contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', fontSize: '12px' }}
                         labelFormatter={(d) => new Date(d).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
                       />
                       <Bar dataKey="value" fill="url(#barGrad)" radius={[4, 4, 0, 0]} name="Completed" barSize={16} />
-                      <Line type="monotone" dataKey="ma" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} name="3-Day Avg" strokeDasharray="4 2" />
+                      <Line type="monotone" dataKey="ma" stroke="var(--destructive)" strokeWidth={2} dot={false} name="3-Day Avg" strokeDasharray="4 2" />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -865,7 +865,7 @@ function ProjectRiskRadar({ projects = [], onOpenProject }) {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.color || 'hsl(var(--primary))' }} />
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.color || 'var(--primary)' }} />
                   <p className="truncate text-sm font-semibold text-foreground">{project.name}</p>
                   <RiskBadge level={project.riskLevel} />
                 </div>

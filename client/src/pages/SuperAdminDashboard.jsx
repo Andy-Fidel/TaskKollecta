@@ -374,21 +374,21 @@ export default function SuperAdminDashboard() {
                                 <AreaChart data={stats?.growth || []}>
                                     <defs>
                                         <linearGradient id="userGrowthGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                                            <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
                                     <XAxis
                                         dataKey="_id"
-                                        tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                                        tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
                                         tickFormatter={(d) => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
                                         axisLine={false} tickLine={false}
                                     />
                                     <Tooltip
-                                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: '12px' }}
+                                        contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', fontSize: '12px' }}
                                         labelFormatter={(d) => new Date(d).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
                                     />
-                                    <Area type="monotone" dataKey="count" stroke="hsl(var(--primary))" fill="url(#userGrowthGrad)" strokeWidth={2} dot={false} name="New Users" />
+                                    <Area type="monotone" dataKey="count" stroke="var(--primary)" fill="url(#userGrowthGrad)" strokeWidth={2} dot={false} name="New Users" />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
@@ -409,15 +409,15 @@ export default function SuperAdminDashboard() {
                                 <BarChart data={stats?.taskActivity || []}>
                                     <XAxis
                                         dataKey="_id"
-                                        tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                                        tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
                                         tickFormatter={(d) => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
                                         axisLine={false} tickLine={false}
                                     />
                                     <Tooltip
-                                        contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', fontSize: '12px' }}
+                                        contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', fontSize: '12px' }}
                                         labelFormatter={(d) => new Date(d).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
                                     />
-                                    <Bar dataKey="count" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} name="Tasks Created" />
+                                    <Bar dataKey="count" fill="var(--chart-4)" radius={[4, 4, 0, 0]} name="Tasks Created" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
