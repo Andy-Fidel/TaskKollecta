@@ -148,11 +148,11 @@ export default function Login() {
 
       <div className="w-full max-w-[450px] space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Logo and Branding */}
-        <div className="flex flex-col items-center space-y-2 text-center">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-2 overflow-hidden">
-            <img src={tkLogo} alt="TaskKollecta" className="h-12 w-12 object-contain" />
+        <div className="flex flex-col items-center space-y-3 text-center">
+          <div className="h-20 w-20 rounded-2xl flex items-center justify-center bg-card border border-border shadow-xl shadow-indigo-500/10 mb-2 overflow-hidden hover:scale-105 transition-transform duration-300">
+            <img src={tkLogo} alt="TaskKollecta" className="h-16 w-16 object-contain" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-gradient-to-r from-foreground via-foreground/90 to-primary bg-clip-text text-transparent">
             TaskKollecta
           </h1>
           <p className="text-muted-foreground max-w-xs">

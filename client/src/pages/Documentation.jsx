@@ -37,9 +37,9 @@ export default function Documentation() {
       <nav className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-xl border-b border-border/60 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center gap-2">
-              <img src={tkLogo} alt="TaskKollecta" className="h-8 w-8 rounded-xl shadow-md object-contain" />
-              <span className="font-bold text-lg text-foreground">TaskKollecta</span>
+            <Link to="/" className="flex items-center gap-3 group">
+              <img src={tkLogo} alt="TaskKollecta" className="h-11 w-11 rounded-xl shadow-md object-contain group-hover:scale-105 transition-transform duration-300" />
+              <span className="font-bold text-xl tracking-tight text-foreground">TaskKollecta</span>
             </Link>
             <Badge className="bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:bg-indigo-950/50 font-mono text-xs">Docs</Badge>
           </div>

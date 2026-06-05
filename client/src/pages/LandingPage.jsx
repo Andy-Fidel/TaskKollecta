@@ -65,9 +65,9 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       <nav className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 md:px-8">
-          <Link to="/" className="flex items-center gap-2.5">
-            <img src={tkLogo} alt="TaskKollecta" className="h-9 w-9 rounded-lg object-contain shadow-sm" />
-            <span className="text-base font-semibold tracking-tight">TaskKollecta</span>
+          <Link to="/" className="flex items-center gap-3 group">
+            <img src={tkLogo} alt="TaskKollecta" className="h-11 w-11 rounded-xl object-contain shadow-md group-hover:scale-105 transition-transform duration-300" />
+            <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">TaskKollecta</span>
           </Link>
 
           <div className="hidden items-center gap-7 text-sm font-medium text-muted-foreground md:flex">
@@ -273,9 +273,9 @@ export default function LandingPage() {
 
       <footer className="border-t border-border bg-background px-5 py-12 md:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-8 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2.5">
-            <img src={tkLogo} alt="TaskKollecta" className="h-8 w-8 rounded-md object-contain" />
-            <span className="font-semibold tracking-tight">TaskKollecta</span>
+          <div className="flex items-center gap-3">
+            <img src={tkLogo} alt="TaskKollecta" className="h-10 w-10 rounded-lg object-contain shadow-sm" />
+            <span className="font-bold tracking-tight text-foreground">TaskKollecta</span>
           </div>
           <div className="flex flex-wrap gap-5 text-sm text-muted-foreground">
             <Link to="/docs" className="hover:text-foreground">Docs</Link>
