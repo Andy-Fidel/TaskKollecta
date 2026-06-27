@@ -72,6 +72,13 @@ const userSchema = new mongoose.Schema({
   bannedAt: { type: Date },
   suspendReason: { type: String },
   banReason: { type: String },
+  privacyDeletedAt: { type: Date },
+  privacyDeleteReason: { type: String },
+  privacyExportedAt: { type: Date },
+  termsAcceptedAt: { type: Date },
+  termsVersion: { type: String, default: '2026-01' },
+  privacyAcceptedAt: { type: Date },
+  privacyVersion: { type: String, default: '2026-01' },
 
   // Onboarding
   onboardingCompleted: { type: Boolean, default: false },
@@ -98,7 +105,22 @@ const userSchema = new mongoose.Schema({
   loginHistory: [{
     timestamp: { type: Date, default: Date.now },
     ip: { type: String },
-    device: { type: String }
+    device: { type: String },
+    sessionId: { type: String },
+    revokedAt: { type: Date }
+  }],
+  failedLoginCount: { type: Number, default: 0 },
+  failedLoginHistory: [{
+    timestamp: { type: Date, default: Date.now },
+    ip: { type: String },
+    device: { type: String },
+    reason: { type: String }
+  }],
+  revokedSessions: [{
+    sessionId: { type: String },
+    revokedAt: { type: Date, default: Date.now },
+    revokedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    reason: { type: String }
   }]
 }, { timestamps: true });
 

@@ -30,6 +30,7 @@ const announcementRoutes = require("./routes/announcementRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 const portfolioRoutes = require("./routes/portfolioRoutes");
 const goalRoutes = require("./routes/goalRoutes");
+const { recordRequestMetric } = require("./utils/opsMetrics");
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -88,6 +89,20 @@ const createApp = () => {
 
   app.use((req, _res, next) => {
     req.io = req.app.get("io");
+    next();
+  });
+
+  app.use((req, res, next) => {
+    const start = process.hrtime.bigint();
+    res.on("finish", () => {
+      const durationMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+      recordRequestMetric({
+        method: req.method,
+        path: req.route?.path || req.path,
+        statusCode: res.statusCode,
+        durationMs,
+      });
+    });
     next();
   });
 

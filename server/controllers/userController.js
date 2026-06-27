@@ -123,7 +123,9 @@ const registerUser = async (req, res) => {
       email,
       password,
       isInvitee,
-      invitedToOrg
+      invitedToOrg,
+      termsAcceptedAt: new Date(),
+      privacyAcceptedAt: new Date(),
     });
 
     // If invite exists, add user to organization
@@ -172,11 +174,14 @@ const loginUser = async (req, res) => {
 
 
     if (user && (await bcrypt.compare(password, user.password))) {
+      const sessionId = crypto.randomUUID();
       // Record login details
       user.lastLogin = Date.now();
+      user.failedLoginCount = 0;
       user.loginHistory.push({
         ip: req.ip || req.connection.remoteAddress,
-        device: req.headers['user-agent'] || 'Unknown'
+        device: req.headers['user-agent'] || 'Unknown',
+        sessionId
       });
       // Keep only last 20 logins to avoid document bloat
       if (user.loginHistory.length > 20) {
@@ -193,9 +198,19 @@ const loginUser = async (req, res) => {
         onboardingCompleted: user.onboardingCompleted,
         isInvitee: user.isInvitee,
         invitedToOrg: user.invitedToOrg,
-        token: generateToken(res, user._id),
+        token: generateToken(res, user._id, { sessionId }),
       });
     } else {
+      if (user) {
+        user.failedLoginCount = (user.failedLoginCount || 0) + 1;
+        user.failedLoginHistory.push({
+          ip: req.ip || req.connection.remoteAddress,
+          device: req.headers['user-agent'] || 'Unknown',
+          reason: 'invalid_password',
+        });
+        if (user.failedLoginHistory.length > 20) user.failedLoginHistory = user.failedLoginHistory.slice(-20);
+        await user.save({ validateBeforeSave: false });
+      }
       res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
@@ -221,7 +236,13 @@ const logoutUser = async (_req, res) => {
 // @route   GET /api/users/me
 // @access  Private
 const getMe = async (req, res) => {
-  res.status(200).json(req.user);
+  const user = req.user.toObject ? req.user.toObject() : req.user;
+  res.status(200).json({
+    ...user,
+    isImpersonated: Boolean(req.impersonation?.isImpersonated),
+    impersonatedBy: req.impersonation?.impersonatedBy,
+    impersonationStartedAt: req.impersonation?.startedAt,
+  });
 };
 
 // @desc    Update user profile

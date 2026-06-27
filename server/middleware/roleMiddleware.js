@@ -1,4 +1,5 @@
 const Membership = require('../models/Membership');
+const Organization = require('../models/Organization');
 
 // Middleware to check if user has required role in the organization
 // Usage: router.post('/:id/members', protect, checkRole('owner', 'admin'), addMember);
@@ -16,6 +17,17 @@ const checkRole = (...roles) => {
         // If no org ID is found in standard places, we can't check org-specific roles
         // You might want to handle this differently depending on your API structure
         return res.status(400).json({ message: 'Organization ID required for permission check' });
+      }
+
+      const organization = await Organization.findById(orgId).select('status suspensionReason');
+      if (!organization) {
+        return res.status(404).json({ message: 'Organization not found' });
+      }
+      if (organization.status && organization.status !== 'active') {
+        return res.status(423).json({
+          message: organization.suspensionReason || 'Organization access is currently suspended',
+          status: organization.status,
+        });
       }
 
       const membership = await Membership.findOne({

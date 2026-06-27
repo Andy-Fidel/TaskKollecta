@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { HelpCircle, Menu, Search, User, Settings, LogOut, Shield } from 'lucide-react';
+import { HelpCircle, Menu, Search, User, Settings, LogOut, Shield, UserCheck } from 'lucide-react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 
 // UI Components
@@ -22,6 +22,8 @@ import { HelpWizard } from './HelpWizard';
 import { useKeyboardShortcuts, KeyboardShortcutsHelp } from '../hooks/useKeyboardShortcuts';
 import { AnnouncementBanner } from './AnnouncementBanner';
 import { trackProductEvent } from '../utils/productAnalytics';
+import api from '../api/axios';
+import { toast } from 'sonner';
 
 // Context
 import { useAuth } from '../context/useAuth';
@@ -32,7 +34,28 @@ export default function AppLayout() {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHelpWizardOpen, setIsHelpWizardOpen] = useState(false);
+  const [returningFromImpersonation, setReturningFromImpersonation] = useState(false);
   const { showHelp, setShowHelp } = useKeyboardShortcuts();
+  const impersonation = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('impersonation') || 'null');
+    } catch {
+      return null;
+    }
+  })();
+
+  const handleReturnFromImpersonation = async () => {
+    setReturningFromImpersonation(true);
+    try {
+      const { data } = await api.post('/admin/impersonation/return');
+      localStorage.setItem('token', data.token);
+      localStorage.removeItem('impersonation');
+      window.location.href = '/admin';
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to return to admin session');
+      setReturningFromImpersonation(false);
+    }
+  };
 
   return (
     <div className="relative flex h-screen bg-background font-sans text-foreground overflow-hidden">
@@ -54,6 +77,26 @@ export default function AppLayout() {
         
         {/* GLOBAL ANNOUNCEMENT BANNER */}
         <AnnouncementBanner />
+        {(user?.isImpersonated || impersonation) && (
+          <div className="flex flex-col gap-2 border-b border-amber-300/40 bg-amber-100 px-4 py-2 text-amber-950 md:flex-row md:items-center md:justify-between md:px-8">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <UserCheck className="h-4 w-4 shrink-0" />
+              <span>
+                Impersonating {impersonation?.targetName || user?.name}
+                {impersonation?.expiresAt ? ` until ${new Date(impersonation.expiresAt).toLocaleTimeString()}` : ''}
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleReturnFromImpersonation}
+              disabled={returningFromImpersonation}
+              className="h-8 border-amber-500/50 bg-white/60 text-amber-950 hover:bg-white"
+            >
+              {returningFromImpersonation ? 'Returning...' : 'Return to Admin'}
+            </Button>
+          </div>
+        )}
 
         {/* HEADER */}
         <header className="h-16 bg-background/60 backdrop-blur-xl border-b border-border flex items-center justify-between px-4 md:px-8 sticky top-0 z-40 shrink-0">

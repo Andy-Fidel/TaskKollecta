@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('token');
             localStorage.removeItem('activeOrgId');
             localStorage.removeItem('lastActivity');
+            localStorage.removeItem('impersonation');
           }
         } catch {
           localStorage.removeItem('token');
@@ -59,6 +60,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('activeOrgId');
       localStorage.removeItem('project_filter');
       localStorage.removeItem('lastActivity');
+      localStorage.removeItem('impersonation');
     }
   };
 

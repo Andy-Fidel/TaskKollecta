@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { X, Megaphone, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import api from '../api/axios';
 import io from 'socket.io-client';
@@ -7,20 +7,27 @@ export function AnnouncementBanner() {
     const [announcement, setAnnouncement] = useState(null);
     const [isVisible, setIsVisible] = useState(true);
 
-    useEffect(() => {
-        // Fetch active on mount
-        const fetchActive = async () => {
-            try {
-                const { data } = await api.get('/announcements/active');
-                if (data && data._id !== localStorage.getItem('dismissed_announcement_id')) {
-                    setAnnouncement(data);
-                    setIsVisible(true);
-                }
-            } catch {
-                // Ignore
+    const fetchActive = useCallback(async ({ clearDismissed = false } = {}) => {
+        try {
+            const { data } = await api.get('/announcements/active');
+            if (clearDismissed) {
+                localStorage.removeItem('dismissed_announcement_id');
             }
-        };
-        fetchActive();
+            if (data && data._id !== localStorage.getItem('dismissed_announcement_id')) {
+                setAnnouncement(data);
+                setIsVisible(true);
+            } else {
+                setAnnouncement(null);
+                setIsVisible(false);
+            }
+        } catch {
+            // Ignore announcement refresh failures.
+        }
+    }, []);
+
+    useEffect(() => {
+        const initialRefresh = window.setTimeout(fetchActive, 0);
+        const refreshInterval = window.setInterval(fetchActive, 60 * 1000);
 
         // Listen for socket events
         const isProd = import.meta.env.PROD || window.location.hostname !== 'localhost';
@@ -30,19 +37,24 @@ export function AnnouncementBanner() {
           : 'http://localhost:5000';
         const socket = io(socketUrl, { withCredentials: true });
 
-        socket.on('new_announcement', (data) => {
-            setAnnouncement(data);
-            setIsVisible(true);
-            localStorage.removeItem('dismissed_announcement_id');
+        socket.on('new_announcement', () => {
+            fetchActive({ clearDismissed: true });
         });
 
-        socket.on('clear_announcement', () => {
+        const clearAnnouncement = () => {
             setAnnouncement(null);
             setIsVisible(false);
-        });
+        };
 
-        return () => socket.disconnect();
-    }, []);
+        socket.on('clear_announcement', clearAnnouncement);
+        socket.on('announcement_dismissed', clearAnnouncement);
+
+        return () => {
+            window.clearTimeout(initialRefresh);
+            window.clearInterval(refreshInterval);
+            socket.disconnect();
+        };
+    }, [fetchActive]);
 
     const handleDismiss = () => {
         setIsVisible(false);

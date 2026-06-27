@@ -44,6 +44,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('activeOrgId');
       localStorage.removeItem('project_filter');
+      localStorage.removeItem('impersonation');
       toast.error('Session expired. Please log in again.');
       window.location.href = '/login';
     }

@@ -21,7 +21,21 @@ const announcementSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    startsAt: {
+        type: Date
+    },
     expiresAt: {
+        type: Date
+    },
+    targetRoles: [{
+        type: String,
+        enum: ['user', 'admin', 'superadmin']
+    }],
+    targetOrganizations: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Organization'
+    }],
+    dismissedAt: {
         type: Date
     }
 }, {

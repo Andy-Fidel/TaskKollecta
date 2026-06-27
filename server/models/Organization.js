@@ -5,6 +5,14 @@ const organizationSchema = new mongoose.Schema({
   description: { type: String, default: '' },
   logo: { type: String, default: '' }, // URL to uploaded logo
   website: { type: String, default: '' },
+  status: {
+    type: String,
+    enum: ['active', 'suspended', 'archived'],
+    default: 'active'
+  },
+  suspendedAt: { type: Date },
+  suspensionReason: { type: String },
+  archivedAt: { type: Date },
   defaultProjectSettings: {
     defaultStatus: { type: String, default: 'To Do' },
     allowGuestAccess: { type: Boolean, default: false },

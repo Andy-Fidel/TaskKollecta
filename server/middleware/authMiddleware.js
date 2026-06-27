@@ -22,6 +22,19 @@ const protect = async (req, res, next) => {
         return res.status(401).json({ message: 'Not authorized, user not found' });
       }
 
+      if (decoded.impersonatedBy) {
+        req.impersonation = {
+          isImpersonated: true,
+          impersonatedBy: decoded.impersonatedBy,
+          startedAt: decoded.impersonationStartedAt,
+        };
+      }
+      req.sessionId = decoded.sessionId;
+
+      if (decoded.sessionId && req.user.revokedSessions?.some((session) => session.sessionId === decoded.sessionId)) {
+        return res.status(401).json({ message: 'Session revoked' });
+      }
+
       // Check if user account is active
       if (req.user && req.user.status && req.user.status !== 'active') {
         const statusMessage = req.user.status === 'suspended'
