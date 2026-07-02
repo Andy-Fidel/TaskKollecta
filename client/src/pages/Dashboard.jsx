@@ -8,7 +8,7 @@ import {
 import {
   CheckCircle2, TrendingUp, Users, FolderOpen,
   Plus, AlertCircle, Loader2, History, Calendar as CalendarIcon,
-  Flame, Zap, Target, Activity
+  Flame, Zap, Target, Activity, ArrowUpRight, TriangleIcon
 } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -195,8 +195,7 @@ export default function Dashboard() {
   const completedTasks = useCountUp(data?.stats?.completedInPeriod);
   const completionRate = useCountUp(data?.stats?.completionRate);
 
-  // Sparkline data (from productivity chart data)
-  const sparklineData = data ? buildSparkline(data.charts?.productivity, 7) : [];
+
 
   // --- Compute streak ---
   const streak = (() => {
@@ -226,15 +225,18 @@ export default function Dashboard() {
         <Skeleton className="h-4 w-48 opacity-60" />
       </div>
       {/* Stat cards skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="rounded-xl border border-border bg-card p-6 space-y-4">
-            <div className="flex justify-between">
-              <Skeleton className="h-10 w-10 rounded-xl" />
-              <Skeleton className="h-4 w-16 opacity-40" />
+          <div key={i} className="rounded-3xl bg-muted/60 p-6 space-y-4 min-h-[180px] flex flex-col justify-between">
+            <div className="flex justify-between items-start">
+              <Skeleton className="h-3 w-24 rounded-full" />
+              <Skeleton className="h-9 w-9 rounded-full" />
             </div>
-            <Skeleton className="h-7 w-20" />
-            <Skeleton className="h-3 w-28 opacity-40" />
+            <Skeleton className="h-10 w-20 rounded-lg" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-6 w-14 rounded-full" />
+              <Skeleton className="h-3 w-24 opacity-40 rounded-full" />
+            </div>
           </div>
         ))}
       </div>
@@ -278,13 +280,43 @@ export default function Dashboard() {
 
   if (!data) return <div className="p-8 text-center text-muted-foreground">Unable to load dashboard data.</div>;
 
-  const glassCls = "relative overflow-hidden rounded-2xl border border-white/10 dark:border-white/5 bg-gradient-to-br bg-background/30 backdrop-blur-3xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300";
-
   const statCards = [
-    { label: 'Total Projects', value: totalProjects, raw: data.stats.totalProjects, icon: FolderOpen, gradient: 'from-violet-500/20 to-indigo-500/10 dark:from-violet-500/15 dark:to-indigo-900/20', iconColor: 'text-violet-500', ring: 'ring-violet-500/20' },
-    { label: 'Active Tasks', value: activeTasks, raw: data.stats.activeTasks, icon: Activity, gradient: 'from-sky-500/20 to-cyan-500/10 dark:from-sky-500/15 dark:to-cyan-900/20', iconColor: 'text-sky-500', ring: 'ring-sky-500/20' },
-    { label: 'Overdue', value: overdueTasks, raw: data.stats.overdue, icon: AlertCircle, gradient: 'from-rose-500/20 to-pink-500/10 dark:from-rose-500/15 dark:to-pink-900/20', iconColor: 'text-rose-500', ring: 'ring-rose-500/20' },
-    { label: 'Completed', value: completedTasks, raw: data.stats.completedInPeriod, icon: CheckCircle2, gradient: 'from-emerald-500/20 to-green-500/10 dark:from-emerald-500/15 dark:to-green-900/20', iconColor: 'text-emerald-500', ring: 'ring-emerald-500/20' },
+    {
+      label: 'Total Projects',
+      value: totalProjects,
+      raw: data.stats.totalProjects,
+      icon: FolderOpen,
+      bg: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 40%, #1e1b4b 100%)',
+      accentColor: '#818cf8',
+      route: '/workspace',
+    },
+    {
+      label: 'Active Tasks',
+      value: activeTasks,
+      raw: data.stats.activeTasks,
+      icon: Activity,
+      bg: 'linear-gradient(135deg, #0ea5e9 0%, #0369a1 40%, #0c4a6e 100%)',
+      accentColor: '#7dd3fc',
+      route: '/my-tasks',
+    },
+    {
+      label: 'Overdue',
+      value: overdueTasks,
+      raw: data.stats.overdue,
+      icon: AlertCircle,
+      bg: 'linear-gradient(135deg, #f43f5e 0%, #be123c 40%, #881337 100%)',
+      accentColor: '#fda4af',
+      route: '/my-tasks',
+    },
+    {
+      label: 'Completed',
+      value: completedTasks,
+      raw: data.stats.completedInPeriod,
+      icon: CheckCircle2,
+      bg: 'linear-gradient(135deg, #10b981 0%, #047857 40%, #064e3b 100%)',
+      accentColor: '#6ee7b7',
+      route: '/my-tasks',
+    },
   ];
 
   const cardStyle = "border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl";
@@ -343,41 +375,54 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ====== STAT CARDS (Glassmorphism + Animated Counters + Sparklines) ====== */}
+      {/* ====== STAT CARDS (Gradient Cards with Accent Labels) ====== */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, i) => (
           <div
             key={stat.label}
-            className={`${glassCls} ${stat.gradient} group cursor-default`}
-            style={{ animation: `fadeInUp ${0.3 + i * 0.1}s ease-out` }}
+            className="relative overflow-hidden rounded-3xl group cursor-pointer hover:-translate-y-1 transition-all duration-300 shadow-lg hover:shadow-2xl"
+            style={{
+              background: stat.bg,
+              animation: `fadeInUp ${0.3 + i * 0.1}s ease-out`,
+            }}
+            onClick={() => navigate(stat.route)}
           >
-            {/* Decorative background orb */}
-            <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full ${stat.iconColor} opacity-[0.07] blur-2xl group-hover:opacity-[0.12] transition-opacity`} />
+            {/* Subtle radial glow overlay */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.12)_0%,_transparent_60%)] pointer-events-none" />
 
-            <div className="relative p-5">
-              <div className="flex justify-between items-start mb-3">
-                <div className={`p-2.5 rounded-xl bg-background/40 dark:bg-background/20 ring-1 ${stat.ring} backdrop-blur-sm`}>
-                  <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
+            <div className="relative p-6 flex flex-col justify-between min-h-[180px]">
+              {/* Top row: label + arrow icon */}
+              <div className="flex justify-between items-start">
+                <p
+                  className="text-xs font-bold tracking-[0.15em] uppercase"
+                  style={{ color: stat.accentColor }}
+                >
+                  {stat.label}
+                </p>
+                <div className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow-md group-hover:bg-white group-hover:scale-110 transition-all duration-300">
+                  <ArrowUpRight className="w-4 h-4 text-gray-800" />
                 </div>
-                {/* Mini sparkline for "Completed" card */}
-                {stat.label === 'Completed' && sparklineData.length > 0 && (
-                  <div className="w-20 h-8 opacity-60">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={sparklineData}>
-                        <defs>
-                          <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.4} />
-                            <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <Area type="monotone" dataKey="v" stroke="var(--primary)" fill="url(#sparkGrad)" strokeWidth={1.5} dot={false} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
               </div>
-              <h3 className="text-3xl font-extrabold text-foreground tabular-nums">{stat.value}</h3>
-              <p className="text-xs font-medium text-muted-foreground mt-1">{stat.label}</p>
+
+              {/* Big number */}
+              <h3 className="text-5xl font-extrabold text-white tabular-nums mt-4 tracking-tight">
+                {stat.value}
+              </h3>
+
+              {/* Bottom change badge */}
+              <div className="flex items-center gap-2 mt-4">
+                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-sm">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-emerald-300">
+                    <path d="M5 1L9 6H1L5 1Z" fill="currentColor" />
+                  </svg>
+                  <span className="text-xs font-bold text-emerald-300 tabular-nums">
+                    {stat.raw || 0}
+                  </span>
+                </div>
+                <span className="text-xs font-medium text-white/60">
+                  In selected period
+                </span>
+              </div>
             </div>
           </div>
         ))}
