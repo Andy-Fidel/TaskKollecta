@@ -42,6 +42,7 @@ TaskKollecta is a full-featured, real-time project management tool built with th
 - **Analytics & Reports:** Workload distribution, sprint velocity, and task completion trends using Recharts.
 - **Theme Support:** Native Light/Dark mode with seamless transitions.
 - **SuperAdmin Panel:** System health monitoring, platform-wide user analytics, and organization leaderboard.
+- **Installable PWA:** Add TaskKollecta to desktop or mobile, reopen previously visited screens offline, and receive in-app update prompts when a new client version is deployed.
 
 ## 🛠 Tech Stack
 
@@ -120,6 +121,18 @@ npm run dev
 ```
 
 The application will be available at `http://localhost:5173`.
+
+### PWA verification
+
+The service worker is enabled in production builds only. To test installation and offline behavior locally:
+
+```bash
+cd client
+npm run build
+npm run preview
+```
+
+Open the HTTPS deployment (or local preview), install TaskKollecta from the browser prompt, then use the browser's offline mode and revisit a screen that was opened while online. API mutations and Socket.IO traffic are deliberately never cached; they require a connection.
 
 ## ⚙️ Environment Variables (Server)
 

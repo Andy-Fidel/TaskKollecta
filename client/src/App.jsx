@@ -31,6 +31,7 @@ import ApiReference from './pages/ApiReference';
 import Community from './pages/Community';
 import { SocketProvider } from './context/SocketContext';
 import { DataRefreshProvider } from './context/DataRefreshContext';
+import { PwaStatus } from './components/PwaStatus';
 
 
 const PublicRoute = ({ children }) => {
@@ -121,6 +122,7 @@ function App() {
               </Routes>
             </Router>
             <Toaster position="top-center" richColors />
+            <PwaStatus />
           </DataRefreshProvider>
         </SocketProvider>
       </AuthProvider>
